@@ -1,0 +1,161 @@
+LAB,Sequence,Protein,length (AA),Status,RNAi?,PCR?
+RW,B0025.4,WP:CE30120,42,Partially_confirmed,N/A,Amplifies
+RW,B0034.2,WP:CE02410,39,Predicted,non-WT,Does not amplify
+RW,B0244.3,WP:CE01751,46,Predicted,WT,Does not amplify
+RW,B0302.4,WP:CE35210,31,Partially_confirmed,WT,Amplifies
+RW,C01B10.5e,WP:CE33357,39,Confirmed,WT,Amplifies
+HX,C03D6.2,WP:CE05196,42,Partially_confirmed,N/A,Amplifies
+HX,C04H5.7,WP:CE27793,48,Confirmed,N/A,N/A
+RW,C06E1.2,WP:CE00057,50,Predicted,WT,Does not amplify
+RW,C06E1.5,WP:CE00060,50,Predicted,WT,Amplifies
+RW,C06E1.6,WP:CE00061,49,Partially_confirmed,WT,Amplifies
+RW,C06E7.1b,WP:CE27664,50,Confirmed,N/A,Amplifies
+RW,C07D8.4,WP:CE06774,41,Predicted,WT,Does not amplify
+RW,C09B9.5,WP:CE06797,26,Predicted,WT,Does not amplify
+RW,C10G11.1,WP:CE34257,41,Partially_confirmed,WT,Amplifies
+RW,C15C7.3,WP:CE03989,38,Predicted,WT,Does not amplify
+RW,C16E9.5,WP:CE04019,46,Predicted,N/A,Does not amplify
+RW,C17C3.1d,WP:CE27073,36,Confirmed,N/A,N/A
+HX,C18D4.6b,WP:CE32311,47,Confirmed,WT,Amplifies
+RW,C25A8.1,WP:CE08382,37,Partially_confirmed,WT,Amplifies
+RW,C25E10.6,WP:CE06868,35,Predicted,WT,Does not amplify
+RW,C25H3.6c,WP:CE32141,26,Confirmed,N/A,N/A
+RW,C25H3.13,WP:CE31314,32,Confirmed,N/A,N/A
+RW,C28F5.3,WP:CE01817,38,Predicted,WT,Does not amplify
+RW,C30G12.5,WP:CE01836,35,Predicted,WT,Does not amplify
+HX,C31C9.7,WP:CE34721,46,Predicted,N/A,N/A
+RW,C33F10.10,WP:CE04142,39,Predicted,WT,Does not amplify
+HX,C35C5.9,WP:CE31437,40,Partially_confirmed,WT,Amplifies
+HX,C36A4.10,WP:CE33979,37,Partially_confirmed,WT,Amplifies
+RW,C36E6.1a,WP:CE30887,44,Confirmed,N/A,N/A
+RW,C39D10.9,WP:CE30502,29,Confirmed,N/A,N/A
+HX,C40H5.1,WP:CE08649,34,Predicted,WT,Amplifies
+RW,C45G9.10b,WP:CE30631,35,Partially_confirmed,WT,Amplifies
+RW,C47C12.5,WP:CE08798,22,Predicted,WT,Amplifies
+RW,C53B7.6,WP:CE06976,45,Partially_confirmed,N/A,Does not amplify
+RW,C54A12.3,WP:CE01867,41,Partially_confirmed,WT,Does not amplify
+RW,C55B6.3,WP:CE09009,49,Predicted,WT,Does not amplify
+RW,C56G2.8,WP:CE01877,22,Predicted,WT,Amplifies
+RW,D2092.9,WP:CE33368,24,Partially_confirmed,N/A,Amplifies
+HX,F02C12.3,WP:CE23626,38,Confirmed,WT,Does not amplify
+HX,F02D10.2,WP:CE03137,50,Predicted,WT,Does not amplify
+HX,F07H5.4,WP:CE09231,37,Partially_confirmed,WT,Amplifies
+HX,F07H5.13,WP:CE29037,45,Confirmed,N/A,N/A
+HX,F09A5.4f,WP:CE31468,21,Confirmed,WT,Amplifies
+RW,F10C1.8b,WP:CE31904,22,Confirmed,N/A,Does not amplify
+RW,F10D7.5c,WP:CE31339,45,Partially_confirmed,non-WT,Does not amplify
+HX,F11A5.6,WP:CE15784,48,Predicted,WT,Amplifies
+RW,F15A8.2,WP:CE09401,48,Predicted,WT,Does not amplify
+HX,F22D6.7,WP:CE05688,44,Predicted,N/A,Amplifies
+RW,F28F5.4,WP:CE00791,40,Predicted,WT,Amplifies
+HX,F29C12.7,WP:CE34832,39,Predicted,N/A,N/A
+HX,F30F8.7,WP:CE09818,44,Confirmed,WT,Amplifies
+RW,F31A9.2,WP:CE07163,31,Partially_confirmed,WT,Amplifies
+HX,F35C12.1,WP:CE09913,49,Predicted,WT,Does not amplify
+RW,F35F10.14,WP:CE35866,45,Partially_confirmed,WT,Amplifies
+RW,F36H12.18,WP:CE33637,6,Partially_confirmed,WT,Does not amplify
+RW,F38A5.14,WP:CE34856,44,Partially_confirmed,N/A,N/A
+RW,F39E9.10,WP:CE28311,18,Confirmed,N/A,N/A
+RW,F39F10.1,WP:CE07203,50,Predicted,WT,Does not amplify
+RW,F40H3.6,WP:CE28318,37,Partially_confirmed,N/A,N/A
+RW,F41B5.11,WP:CE33085,23,Partially_confirmed,WT,Does not amplify
+RW,F44E2.5,WP:CE00183,32,Predicted,WT,Does not amplify
+HX,F44F1.2,WP:CE10414,48,Predicted,WT,Amplifies
+HX,F46A8.7,WP:CE10570,36,Partially_confirmed,WT,Does not amplify
+RW,F46H5.7c,WP:CE34026,41,Confirmed,N/A,N/A
+HX,F52A8.6b,WP:CE28936,46,Confirmed,N/A,Amplifies
+RW,F52F10.6,WP:CE30279,30,Predicted,N/A,N/A
+RW,F54D7.6,WP:CE26932,22,Confirmed,N/A,N/A
+RW,F54D7.7,WP:CE26932,22,Confirmed,N/A,Amplifies
+RW,F54D12.4,WP:CE17869,45,Partially_confirmed,non-WT,Amplifies
+RW,F55A12.2d,WP:CE34318,39,Confirmed,N/A,N/A
+HX,F55C9.2,WP:CE18734,25,Predicted,WT,Does not amplify
+RW,F55C12.2,WP:CE02771,38,Predicted,WT,Does not amplify
+RW,F55E10.3,WP:CE02783,46,Predicted,WT,Does not amplify
+RW,H06I04.4b,WP:CE31022,47,Confirmed,non-WT,Amplifies
+HX,H12D21.1,WP:CE15223,34,Partially_confirmed,WT,Does not amplify
+RW,H12I13.5,WP:CE27183,29,Partially_confirmed,WT,N/A
+RW,H39E20.1,WP:CE19948,49,Partially_confirmed,WT,Amplifies
+RW,K04C2.3b,WP:CE32689,49,Confirmed,WT,Amplifies
+RW,K05F1.11,WP:CE33138,13,Confirmed,WT,Amplifies
+RW,K07A9.4,WP:CE31709,31,Partially_confirmed,N/A,N/A
+RW,K07B1.6b,WP:CE29508,42,Confirmed,non-WT,Amplifies
+RW,K07B1.8,WP:CE28838,34,Partially_confirmed,WT,N/A
+RW,K07H8.4,WP:CE18024,43,Predicted,N/A,Does not amplify
+RW,K08D12.3b,WP:CE31712,42,Partially_confirmed,non-WT,Amplifies
+HX,K08H10.2b,WP:CE21052,24,Confirmed,N/A,Amplifies
+RW,K09E3.3,WP:CE04741,24,Predicted,WT,Does not amplify
+RW,K09E3.4,WP:CE04742,31,Partially_confirmed,WT,Amplifies
+RW,K10F12.8,WP:CE31040,15,Partially_confirmed,N/A,N/A
+RW,K12H6.10,WP:CE20013,43,Predicted,WT,Does not amplify
+RW,M01A12.2,WP:CE12240,40,Predicted,WT,Does not amplify
+RW,M03A8.5,WP:CE28618,17,Confirmed,N/A,N/A
+RW,M03D4.1d,WP:CE31718,42,Confirmed,non-WT,Amplifies
+HX,M162.6,WP:CE18896,48,Predicted,N/A,Amplifies
+RW,R02D3.9,WP:CE34350,24,Confirmed,N/A,N/A
+RW,R03H10.8,WP:CE02844,42,Predicted,WT,Does not amplify
+RW,R05G6.3,WP:CE07416,49,Predicted,WT,Does not amplify
+RW,R06B10.7,WP:CE32916,34,Confirmed,N/A,Amplifies
+RW,R08C7.1,WP:CE07424,47,Partially_confirmed,WT,Amplifies
+RW,R09H3.2,WP:CE07446,39,Predicted,WT,Does not amplify
+RW,R119.5b,WP:CE33158,42,Partially_confirmed,WT,Amplifies
+RW,T04A6.1b,WP:CE31586,28,Partially_confirmed,WT,Amplifies
+RW,T07F12.5,WP:CE02869,43,Predicted,WT,Does not amplify
+RW,T08A9.11,WP:CE31230,34,Confirmed,N/A,Does not amplify
+RW,T10B5.11,WP:CE35765,20,Confirmed,N/A,N/A
+HX,T11F9.14,WP:CE06426,45,Predicted,WT,Amplifies
+RW,T13A10.5b,WP:CE35009,18,Confirmed,WT,Does not amplify
+RW,T17A3.12,WP:CE31608,43,Confirmed,WT,Does not amplify
+RW,T24A6.17,WP:CE14156,49,Predicted,N/A,Does not amplify
+RW,W01B11.6b,WP:CE33463,7,Confirmed,N/A,N/A
+RW,W03D2.8,WP:CE14520,49,Predicted,WT,Does not amplify
+RW,W03F9.2b,WP:CE24030,41,Confirmed,non-WT,Amplifies
+RW,W05H7.4d,WP:CE33719,38,Confirmed,WT,Does not amplify
+RW,W05H9.3,WP:CE05038,45,Confirmed,N/A,Amplifies
+HX,W06A7.5,WP:CE14672,34,Confirmed,WT,Amplifies
+HX,W06G6.9,WP:CE20154,32,Predicted,WT,Does not amplify
+RW,W06H8.5,WP:CE25150,25,Confirmed,N/A,Amplifies
+HX,W09C5.9,WP:CE20172,46,Predicted,WT,Does not amplify
+RW,W09G12.3,WP:CE33846,25,Confirmed,WT,Amplifies
+RW,W10C8.4b,WP:CE33586,41,Confirmed,WT,Amplifies
+HX,Y7A9A.2,WP:CE14844,48,Predicted,WT,Does not amplify
+HX,Y17D7B.7,WP:CE26828,35,Partially_confirmed,N/A,N/A
+RW,Y17G9B.2,WP:CE24182,37,Partially_confirmed,WT,Amplifies
+RW,Y23H5A.8b,WP:CE31097,11,Partially_confirmed,N/A,Amplifies
+RW,Y32H12A.9,WP:CE32960,43,Partially_confirmed,N/A,N/A
+RW,Y37F4.5b,WP:CE33477,21,Partially_confirmed,N/A,N/A
+RW,Y39A3CL.3,WP:CE21651,50,Partially_confirmed,WT,Amplifies
+HX,Y41E3.5,WP:CE18373,44,Predicted,WT,Amplifies
+HX,Y43F8C.18,WP:CE32076,30,Partially_confirmed,N/A,N/A
+HX,Y44A6D.1,WP:CE19159,44,Predicted,N/A,Amplifies
+RW,Y47D7A.10,WP:CE24347,47,Predicted,N/A,Amplifies
+HX,Y48A6B.4,WP:CE19187,47,Confirmed,WT,Amplifies
+RW,Y53G8AM.3,WP:CE21754,37,Predicted,N/A,Does not amplify
+RW,Y53G8B.5,WP:CE30042,30,Confirmed,WT,Amplifies
+RW,Y54E10A.18,WP:CE28368,50,Partially_confirmed,N/A,N/A
+RW,Y55F3AM.3b,WP:CE25485,49,Confirmed,WT,Amplifies
+RW,Y57E12B.2,WP:CE24471,31,Predicted,N/A,Does not amplify
+RW,Y59H11AR.1,WP:CE26556,37,Predicted,N/A,Does not amplify
+HX,Y65A5A.3,WP:CE22720,48,Predicted,WT,Does not amplify
+RW,Y71D11A.2b,WP:CE34424,44,Partially_confirmed,N/A,Does not amplify
+RW,Y71G12B.28,WP:CE28859,49,Partially_confirmed,non-WT,N/A
+RW,Y73B3A.17,WP:CE35809,21,Confirmed,N/A,N/A
+RW,Y74C10AL.1,WP:CE21754,37,Predicted,N/A,Does not amplify
+RW,Y82E9BR.3b,WP:CE33248,30,Partially_confirmed,non-WT,Amplifies
+RW,Y82E9BR.5,WP:CE27046,41,Partially_confirmed,WT,Does not amplify
+RW,Y82E9BR.6,WP:CE23391,46,Predicted,WT,Does not amplify
+RW,Y82E9BR.20,WP:CE29934,44,Partially_confirmed,WT,Does not amplify
+HX,Y105C5A.10,WP:CE23191,46,Partially_confirmed,WT,Amplifies
+HX,Y106G6A.2b,WP:CE30568,36,Confirmed,non-WT,Amplifies
+RW,Y108G3AL.6,WP:CE29605,16,Partially_confirmed,N/A,N/A
+RW,Y110A2AM.4,WP:CE34393,38,Predicted,N/A,N/A
+HX,Y111B2A.10b,WP:CE26627,38,Confirmed,WT,Does not amplify
+HX,Y113G7B.25,WP:CE32006,49,Partially_confirmed,non-WT,N/A
+RW,ZC239.13,WP:CE33490,39,Confirmed,N/A,Amplifies
+HX,ZC412.6,WP:CE15221,34,Confirmed,N/A,Does not amplify
+HX,ZC412.7,WP:CE15223,34,Partially_confirmed,N/A,Amplifies
+RW,ZC513.7,WP:CE28167,21,Confirmed,WT,Amplifies
+RW,ZK402.4,WP:CE05076,31,Predicted,WT,Does not amplify
+RW,ZK686.1,WP:CE34463,44,Confirmed,non-WT,Amplifies
+HX,ZK892.1e,WP:CE32783,45,Confirmed,N/A,Amplifies
+RW,ZK1236.8,WP:CE29629,11,Confirmed,N/A,N/A
