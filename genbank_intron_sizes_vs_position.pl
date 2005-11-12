@@ -46,6 +46,10 @@ my %all_species;
 # and flanking introns.  Key is species, value is an array of sizes
 my %species2introns;
 
+# another couple of hashes for storing only first introns and other introns
+my %species2first_introns;
+my %species2other_introns;
+
 
 # specify path to GenBank release
 my $path = "/GenBank/genbank${release}";
@@ -204,6 +208,10 @@ while (my $file = shift(@files)){
 		    next if ($coords[$i] !~ m/^\d+,\d+$/);
 				  		 
 		    $intron_counter++;
+		    # maybe we don't really care if genes have more than 10 or so introns
+		    # really just want to see size difference in first half a dozen
+		    next FEATURE if ($intron_counter > 10);
+
 		    # calculate intron size
 		    $coords[$i] =~ m/^(\d+),(\d+)$/;
 		    my $exon_end = $1;
@@ -220,11 +228,13 @@ while (my $file = shift(@files)){
 			
 		    $all_species{$species} = 1;
 		    
-		    # If this is a two exon gene with only one intron, we might want to keep this information separate
-		    # i.e. ignore first introns if there is only one intron
-		    if((!$coords[$i+1]) && ($intron_counter == 1)){
-#			  push(@{$species2first_introns{$species}[$intron_counter]},$intron_size);
-			
+		    # If this is the first intron, add sizes to a separate key in hash
+		    # else add all other positions to another separate key in hash
+		    if($intron_counter == 1){
+			push(@{$species2first_introns{$species}[$intron_counter]},$intron_size);			
+		    }
+		    else{
+			push(@{$species2other_introns{$species}[$intron_counter]},$intron_size);
 		    }
 		}		    
 	      }
@@ -266,12 +276,14 @@ foreach my $species (sort(keys(%all_species))){
 }
 
 
+
+
 # Now work through new array to print average intron size at each intron position in each species
 foreach my $species (sort(keys(%all_species))){
 
     # need to count all introns in each species and only print those above a threshold (set by $limit)
     if($species2count{$species} > $limit){
-	print OUT "$species,$species2count{$species},";
+	print OUT "$species,$species2count{$species},$species,";
 	for(my $i =1;$i<(@{$species2means{$species}});$i++){
 	    my $mean = sprintf "%.1f",${$species2means{$species}}[$i];
 	    print OUT "$mean,";
@@ -279,6 +291,31 @@ foreach my $species (sort(keys(%all_species))){
 	print OUT "\n";
     }
 }
+
+print OUT "\n";
+
+
+
+# now print out a table of how many introns at each size in each species (we want to be careful if we
+# are calculating an average size based on only a few introns)
+foreach my $species (sort(keys(%all_species))){
+
+    # need to count all introns in each species and only print those above a threshold (set by $limit)
+    if($species2count{$species} > $limit){
+
+	print OUT "$species,,$species,";
+	# what's the max number of introns for any gene in that species?
+	my $intron_positions = scalar(@{$species2introns{$species}});
+	
+	for(my $i=1; $i<$intron_positions;$i++){	    
+	    # calculate mean intron size at position N
+	    my $introns = scalar(@{@{$species2introns{$species}}[$i]});
+	    print OUT "$introns,";
+	}
+	print OUT "\n";
+    }
+}
+print OUT "\n";
 
 close(OUT) || die "Can't close file\n";
 
