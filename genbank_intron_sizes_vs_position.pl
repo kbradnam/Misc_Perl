@@ -24,14 +24,20 @@ use List::Util qw(sum);
 ########################
 my $release;   # which release of genbank to query against?  Specify an integer
 my $limit;     # set a cut-off for how many introns/exons are needed per species
+my $min;       # Only match genes a minimum number of introns
+my $max;       # only match genes with a maximum number of introns
 
 GetOptions("release=i"=> \$release,
-	   "limit=i"  => \$limit);
+	   "limit=i"  => \$limit,
+	   "min=i"    => \$min,
+	   "max=i"    => \$max);
 
 die "Must specify a GenBank release number to query against\n" if (!defined($release));
 
-#set default for $limit if not specified
-$limit = 1000 if (!defined($limit));
+#set default for $limit,$min, and $max if not specified
+$limit = 1000  if (!defined($limit));
+$min   = 1     if (!defined($min));
+$max   = 10000 if (!defined($max));
 
 
 ########################
@@ -172,18 +178,10 @@ while (my $file = shift(@files)){
 		  next if ($cds =~ m/[A-Z]/);
 		  
 		  
-		  # match CDSs with at least two coding exons (i.e one intron)
-		  next unless ($cds =~ m /\.\.\d+,\d+/);
-		  
-		  # or even look for two intron genes at least
-		  next unless ($cds =~ m /\.\.\d+,\d+\.\.\d+,\d+/);
+		  # skip CDS if there are not the specified number of introns
+		  next unless ($cds =~ m/^((\d+\.\.\d+,){$min,$max})(\d+\.\.\d+)$/);
 
-		  # some entries use > & < internally of the first and last exon, remove these symbols if they are terminal exons
-		  next if ($cds =~ s/^<//);
-		  next if ($cds =~ s/>$//);
-
-		  
-		  # now check that there are always pairs of exon coordinates, e.g. avoid scenarios like
+		  # check that there are always pairs of exon coordinates, e.g. avoid scenarios like
 		  # this in accession AE003538 (has a final single exon start coordinate but with no end
 		  # CDS             complement(join(290022..290246,290389..290873,
 		  #                 290960..291199,291264))
