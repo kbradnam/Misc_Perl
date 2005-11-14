@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl 
+#!/usr/bin/perl 
 
 $answer=1;
 unless ($ARGV[0]){
