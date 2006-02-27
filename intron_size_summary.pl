@@ -202,14 +202,13 @@ foreach my $chromosome (@chromosomes) {
 
 
 # or just specified amounts from 3' end of intron
-#		my $flank1 = 35;
-#		my $flank2 = 0;
-#		my @intron;
+#		my $flank1 = 40;
+#		my $flank2 = 5;
 #		if($strand eq "+"){
 #		    @intron = @dna[$gff_line[4]-$flank1..$gff_line[4]+$flank2-1];
 #		}
 #		else{
-#		    @intron = @dna[$gff_line[3]-$flank2-1..$gff_line[3]+$flank1-2];
+#		    @intron = @dna[$gff_line[3]+$flank2-1..$gff_line[3]+$flank1-2];
 #		}
 		
 		# reverse intron if on negative strand
