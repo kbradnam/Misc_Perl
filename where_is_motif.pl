@@ -19,11 +19,13 @@ use FAlite;
 # Command line options
 ########################
 
-my $motif;  # nested MICA *.xms file with (single) motif
-my $target; # file with sequences in which to find motif
+my $motif;     # nested MICA *.xms file with (single) motif
+my $target;    # file with sequences in which to find motif
+my $threshold; # limit for which to report motif hits
 
-GetOptions ("motif=s"   => \$motif,
-	    "target=s"  => \$target);
+GetOptions ("motif=s"     => \$motif,
+	    "target=s"    => \$target,
+	    "threshold=i" => \$threshold);
 
 # check that both command line options are specified
 die "Need to specify both -motif and -target options\n" if(!$motif || !$target);
@@ -35,6 +37,17 @@ die "-motif option must specify a valid Nested MICA *.xms output file\n" if($mot
 die "$motif does not seem to exist\n" if (! -e $motif);
 die "$target does not seem to exist\n" if (! -e $target);
 
+# set threshold if none specified
+$threshold = 0 if (!$threshold);
+
+
+##############################################################
+#
+#
+# P A R T   I   - Extract data from Nested MICA output file
+#
+#
+##############################################################
 
 
 # log likelihood scores will be stored in an array of hashes each element of array
@@ -80,13 +93,20 @@ while(<MOTIF>){
 	$motif[$pos]{$base} = log($freq/$expected_intronic{$base});
     }
 }
-print "$motif_length\n";
 close(MOTIF) || die "Couldn't close $motif\n";
 
 
-# now search for motif in target file
-open(TARGET,"<$target") || die "Couldn't open $target file\n";
 
+##############################################################
+#
+#
+# P A R T   II   - Find and score motifs in target sequence
+#
+#
+##############################################################
+
+
+open(TARGET,"<$target") || die "Couldn't open $target file\n";
 
 my $fasta = new FAlite(\*TARGET);
 
@@ -95,7 +115,7 @@ my $fasta = new FAlite(\*TARGET);
 while(my $entry = $fasta->nextEntry) {
     my $header = $entry->def;
     my $seq = $entry->seq;
-    print "$header\n";
+    print "\n$header\n";
 
     # need to 
     my $max_score=0;
@@ -104,18 +124,23 @@ while(my $entry = $fasta->nextEntry) {
       for (my $i = 0; $i < length($seq)-$motif_length; $i++) {
 
 	  # extract a window of sequence, split it, and place in array
-	  my @window = split(//,substr($seq, $i, $motif_length));
+	  my $window = substr($seq, $i, $motif_length);
+	  my @sequence = split(//,$window);
 
 	  my $score =0;
-	  for(my $j =0; $j<@window;$j++){
-	      my $base = uc($window[$j]);
+	  for(my $j =0; $j<@sequence;$j++){
+	      my $base = uc($sequence[$j]);
 	      $score += $motif[$j]{$base};
 	  }
 	  # only want to print out scores above threshold
-	  print "$i) Score is $score\n" if ($score > 0);
-      }
-    print "\n";       
+	  my $new_score = sprintf("%.2f",$score);
 
+	  # want to show location of motif within original sequence
+	  my $highlight = uc($window);
+	  my $new_seq = $seq;
+	  $new_seq =~ s/$window/$highlight/g;
+	  print "\n$i) $new_score $window\n$new_seq\n\n" if ($score > $threshold);
+      }
 }
 
 close(TARGET) || die "Couldn't close $target\n";
