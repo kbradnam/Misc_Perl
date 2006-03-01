@@ -19,13 +19,15 @@ use FAlite;
 # Command line options
 ########################
 
-my $motif;     # nested MICA *.xms file with (single) motif
-my $target;    # file with sequences in which to find motif
-my $threshold; # limit for which to report motif hits
+my $motif;      # nested MICA *.xms file with (single) motif
+my $target;     # file with sequences in which to find motif
+my $threshold;  # limit for which to report motif hits
+my $score_only; # Only show DNA scores in output rather than sequence
 
 GetOptions ("motif=s"     => \$motif,
 	    "target=s"    => \$target,
-	    "threshold=i" => \$threshold);
+	    "threshold=f" => \$threshold,
+	    "scores"      => \$score_only);
 
 # check that both command line options are specified
 die "Need to specify both -motif and -target options\n" if(!$motif || !$target);
@@ -114,8 +116,11 @@ my $fasta = new FAlite(\*TARGET);
 
 while(my $entry = $fasta->nextEntry) {
     my $header = $entry->def;
+    # trim header
+    $header =~ s/ .*//;
+
     my $seq = $entry->seq;
-    print "\n$header\n";
+    my $length = length($seq);
 
     # need to 
     my $max_score=0;
@@ -123,7 +128,7 @@ while(my $entry = $fasta->nextEntry) {
     # loop through sequence in windows equal to motif size
       for (my $i = 0; $i < length($seq)-$motif_length; $i++) {
 
-	  # extract a window of sequence, split it, and place in array
+	  # extract a window of sequence, split it, and place in array	
 	  my $window = substr($seq, $i, $motif_length);
 	  my @sequence = split(//,$window);
 
@@ -139,7 +144,13 @@ while(my $entry = $fasta->nextEntry) {
 	  my $highlight = uc($window);
 	  my $new_seq = $seq;
 	  $new_seq =~ s/$window/$highlight/g;
-	  print "\n$i) $new_score $window\n$new_seq\n\n" if ($score > $threshold);
+	  if($score > $threshold){
+	      my $start_coord = $i+1;
+	      print "$header $new_score $start_coord/$length $window\n";
+	      unless($score_only){
+		  print "$new_seq\n";
+	      }
+	  }
       }
 }
 
