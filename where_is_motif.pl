@@ -25,13 +25,21 @@ my $threshold;  # limit for which to report motif hits
 my $scores;     # Show scores
 my $seqs;       # Show motif sequences in output
 my $stats;      # report stats on log likelihood scores
+my $min;        # Set minimum cut off for use with -stats option
+my $max;        # Set maximum cut off for use with -stats option
+my $interval;   # Set interval size for use with -stats option
+
 
 GetOptions ("motif=s"     => \$motif,
 	    "target=s"    => \$target,
 	    "threshold=f" => \$threshold,
 	    "scores"      => \$scores,
 	    "seqs"        => \$seqs,	    
-	    "stats"       => \$stats);
+	    "stats"       => \$stats,
+	    "min"         => \$min,
+	    "max"         => \$max,
+	    "interval"    => \$interval,
+	    );
 
 # check that both command line options are specified
 die "Need to specify both -motif and -target options\n" if(!$motif || !$target);
@@ -172,11 +180,11 @@ if($stats){
     # structure to count log likelihood in different intervals
     my %counts;
 
-    # first set up what the bin sizes are going to be for counting
+    # set up what the bin sizes are going to be for counting if not specified on command line
     # need min, max, and interval settings, store details in %limits
-    my $min = -30;
-    my $max = 10;
-    my $interval = 1;
+    ($min = -30) if (!$min);
+    ($max = 10) if (!$max);
+    ($interval = 1) if (!$interval);
     my %limits;
     
     for(my $i=$min; $i<=$max; $i+=$interval){
