@@ -22,12 +22,16 @@ use FAlite;
 my $motif;      # nested MICA *.xms file with (single) motif
 my $target;     # file with sequences in which to find motif
 my $threshold;  # limit for which to report motif hits
-my $score_only; # Only show DNA scores in output rather than sequence
+my $scores;     # Show scores
+my $seqs;       # Show motif sequences in output
+my $stats;      # report stats on log likelihood scores
 
 GetOptions ("motif=s"     => \$motif,
 	    "target=s"    => \$target,
 	    "threshold=f" => \$threshold,
-	    "scores"      => \$score_only);
+	    "scores"      => \$scores,
+	    "seqs"        => \$seqs,	    
+	    "stats"       => \$stats);
 
 # check that both command line options are specified
 die "Need to specify both -motif and -target options\n" if(!$motif || !$target);
@@ -41,6 +45,10 @@ die "$target does not seem to exist\n" if (! -e $target);
 
 # set threshold if none specified
 $threshold = 0 if (!$threshold);
+
+# keep track of scores if making stats
+my @all_scores if ($stats);
+    
 
 
 ##############################################################
@@ -122,9 +130,6 @@ while(my $entry = $fasta->nextEntry) {
     my $seq = $entry->seq;
     my $length = length($seq);
 
-    # need to 
-    my $max_score=0;
-    
     # loop through sequence in windows equal to motif size
       for (my $i = 0; $i < length($seq)-$motif_length; $i++) {
 
@@ -137,18 +142,21 @@ while(my $entry = $fasta->nextEntry) {
 	      my $base = uc($sequence[$j]);
 	      $score += $motif[$j]{$base};
 	  }
-	  # only want to print out scores above threshold
+	  # only want to print out scores above threshold, add scores to array if
+	  # tracking stats
 	  my $new_score = sprintf("%.2f",$score);
+	  push(@all_scores,$new_score) if ($stats);
 
-	  # want to show location of motif within original sequence
-	  my $highlight = uc($window);
-	  my $new_seq = $seq;
-	  $new_seq =~ s/$window/$highlight/g;
-	  if($score > $threshold){
-	      my $start_coord = $i+1;
-	      print "$header $new_score $start_coord/$length $window\n";
-	      unless($score_only){
-		  print "$new_seq\n";
+	  # print output if requested
+	  if($scores || $seqs){
+	      # want to show location of motif within original sequence
+	      my $highlight = uc($window);
+	      my $new_seq = $seq;
+	      $new_seq =~ s/$window/$highlight/g;
+	      if($score > $threshold){
+		  my $start_coord = $i+1;
+		  print "$header $new_score $start_coord/$length $window\n" if ($scores);
+		  print "$new_seq\n" if ($seqs);	      
 	      }
 	  }
       }
@@ -156,4 +164,54 @@ while(my $entry = $fasta->nextEntry) {
 
 close(TARGET) || die "Couldn't close $target\n";
 
+
+
+# Process stats if required
+
+if($stats){
+    # structure to count log likelihood in different intervals
+    my %counts;
+
+    # first set up what the bin sizes are going to be for counting
+    # need min, max, and interval settings, store details in %limits
+    my $min = -30;
+    my $max = 10;
+    my $interval = 1;
+    my %limits;
+    
+    for(my $i=$min; $i<=$max; $i+=$interval){
+	$limits{$i} = $i+$interval;
+    }
+
+    # work through all scores in @all_scores
+    
+    OUTER: while (@all_scores){
+	# need to make sure that no score is outside min and max range
+	my $flag = 0;
+	my $score = shift(@all_scores);
+
+	# now loop through all possible limit categories
+	foreach my $key (sort {$limits{$a} <=> $limits{$b}}(keys(%limits))){
+	    if(($score >= $key) && ($score < $limits{$key})){
+		$counts{$key}++;
+		$flag = 1;
+		next OUTER;
+	    }
+	}
+	# warn if any score is outside min and max
+	print "ERROR! $score lies outside min ($min) and max ($max) boundaries\n" if ($flag ==0);
+    }
+
+    foreach my $key (sort {$limits{$a} <=> $limits{$b}}(keys(%limits))){
+
+	# set upper limit to be slightly less
+	my $upper = $limits{$key}-0.001;
+	
+	# print counts (if they exist), else print zero
+	($counts{$key} = 0) if (!defined($counts{$key}));
+	print "$key,$upper,$counts{$key}\n";
+	   
+    }
+
+}
 exit(0);
