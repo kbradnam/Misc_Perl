@@ -14,15 +14,18 @@ use lib "/Korflab/lib/perl";
 use FAlite;
 
 
+# Need set of expected nucleotide frequencies to compute log likelihood scores
+# two hashes.  One is mono nucleotide frequencies of confirmed introns (used for
+# first base of random intron). The second is dinucleotide frequencies (used for
+# rest of intron)
 
-# Need sets of expected nucleotide frequencies to compute log likelihood scores
-# one set is based on (confirmed) intron base frequencies, the second is based on 
-# the entire worm genome
-my %expected_intronic = ("A" => "0.33339","C" => "0.16194",
-			 "G" => "0.16021","T" => "0.34446");
-my %expected_genomic  = ("A" => "0.32280","C" => "0.17733",
-			 "G" => "0.17709","T" => "0.32279");
+my %mono = ("A" => "0.33339","C" => "0.16194",
+	    "G" => "0.16021","T" => "0.34446");
 
+my %dinucs = ("A" => ["0.457743938","0.58825315","0.729569921"],
+	      "C" => ["0.351293566","0.542848977","0.711407452"],
+	      "G" => ["0.332089564","0.51511319","0.704411625"],
+	      "T" => ["0.205221746","0.373847922","0.534890808"]);
 
 open(IN,"<$ARGV[0]") || die "Couldn't open $ARGV[0] file\n";
 open(OUT,">${ARGV[0]}.random") || die "Couldn't write output file\n";
@@ -37,24 +40,37 @@ while(my $entry = $fasta->nextEntry) {
     print OUT "\n$header\n";
     my $length = length($seq);
 
-    my $counter = 0;
-    # loop through sequence in windows equal to motif size
-      for (my $i = 0; $i < length($seq); $i++) {
-	  if($counter == 60){
-	      print OUT "\n";
-	      $counter = 0;
-	  }
-	  $counter++;
+    #  make new random intron corresponding to real intron length
+    # treat first base of random intron differently 
+    
+    my $counter = 1;
+    my $base;
+    my $rand = rand(1);
+    if   ($rand <= 0.33339){$base = "A";}
+    elsif($rand <= 0.49533){$base = "C";}
+    elsif($rand <= 0.65554){$base = "G";}
+    else{$base = "T";}
 
-	  my $rand = rand(1);
-	  my $base;
-	  if($rand < 0.33340){$base = "A";}
-	  elsif($rand < 0.49534){$base = "C";}
-	  elsif($rand < 0.65555){$base = "G";}
-	  else{$base = "T";}
-	  print OUT "$base";
-      }
-    print OUT "\n";
+    my $last_base = $base;
+    
+    print OUT "$base";
+    
+    for (my $i = 1; $i < length($seq); $i++) {
+	if($counter == 60){
+	    print OUT "\n";
+	    $counter = 0;
+	}
+	$counter++;
+	$rand = rand(1);
+	if   ($rand <= $dinucs{$last_base}[0]){$base = "A";}
+	elsif($rand <= $dinucs{$last_base}[1]){$base = "C";}
+	elsif($rand <= $dinucs{$last_base}[2]){$base = "G";}
+	else{$base = "T";}
+
+	print OUT "$base";
+	$last_base = $base;
+    }
+#    print OUT "\n";
 }
 
 close(IN) || die "Couldn't close $ARGV[0]\n";
