@@ -36,9 +36,9 @@ GetOptions ("motif=s"     => \$motif,
 	    "scores"      => \$scores,
 	    "seqs"        => \$seqs,	    
 	    "stats"       => \$stats,
-	    "min"         => \$min,
-	    "max"         => \$max,
-	    "interval"    => \$interval,
+	    "min=f"       => \$min,
+	    "max=f"       => \$max,
+	    "interval=f"  => \$interval,
 	    );
 
 # check that both command line options are specified
@@ -182,9 +182,10 @@ if($stats){
 
     # set up what the bin sizes are going to be for counting if not specified on command line
     # need min, max, and interval settings, store details in %limits
-    ($min = -30) if (!$min);
-    ($max = 10) if (!$max);
+    ($min = -30)    if (!$min);
+    ($max = 10)     if (!$max);
     ($interval = 1) if (!$interval);
+
     my %limits;
     
     for(my $i=$min; $i<=$max; $i+=$interval){
