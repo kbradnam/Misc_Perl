@@ -29,6 +29,7 @@ my $release;     # which WormBase release to use (will default to latest)
 my $print;       # send output to a file
 my $ignore_n;    # ignore any intron which contains N's (repeat masked sequence)
 my $flank;       # how many bases of flanking exon sequences to extract
+my $ends;        # Only extract 35 bp from end of sequence (cutting off last 5 bp to ignore acceptor sequence)
 my $test;        # run in test mode
 
 GetOptions ("count"       => \$count,
@@ -43,6 +44,7 @@ GetOptions ("count"       => \$count,
 	    "print"       => \$print, 
 	    "ignore_n"    => \$ignore_n,
 	    "flank=i"     => \$flank,
+	    "ends"        => \$ends,
 	    "test"        => \$test);
 
 
@@ -200,18 +202,22 @@ foreach my $chromosome (@chromosomes) {
 		
 		my @intron = @dna[$gff_line[3]-$upstream_flank..$gff_line[4]+$downstream_flank];
 
-
-# or just specified amounts from 3' end of intron
-#		my $flank1 = 40;
-#		my $flank2 = 5;
-#		if($strand eq "+"){
-#		    @intron = @dna[$gff_line[4]-$flank1..$gff_line[4]+$flank2-1];
-#		}
-#		else{
-#		    @intron = @dna[$gff_line[3]+$flank2-1..$gff_line[3]+$flank1-2];
-#		}
+		# or just specified amounts from 3' end of intron if -ends is specified
+		if($ends){
+		    # want last 40 bp of intron
+		    my $start_offset = 40;
+		    # but want to cut off last 5 bp (splice acceptor sequence)
+		    my $end_offset = 5;
+		    
+		    if($strand eq "+"){
+			@intron = @dna[$gff_line[4]-$start_offset..$gff_line[4]+$end_offset-1];
+		    }
+		    else{
+			@intron = @dna[$gff_line[3]+$end_offset-1..$gff_line[3]+$start_offset-2];
+		    }
+		}
 		
-		# reverse intron if on negative strand
+		# reverse complement intron sequence if on negative strand
 		if($strand eq "-"){
 		    my @flipped = reverse(@intron);
 		    # upper case flanking regions
