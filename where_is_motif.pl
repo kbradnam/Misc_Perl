@@ -182,7 +182,7 @@ if($stats){
 
     # set up what the bin sizes are going to be for counting if not specified on command line
     # need min, max, and interval settings, store details in %limits
-    ($min = -30)    if (!$min);
+    ($min = -40)    if (!$min);
     ($max = 10)     if (!$max);
     ($interval = 1) if (!$interval);
 
