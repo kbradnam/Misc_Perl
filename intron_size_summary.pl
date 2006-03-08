@@ -210,7 +210,7 @@ foreach my $chromosome (@chromosomes) {
 		    my $end_offset = 5;
 		    
 		    if($strand eq "+"){
-			@intron = @dna[$gff_line[4]-$start_offset..$gff_line[4]+$end_offset-1];
+			@intron = @dna[$gff_line[4]-$start_offset..$gff_line[4]-$end_offset-1];
 		    }
 		    else{
 			@intron = @dna[$gff_line[3]+$end_offset-1..$gff_line[3]+$start_offset-2];
