@@ -10,8 +10,23 @@
 # Last updated on: $Date$
 
 use strict;
+use Getopt::Long;
 use lib "/Korflab/lib/perl";
 use FAlite;
+
+
+########################
+# Command line options
+########################
+
+my $mono;  # create random sequence based on mononucleotide frequencies
+my $dinuc; # create random sequence based on dinucleotide frequencies
+
+GetOptions ("mono"     => \$mono,
+            "dinuc"    => \$dinuc);
+
+# sanity check
+die "Need to specify -mono OR -dinuc option\n" if (($mono && $dinuc) || (!$mono && !$dinuc));
 
 
 # Need set of expected nucleotide frequencies to compute log likelihood scores
@@ -39,9 +54,9 @@ while(my $entry = $fasta->nextEntry) {
     my $seq = $entry->seq;
     print OUT "\n$header\n";
     my $length = length($seq);
-
+    
     #  make new random intron corresponding to real intron length
-    # treat first base of random intron differently 
+    # first base of random intron is always based on momonucleotide frequencies
     
     my $counter = 1;
     my $base;
@@ -50,10 +65,10 @@ while(my $entry = $fasta->nextEntry) {
     elsif($rand <= 0.49533){$base = "C";}
     elsif($rand <= 0.65554){$base = "G";}
     else{$base = "T";}
-
-    my $last_base = $base;
     
     print OUT "$base";
+
+    my $last_base = $base;
     
     for (my $i = 1; $i < length($seq); $i++) {
 	if($counter == 60){
@@ -62,17 +77,29 @@ while(my $entry = $fasta->nextEntry) {
 	}
 	$counter++;
 	$rand = rand(1);
-	if   ($rand <= $dinucs{$last_base}[0]){$base = "A";}
-	elsif($rand <= $dinucs{$last_base}[1]){$base = "C";}
-	elsif($rand <= $dinucs{$last_base}[2]){$base = "G";}
-	else{$base = "T";}
 
+	# this bit varies depending on whether we are using mono- or di-nucleotide frequencies
+	if($mono){
+	    if   ($rand <= $dinucs{$last_base}[0]){$base = "A";}
+	    elsif($rand <= $dinucs{$last_base}[1]){$base = "C";}
+	    elsif($rand <= $dinucs{$last_base}[2]){$base = "G";}
+	    else{$base = "T";}
+	}
+	elsif($dinuc){
+	    if   ($rand <= 0.33339){$base = "A";}
+	    elsif($rand <= 0.49533){$base = "C";}
+	    elsif($rand <= 0.65554){$base = "G";}
+	    else{$base = "T";}
+	}	    
+	
 	print OUT "$base";
 	$last_base = $base;
     }
 #    print OUT "\n";
 }
 
+
+     
 close(IN) || die "Couldn't close $ARGV[0]\n";
 close(OUT) || die "Couldn't close output file\n";
 
