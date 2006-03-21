@@ -135,7 +135,7 @@ while(my $entry = $fasta->nextEntry) {
     # trim header
     $header =~ s/ .*//;
 
-    my $seq = $entry->seq;
+    my $seq = lc($entry->seq);
     my $length = length($seq);
 
     # loop through sequence in windows equal to motif size
@@ -160,7 +160,7 @@ while(my $entry = $fasta->nextEntry) {
 	      # want to show location of motif within original sequence
 	      my $highlight = uc($window);
 	      my $new_seq = $seq;
-	      $new_seq =~ s/$window/$highlight/g;
+	      $new_seq =~ s/$window/ $highlight /g;
 	      if($score > $threshold){
 		  my $start_coord = $i+1;
 		  print "$header $new_score $start_coord/$length $window\n" if ($scores);
