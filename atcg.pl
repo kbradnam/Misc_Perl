@@ -66,8 +66,8 @@ my $N_percent         = ($N/$total_length)*100;
 
 
 print "Nucleotide count:\n";
-print "A  = $A\tT  = $T\tC  = $C\tG  = $G\tN  = $N\tOther = $other\n";
-printf "A%% = %3.3f\tT%% = %3.3f\tC%% = %3.3f\tG%% = %3.3f\tN%% = %3.3f\n\n", $A_percent, $T_percent, $C_percent, $G_percent, $N_percent;
+print "A  = $A\tC  = $C\tG  = $G\tT  = $T\tN  = $N\tOther = $other\n";
+printf "A%% = %3.3f\tC%% = %3.3f\tG%% = %3.3f\tT%% = %3.3f\tN%% = %3.3f\n\n", $A_percent, $C_percent, $G_percent, $T_percent, $N_percent;
 
 
 print "Length (bp)\tChromosome GC %\t\tMasked length\tMasked GC %:\n";
@@ -106,18 +106,18 @@ foreach my $i(0..length($seq)){
   }
 }
 print "Dinucleotide count: (rows show 5' nucleotide, columns show 3' nucleotide\n";
-print "\tA\tT\tC\tG\t\n";
+print "\tA\tC\tG\tT\t\n";
 print "\t--------------------------\n";
-print "A\t$AA\t$AT\t$AC\t$AG\n";
+print "A\t$AA\t$AC\t$AG\t$AT\n";
 print "\n";
 
-print "T\t$TA\t$TT\t$TC\t$TG\n";
+print "C\t$CA\t$CC\t$CG\t$CT\n";
 print "\n";
 
-print "C\t$CA\t$CT\t$CC\t$CG\n";				
+print "G\t$GA\t$GC\t$GG\t$GT\n";				
 print "\n";
 
-print "G\t$GA\t$GT\t$GC\t$GG\n";				#
+print "T\t$TA\t$TC\t$TG\t$TT\n";				#
 print "\n";
 
 
