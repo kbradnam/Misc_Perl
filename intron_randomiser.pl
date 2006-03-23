@@ -61,11 +61,12 @@ while(my $entry = $fasta->nextEntry) {
     my $counter = 1;
     my $base;
     my $rand = rand(1);
-    if   ($rand <= 0.33339){$base = "A";}
-    elsif($rand <= 0.49533){$base = "C";}
-    elsif($rand <= 0.65554){$base = "G";}
+
+    if   ($rand <=  $mono{"A"})                       {$base = "A";}
+    elsif($rand <= ($mono{"A"}+$mono{"C"}))           {$base = "C";}
+    elsif($rand <= ($mono{"A"}+$mono{"C"}+$mono{"G"})){$base = "G";}
     else{$base = "T";}
-    
+
     print OUT "$base";
 
     my $last_base = $base;
@@ -80,16 +81,16 @@ while(my $entry = $fasta->nextEntry) {
 
 	# this bit varies depending on whether we are using mono- or di-nucleotide frequencies
 	if($mono){
-	    if   ($rand <= $dinucs{$last_base}[0]){$base = "A";}
-	    elsif($rand <= $dinucs{$last_base}[1]){$base = "C";}
-	    elsif($rand <= $dinucs{$last_base}[2]){$base = "G";}
+	    if   ($rand <=  $mono{"A"})                       {$base = "A";}
+	    elsif($rand <= ($mono{"A"}+$mono{"C"}))           {$base = "C";}
+	    elsif($rand <= ($mono{"A"}+$mono{"C"}+$mono{"G"})){$base = "G";}
 	    else{$base = "T";}
 	}
 	elsif($dinuc){
-	    if   ($rand <= 0.33339){$base = "A";}
-	    elsif($rand <= 0.49533){$base = "C";}
-	    elsif($rand <= 0.65554){$base = "G";}
-	    else{$base = "T";}
+	    if   ($rand <= $dinucs{$last_base}[0]){$base = "A";}
+	    elsif($rand <= $dinucs{$last_base}[1]){$base = "C";}
+	    elsif($rand <= $dinucs{$last_base}[2]){$base = "G";}
+	    else{$base = "T";}	    
 	}	    
 	
 	print OUT "$base";
