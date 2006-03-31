@@ -10,7 +10,7 @@
 use strict;
 
 #############
-# Paths etc #
+# Paths etc 
 #############
 
 my $tace        = "/Korflab/bin/tace";                       # tace executable path
@@ -19,17 +19,49 @@ my $gffdir      = "$dbdir/CHROMOSOMES";                      # GFF splits direct
 my @chromosomes = qw( I II III IV V X );                     # chromosomes to parse 
 
 
-# will get chromosome sequence as a string and then split into an array
-my $seq;
-my @dna;
-my $chr_length;
-my $intergenic;
+
+###################
+# Misc. variables
+###################
+
+my $seq;              # will hold chromosome sequence as a string...
+my @dna;              # ...which will then get split into an array...
+my @operons;          # ...and then copied for a separate array to process operon data
+my $chr_length;       # obvious really
+my $intergenic;       # will store sequence of an intergenic region
+my $intergenic_start; # start coord
+my $intergenic_end;   # stop coord
+my $intergenic_size;  # length
+my $previous;         # strandedness of gene (+ or -) 5' to intergenic region
+my $next;             # strandedness of gene (+ or -) 3' to intergenic region
+my $in_operon;        # true if intergenic region is in operon, otherwise false
+
+
+
+# will be writing various output files for intergenic sequences
+open (FF, ">intergenic_FF.dna")   || die "Failed to open intergenic_FF file\n\n";
+open (FR, ">intergenic_FR.dna")   || die "Failed to open intergenic_FR file\n\n";
+open (RF, ">intergenic_RF.dna")   || die "Failed to open intergenic_RF file\n\n";
+open (FFO, ">intergenic_FFO.dna") || die "Failed to open intergenic_FFO file\n\n";
+open (FRO, ">intergenic_FRO.dna") || die "Failed to open intergenic_FRO file\n\n";
+open (RFO, ">intergenic_RFO.dna") || die "Failed to open intergenic_RFO file\n\n";
+
+# second set of files for intergenic regions between 50-1000 bp
+open (FF2, ">intergenic_FF_subset.dna")   || die "Failed to open intergenic_FF2 file\n\n";
+open (FR2, ">intergenic_FR_subset.dna")   || die "Failed to open intergenic_FR2 file\n\n";
+open (RF2, ">intergenic_RF_subset.dna")   || die "Failed to open intergenic_RF2 file\n\n";
+open (FFO2, ">intergenic_FFO_subset.dna") || die "Failed to open intergenic_FFO2 file\n\n";
+open (FRO2, ">intergenic_FRO_subset.dna") || die "Failed to open intergenic_FRO2 file\n\n";
+open (RFO2, ">intergenic_RFO_subset.dna") || die "Failed to open intergenic_RFO2 file\n\n";
+
+
+####################################
+# Main loop through each chromosome
+####################################
 
 foreach my $chromosome (@chromosomes) {
-
-    print "Processing chromosome $chromosome\n";
     
-    # get chromosome sequence
+    # get chromosome sequence, load into $seq string
     open (DNA, "<$gffdir/CHROMOSOME_${chromosome}.dna") || die "Failed to open dna file\n\n";
     $seq = "";
     while(my $tmp =<DNA>){
@@ -41,63 +73,65 @@ foreach my $chromosome (@chromosomes) {
     close(DNA);
 
 
-    
-    
+   
     # to make things easier to calculate, will add a character to left end of $seq and @dna, such that position 1 of dna
     # sequence becomes array element 1 (rather than zero).  Add 'S' for 'Start'
     $seq = "S".$seq;
 
     # split to an array and calculate size
     @dna=();
+    @operons=();
     @dna = split(//,$seq);
     unshift(@dna,"S");
-    
     $chr_length = scalar(@dna)-1;
-    print "Chromosome $chromosome - $chr_length bp\n";
+
+    # now want a copy of @dna to treat the operons separately (bit of a waste of memory to do it this way)
+    @operons = @dna;
 
 
     
-
-    # now scan GFF file for details of genes
+    #################################################
+    # GFF step: extract details of genes and operons
+    #################################################
+    
     open (GFF_in, "<$gffdir/CHROMOSOME_${chromosome}.gff") || die "Failed to open gff file\n\n";
+
     while (<GFF_in>) {
 	chomp;
 	
 	# skip header info
 	next if m/^\#/;
 	
-	# ignore non gene lines
+	# ignore any line which isn't gene or operon
 	my @gff_line = split /\t/;
+	next unless (($gff_line[1] eq "gene") || ($gff_line[1] eq "operon"));
+	next unless (($gff_line[2] eq "gene") || ($gff_line[2] eq "operon"));
 
-	next unless ($gff_line[1] eq "gene" && $gff_line[2] eq "gene");
-
+	# extract details
 	my $start     = $gff_line[3];
 	my $stop      = $gff_line[4];
 	my $length    = $stop-$start+1;
 	my $direction = $gff_line[6];
 
-	# substitute the appropriate part of the chromosome sequence with pluses (+) for forward genes
-	# and minuses (-) for reverse genes.  Need to subtract 1 from $start as base 1 of a sequence
-	# will be position 0 in the @dna array
+	# substitute the appropriate part of @dna and @operons with pluses (+) for forward genes
+	# and minuses (-) for reverse genes.	
 	my @replace = ("$direction") x $length;	
-	splice(@dna,$start,$length, @replace);
+
+	splice(@dna,$start,$length, @replace)     if ($gff_line[1] eq "gene");
+	splice(@operons,$start,$length, @replace) if ($gff_line[1] eq "operon");
 	
     }
     close(GFF_in);
 
-    print "Here\n";
-
     
-    # now to loop through array to count sizes of intergenic regions    
-    # need to track endpoints to count size of each intergenic region
-    my $intergenic_start;
-    my $intergenic_end;
-    my $intergenic_size;
-
+    ########################################
+    # Main loop through chromosome sequence
+    ########################################
+    
+    
     # need a marker to be able to move past first non-coding (telomeric) sequence
     my $flag = 0;
 
-    
     SEQ: for (my $i = 1; $i<$chr_length;$i++){
 
 	# want to ignore the first stretch of non-coding sequence at the telomer
@@ -117,7 +151,7 @@ foreach my $chromosome (@chromosomes) {
 	    $intergenic_start = $i;
 
 	    # what direction was previous gene?
-	    my $previous = $dna[$i-1];
+	    $previous = $dna[$i-1];
 	    
             # now start counting until you leave intergenic region
 	    $intergenic_size = 0;
@@ -134,17 +168,79 @@ foreach my $chromosome (@chromosomes) {
 	    $intergenic_end = $i-1;
 	    
 	    # what is direction of next gene?
-	    my $next = $dna[$i];
-		
-	    print "$chromosome,$intergenic_start,$intergenic_end,$intergenic_size,${previous}${next}\n";
+	    $next = $dna[$i];
 
-	    # now get sequence, need t
+
+	    # are we in an operon?
+	    if(($operons[$i-1] eq "+") || ($operons[$i-1] eq "-")){
+		$in_operon = 1;
+		print "$chromosome,$intergenic_start,$intergenic_end,$intergenic_size,${previous}${next},1\n";
+		
+	    }
+	    else{
+		$in_operon = 0;
+		print "$chromosome,$intergenic_start,$intergenic_end,$intergenic_size,${previous}${next},0\n";
+	    }
+	    
+	    # now get sequence
 	    $intergenic = substr($seq,$intergenic_start,$intergenic_size);
-	    print "$intergenic\n\n";
+
+
+	    if(($previous eq $next) && ($in_operon == 0)){
+		print FF ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+	    }
+	    if(($previous eq "+") && ($next eq "-") && ($in_operon == 0)){
+		print FR ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+	    }
+	    if(($previous eq "-") && ($next eq "+") && ($in_operon == 0)){
+		print RF ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+	    }
+	    if(($previous eq $next) && ($in_operon == 1)){
+		print FFO ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+	    }
+	    if(($previous eq "+") && ($next eq "-") && ($in_operon == 1)){
+		print FRO ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+	    }
+	    if(($previous eq "-") && ($next eq "+") && ($in_operon == 1)){
+		print RFO ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+	    }
+
+	    if(($previous eq $next) && ($in_operon == 0) && ($intergenic_size >= 50) && ($intergenic_size <=1000)){
+		print FF2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+	    }
+	    if(($previous eq "+") && ($next eq "-") && ($in_operon == 0) && ($intergenic_size >= 50) && ($intergenic_size <=1000)){
+		print FR2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+	    }
+	    if(($previous eq "-") && ($next eq "+") && ($in_operon == 0) && ($intergenic_size >= 50) && ($intergenic_size <=1000)){
+		print RF2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+	    }
+	    if(($previous eq $next) && ($in_operon == 1) && ($intergenic_size >= 50) && ($intergenic_size <=1000)){
+		print FFO2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+	    }
+	    if(($previous eq "+") && ($next eq "-") && ($in_operon == 1) && ($intergenic_size >= 50) && ($intergenic_size <=1000)){
+		print FRO2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+	    }
+	    if(($previous eq "-") && ($next eq "+") && ($in_operon == 1) && ($intergenic_size >= 50) && ($intergenic_size <=1000)){
+		print RFO2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+	    }
 	    
 	}
     }    
 }
+
+close(FF);
+close(FR);
+close(RF);
+close(FFO);
+close(FRO);
+close(RFO);
+close(FF2);
+close(FR2);
+close(RF2);
+close(FFO2);
+close(FRO2);
+close(RFO2);
+
 
 
 exit(0);
