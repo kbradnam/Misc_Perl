@@ -61,20 +61,18 @@ foreach my $key (keys %album2ratings){
 # how many songs to show
 my $chart = 10;
 my $counter = 0;
+my $final_rating;
 
-foreach my $key (sort sort_by_rating (keys(%album2average))){
+foreach my $key (sort {$album2average{$b} <=> $album2average{$a}} (keys(%album2average))){
     $counter++;
-    print "$counter) $album2average{$key} - $key, $album2artist{$key} ($album2rating_count{$key} out of $album2song_count{$key} songs rated)\n";
+    # need to convert to a 1-5 star rating
+    $final_rating = sprintf("%.2f",$album2average{$key}/20);
 
-    last if ($counter ==$chart);
+    print "$counter) $final_rating - $key, $album2artist{$key} ($album2rating_count{$key} out of $album2song_count{$key} songs rated)\n";
+
+    last if ($counter == $chart);
 }
 
 
 
 exit(0);
-
-
-# sort subroutine to sort by hash values
-sub sort_by_rating{
-    $album2average{$b} <=> $album2average{$a};
-}
