@@ -1,7 +1,7 @@
 9,1,Sally Anne
 18,1,Lori Hurlbut
 20,1,Andy Thompson
-22,1,Barry Jardini,Danica Jardini
+22,1,Barry Jardini:Danica Jardini
 24,1,Alan Rowe
 3,2,Jamie Kincaid
 14,2,Steve Cross
@@ -11,6 +11,7 @@
 2,3,Jason Harcup
 9,3,Becca Todd
 10,3,Jayne
+12,3,Artem Zykovich
 18,3,Kerstin
 27,3,Luke,Maisie
 29,3,Sara
@@ -21,17 +22,15 @@
 25,4,Catherine MacDonald
 1,5,Laurence
 2,5,Hilary
-6,5,Pete Dodge
 10,5,Dan Lawson
 13,5,Helen Nickerson
 21,5,Colin
 23,5,Jenni Dandrea:Morag
-27,5,Tara
 12,6,Keith
 22,6,Abby:Bekky
 1,7,Stuart Ingleston
 8,7,Saj
-15,7,James Blackburn
+24,7,Kim Blahnik
 10,8,Vanessa
 18,8,Mel
 23,8,Roy
