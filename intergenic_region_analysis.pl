@@ -8,6 +8,31 @@
 #############################################################################################
 
 use strict;
+use Getopt::Long;
+
+########################
+# Command line options
+########################
+
+my $seqs;  # write intergenic output to files
+my $stats; # write details of intergenic regions to screen
+my $min;   # restrict a subset of regions to those with a minimum size
+my $max;   # restrict a subset of regions to those with a maximum size
+
+GetOptions ("seqs"     => \$seqs,
+            "stats"    => \$stats,
+	    "min=i"    => \$min,
+	    "max=i"    => \$max);
+
+
+die "Specify -seqs and/or -stats\n" if (!$seqs && !$stats);
+die "Specify min + max\n" if (($min && !$max) || (!$min && $max));    
+die "Max needs to be bigger than min\n" if ($max < $min);
+    
+# Set $subset flag to be true if using min and max
+my $subset = 0;
+$subset = 1 if ($min && $max);
+
 
 #############
 # Paths etc 
@@ -37,23 +62,23 @@ my $next;             # strandedness of gene (+ or -) 3' to intergenic region
 my $in_operon;        # true if intergenic region is in operon, otherwise false
 
 
-
-# will be writing various output files for intergenic sequences
-open (FF, ">intergenic_FF.dna")   || die "Failed to open intergenic_FF file\n\n";
-open (FR, ">intergenic_FR.dna")   || die "Failed to open intergenic_FR file\n\n";
-open (RF, ">intergenic_RF.dna")   || die "Failed to open intergenic_RF file\n\n";
-open (FFO, ">intergenic_FFO.dna") || die "Failed to open intergenic_FFO file\n\n";
-open (FRO, ">intergenic_FRO.dna") || die "Failed to open intergenic_FRO file\n\n";
-open (RFO, ">intergenic_RFO.dna") || die "Failed to open intergenic_RFO file\n\n";
-
-# second set of files for intergenic regions between 50-1000 bp
-open (FF2, ">intergenic_FF_subset.dna")   || die "Failed to open intergenic_FF2 file\n\n";
-open (FR2, ">intergenic_FR_subset.dna")   || die "Failed to open intergenic_FR2 file\n\n";
-open (RF2, ">intergenic_RF_subset.dna")   || die "Failed to open intergenic_RF2 file\n\n";
-open (FFO2, ">intergenic_FFO_subset.dna") || die "Failed to open intergenic_FFO2 file\n\n";
-open (FRO2, ">intergenic_FRO_subset.dna") || die "Failed to open intergenic_FRO2 file\n\n";
-open (RFO2, ">intergenic_RFO_subset.dna") || die "Failed to open intergenic_RFO2 file\n\n";
-
+if($seqs){
+    # will be writing various output files for intergenic sequences
+    open (FF, ">intergenic_FF.dna")   || die "Failed to open intergenic_FF file\n\n";
+    open (FR, ">intergenic_FR.dna")   || die "Failed to open intergenic_FR file\n\n";
+    open (RF, ">intergenic_RF.dna")   || die "Failed to open intergenic_RF file\n\n";
+    open (FFO, ">intergenic_FFO.dna") || die "Failed to open intergenic_FFO file\n\n";
+    open (FRO, ">intergenic_FRO.dna") || die "Failed to open intergenic_FRO file\n\n";
+    open (RFO, ">intergenic_RFO.dna") || die "Failed to open intergenic_RFO file\n\n";
+    
+    # second set of files for intergenic regions between 50-1000 bp
+    open (FF2, ">intergenic_FF_subset.dna")   || die "Failed to open intergenic_FF2 file\n\n";
+    open (FR2, ">intergenic_FR_subset.dna")   || die "Failed to open intergenic_FR2 file\n\n";
+    open (RF2, ">intergenic_RF_subset.dna")   || die "Failed to open intergenic_RF2 file\n\n";
+    open (FFO2, ">intergenic_FFO_subset.dna") || die "Failed to open intergenic_FFO2 file\n\n";
+    open (FRO2, ">intergenic_FRO_subset.dna") || die "Failed to open intergenic_FRO2 file\n\n";
+    open (RFO2, ">intergenic_RFO_subset.dna") || die "Failed to open intergenic_RFO2 file\n\n";
+}
 
 ####################################
 # Main loop through each chromosome
@@ -174,72 +199,79 @@ foreach my $chromosome (@chromosomes) {
 	    # are we in an operon?
 	    if(($operons[$i-1] eq "+") || ($operons[$i-1] eq "-")){
 		$in_operon = 1;
-		print "$chromosome,$intergenic_start,$intergenic_end,$intergenic_size,${previous}${next},1\n";
+		print "$chromosome,$intergenic_start,$intergenic_end,$intergenic_size,${previous}${next},1\n" if ($stats);
 		
 	    }
 	    else{
 		$in_operon = 0;
-		print "$chromosome,$intergenic_start,$intergenic_end,$intergenic_size,${previous}${next},0\n";
+		print "$chromosome,$intergenic_start,$intergenic_end,$intergenic_size,${previous}${next},0\n" if ($stats);
 	    }
 	    
 	    # now get sequence
 	    $intergenic = substr($seq,$intergenic_start,$intergenic_size);
 
+	    # write sequences to file?
+	    if($seqs){
 
-	    if(($previous eq $next) && ($in_operon == 0)){
-		print FF ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-	    }
-	    if(($previous eq "+") && ($next eq "-") && ($in_operon == 0)){
-		print FR ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-	    }
-	    if(($previous eq "-") && ($next eq "+") && ($in_operon == 0)){
-		print RF ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-	    }
-	    if(($previous eq $next) && ($in_operon == 1)){
-		print FFO ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-	    }
-	    if(($previous eq "+") && ($next eq "-") && ($in_operon == 1)){
-		print FRO ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-	    }
-	    if(($previous eq "-") && ($next eq "+") && ($in_operon == 1)){
-		print RFO ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-	    }
+		if(($previous eq $next) && ($in_operon == 0)){
+		    print FF ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		}
+		if(($previous eq "+") && ($next eq "-") && ($in_operon == 0)){
+		    print FR ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		}
+		if(($previous eq "-") && ($next eq "+") && ($in_operon == 0)){
+		    print RF ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		}
+		if(($previous eq $next) && ($in_operon == 1)){
+		    print FFO ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		}
+		if(($previous eq "+") && ($next eq "-") && ($in_operon == 1)){
+		    print FRO ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		}
+		if(($previous eq "-") && ($next eq "+") && ($in_operon == 1)){
+		    print RFO ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		}
 
-	    if(($previous eq $next) && ($in_operon == 0) && ($intergenic_size >= 50) && ($intergenic_size <=1000)){
-		print FF2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		# also print subset of sequences in certain size range?
+		if($subset){
+		    if(($previous eq $next) && ($in_operon == 0) && ($intergenic_size >= $min) && ($intergenic_size <= $max)){
+			print FF2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		    }
+		    if(($previous eq "+") && ($next eq "-") && ($in_operon == 0) && ($intergenic_size >= $min) && ($intergenic_size <= $max)){
+			print FR2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		    }
+		    if(($previous eq "-") && ($next eq "+") && ($in_operon == 0) && ($intergenic_size >= $min) && ($intergenic_size <= $max)){
+			print RF2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		    }
+		    if(($previous eq $next) && ($in_operon == 1) && ($intergenic_size >= $min) && ($intergenic_size <= $max)){
+			print FFO2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		    }
+		    if(($previous eq "+") && ($next eq "-") && ($in_operon == 1) && ($intergenic_size >= $min) && ($intergenic_size <= $max)){
+			print FRO2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		    }
+		    if(($previous eq "-") && ($next eq "+") && ($in_operon == 1) && ($intergenic_size >= $min) && ($intergenic_size <= $max)){
+			print RFO2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		    }
+		}
 	    }
-	    if(($previous eq "+") && ($next eq "-") && ($in_operon == 0) && ($intergenic_size >= 50) && ($intergenic_size <=1000)){
-		print FR2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-	    }
-	    if(($previous eq "-") && ($next eq "+") && ($in_operon == 0) && ($intergenic_size >= 50) && ($intergenic_size <=1000)){
-		print RF2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-	    }
-	    if(($previous eq $next) && ($in_operon == 1) && ($intergenic_size >= 50) && ($intergenic_size <=1000)){
-		print FFO2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-	    }
-	    if(($previous eq "+") && ($next eq "-") && ($in_operon == 1) && ($intergenic_size >= 50) && ($intergenic_size <=1000)){
-		print FRO2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-	    }
-	    if(($previous eq "-") && ($next eq "+") && ($in_operon == 1) && ($intergenic_size >= 50) && ($intergenic_size <=1000)){
-		print RFO2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-	    }
-	    
 	}
     }    
 }
 
-close(FF);
-close(FR);
-close(RF);
-close(FFO);
-close(FRO);
-close(RFO);
-close(FF2);
-close(FR2);
-close(RF2);
-close(FFO2);
-close(FRO2);
-close(RFO2);
+if($seqs){
+    close(FF);
+    close(FR);
+    close(RF);
+    close(FFO);
+    close(FRO);
+    close(RFO);
+    close(FF2);
+    close(FR2);
+    close(RF2);
+    close(FFO2);
+    close(FRO2);
+    close(RFO2);
+}
 
 
 
