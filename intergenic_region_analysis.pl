@@ -26,9 +26,10 @@ GetOptions ("seqs"     => \$seqs,
 
 
 die "Specify -seqs and/or -stats\n" if (!$seqs && !$stats);
-die "Specify min + max\n" if (($min && !$max) || (!$min && $max));    
-die "Max needs to be bigger than min\n" if ($max < $min);
-    
+if($seqs){
+    die "Specify min + max\n" if (($min && !$max) || (!$min && $max));    
+    die "Max needs to be bigger than min\n" if ($max < $min);
+}
 # Set $subset flag to be true if using min and max
 my $subset = 0;
 $subset = 1 if ($min && $max);
