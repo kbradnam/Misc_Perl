@@ -13,8 +13,14 @@ my $place = $1;
 
 my $date = `date`;
 
+# which machine is this being run on?
+my $machine = `uname -n`;
+$machine =~ s/\.local$//;
+
+#print "$machine\n";
 #print "$place\n";
 #print "IP is $ip\n\n";
+
 
 my $smtp = Net::SMTP->new("localhost");
 
@@ -26,7 +32,7 @@ my $to = "kbradnam\@mac.com";
 $smtp->mail($from);
 $smtp->to($to);
 $smtp->data();
-$smtp->datasend("Subject: MyIP: Mosquito - $ip - $place\n");
+$smtp->datasend("Subject: MyIP: $machine - $ip - $place\n");
 $smtp->datasend("Sent on $date\n");
 $smtp->dataend();
 $smtp->quit();
