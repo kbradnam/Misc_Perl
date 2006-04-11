@@ -12,82 +12,107 @@ use strict;
 use lib "/Korflab/lib/perl";
 use FAlite;
 
+# Need one array to store original sequences, and two subsequent arrays to hold random subsets
+my (@all_seqs,@first,@second);
 
-my ($file1) = @ARGV;
+die "Specify number of iterations as second argument\n" if (!$ARGV[1]);
 
-open(OUT, ">pentamer_comparison.txt") or die;
+# how many iterations of random shuffling to perform?
+my $n = $ARGV[1];
 
-my $merFH = {};
-my $freqFH = {};
-my $merNL = {};
-my $freqNL = {};
-
-# Assume we are looking at pentamer frequencies, but could do anything
-my $window = 5;
-my $ratio;
+# what is lowest and highest ratios found in each comparison, default for min is high and max is low
+my $min = 1;
+my $max = 0;
 
 
-open(IN, $file1) or die "";
+
+# read file, read sequences and add to array
+
+open(IN,"<$ARGV[0]") || die "Couldn't open input file\n";
+
 my $FA = new FAlite (\*IN);
 my $counter = 0;
 while (my $entry = $FA->nextEntry) {
-    my $seq = $entry->seq;
-    &mer($merFH, $seq, $window);
-}	
-close IN;
-print "Counter is $counter\n";
-
-$counter = 0;
-
+  my $seq = $entry->seq;
+  $counter++;
+  push(@all_seqs,$seq);
+}
+close(IN);
+print "\n$counter sequences\n";
 
 
-open(IN, $file2) or die "";
-my $FA2 = new FAlite (\*IN);
-while (my $entry = $FA2->nextEntry) {
-    my $seq = $entry->seq;
-    &mer($merNL, $seq, $window);
-}	
-close IN;
+# main loop
+# Make two equal sized subsets of @all_seqs which are chosen randomly, compare pentamer frequencies
+# and repeat $n times
 
-print "Counter is $counter\n";
+my $number;
 
-&freq($merFH);
-&freq($merNL);
+# hash to store pentamer counts, key is pentamer value is an array, first element is counts of
+# first subset of sequences, second element is count of second subset of sequences
+my %pentamer_counts;
 
-#------------- print -----------------------
-print OUT "Pentamer Ratio File1 File2\n";
+for(my $i=1; $i<=$n; $i++){
+    print "Iteration $i\n";
 
-foreach my $mFH (keys %$merFH) {
-    $ratio = ($merFH->{$mFH})/($merNL->{$mFH});
-    print (OUT "$mFH $ratio $merFH->{$mFH} $merNL->{$mFH}\n");
-#q    print (OUT "$mFH $merFH->{$mFH} $merNL->{$mFH}\n");
+    # clear hash
+    %pentamer_counts = ();
+    
+    # copy @all_seqs to @first array and clear @second arrays
+    my @first = @all_seqs;
+    @second = ();
+
+    # now randomly move half of @first sequences into @second
+    for(my $j = 1; $j <= ($counter/2);$j++){
+        $number = int(rand(scalar(@first)));
+
+	# add to second array
+        push(@second,$first[$number]);    
+
+	# and remove from first array
+        splice(@first,$number,1,@first[$number..-1]);
+    }    
+
+    # how many pentamers are there in all sequences?
+    my $count1;
+    my $count2;
+    
+    # now need to compare pentamer frequencies in @first and @second
+    foreach my $seq (@first){
+	for (my $i = 1; $i < length($seq) - 5 + 1; $i++) {
+	    $count1++;
+	    my $pentamer = substr($seq, $i, 5);
+	    $pentamer_counts{$pentamer}[0]++;
+	}	
+    }
+    foreach my $seq (@second){
+	for (my $i = 1; $i < length($seq) - 5 + 1; $i++) {
+	    $count2++;
+	    my $pentamer = substr($seq, $i, 5);
+	    $pentamer_counts{$pentamer}[1]++;
+	}	
+    }
+
+    # now need to compare ratios of pentamer frequencies
+    foreach my $key (sort keys %pentamer_counts){
+	my $freq1 = $pentamer_counts{$key}[0]/$count1;
+	my $freq2 = $pentamer_counts{$key}[1]/$count2;
+	my $ratio = $freq1/$freq2;
+#	print "$key $pentamer_counts{$key}[0] $pentamer_counts{$key}[1] $freq1 $freq2 $ratio\n";
+	if ($ratio < $min){
+	    $min = $ratio;
+	    print "MIN: $ratio\n";
+	}
+	if ($ratio > $max){
+	    $max = $ratio;
+	    print "MAX: $ratio\n";
+	}
+    }
 }
 
-close OUT;
+print "MIN = $min, MAX = $max\n";
 
+exit(0);
 
-# -------------SUBROUTINE -------------------------------------- 
-
-sub mer {
-    my ($merclass, $seq, $window) = @_;
-    for (my $i = 1; $i < length($seq) - $window + 1; $i++) {
-	my $mer = substr($seq, $i, $window);
-	$merclass->{$mer}++;
-	$counter++;
-    }	
-}	 	
-
-sub freq {
-    my $total = 0;
-    my ($merClass) = @_;
-    foreach my $mer (sort keys %$merClass) {
-	$total += $merClass->{$mer};
-    }
-    foreach my $mer (sort keys %$merClass) {
-	$merClass->{$mer} /= $total;
-    }
-    print "Total is $total\n";
-}
 
 
 
