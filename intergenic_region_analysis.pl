@@ -18,18 +18,22 @@ my $seqs;  # write intergenic output to files
 my $stats; # write details of intergenic regions to screen
 my $min;   # restrict a subset of regions to those with a minimum size
 my $max;   # restrict a subset of regions to those with a maximum size
+my $mask;  # use repeat mask chromosomes and ignore any intergenic regions which contain N's
 
 GetOptions ("seqs"     => \$seqs,
             "stats"    => \$stats,
 	    "min=i"    => \$min,
-	    "max=i"    => \$max);
+	    "max=i"    => \$max,
+	    "mask"     => \$mask);
 
 
 die "Specify -seqs and/or -stats\n" if (!$seqs && !$stats);
+
 if($seqs){
     die "Specify min + max\n" if (($min && !$max) || (!$min && $max));    
     die "Max needs to be bigger than min\n" if ($max < $min);
 }
+
 # Set $subset flag to be true if using min and max
 my $subset = 0;
 $subset = 1 if ($min && $max);
@@ -63,22 +67,45 @@ my $next;             # strandedness of gene (+ or -) 3' to intergenic region
 my $in_operon;        # true if intergenic region is in operon, otherwise false
 
 
+# open sequence output files
+# use different names if working with masked chromosomes
+
 if($seqs){
-    # will be writing various output files for intergenic sequences
-    open (FF, ">intergenic_FF.dna")   || die "Failed to open intergenic_FF file\n\n";
-    open (FR, ">intergenic_FR.dna")   || die "Failed to open intergenic_FR file\n\n";
-    open (RF, ">intergenic_RF.dna")   || die "Failed to open intergenic_RF file\n\n";
-    open (FFO, ">intergenic_FFO.dna") || die "Failed to open intergenic_FFO file\n\n";
-    open (FRO, ">intergenic_FRO.dna") || die "Failed to open intergenic_FRO file\n\n";
-    open (RFO, ">intergenic_RFO.dna") || die "Failed to open intergenic_RFO file\n\n";
+    if($mask){
+	# will be writing various output files for intergenic sequences
+	open (FF, ">intergenic_FF.masked.dna")   || die "Failed to open intergenic_FF file\n\n";
+	open (FR, ">intergenic_FR.masked.dna")   || die "Failed to open intergenic_FR file\n\n";
+	open (RF, ">intergenic_RF.masked.dna")   || die "Failed to open intergenic_RF file\n\n";
+	open (FFO, ">intergenic_FFO.masked.dna") || die "Failed to open intergenic_FFO file\n\n";
+	open (FRO, ">intergenic_FRO.masked.dna") || die "Failed to open intergenic_FRO file\n\n";
+	open (RFO, ">intergenic_RFO.masked.dna") || die "Failed to open intergenic_RFO file\n\n";
+	
+	# second set of files for intergenic regions between 50-1000 bp
+	open (FF2, ">intergenic_FF_subset.masked.dna")   || die "Failed to open intergenic_FF2 file\n\n";
+	open (FR2, ">intergenic_FR_subset.masked.dna")   || die "Failed to open intergenic_FR2 file\n\n";
+	open (RF2, ">intergenic_RF_subset.masked.dna")   || die "Failed to open intergenic_RF2 file\n\n";
+	open (FFO2, ">intergenic_FFO_subset.masked.dna") || die "Failed to open intergenic_FFO2 file\n\n";
+	open (FRO2, ">intergenic_FRO_subset.masked.dna") || die "Failed to open intergenic_FRO2 file\n\n";
+	open (RFO2, ">intergenic_RFO_subset.masked.dna") || die "Failed to open intergenic_RFO2 file\n\n"; 
+    }
+    else{
+	# will be writing various output files for intergenic sequences
+	open (FF, ">intergenic_FF.dna")   || die "Failed to open intergenic_FF file\n\n";
+	open (FR, ">intergenic_FR.dna")   || die "Failed to open intergenic_FR file\n\n";
+	open (RF, ">intergenic_RF.dna")   || die "Failed to open intergenic_RF file\n\n";
+	open (FFO, ">intergenic_FFO.dna") || die "Failed to open intergenic_FFO file\n\n";
+	open (FRO, ">intergenic_FRO.dna") || die "Failed to open intergenic_FRO file\n\n";
+	open (RFO, ">intergenic_RFO.dna") || die "Failed to open intergenic_RFO file\n\n";
+	
+	# second set of files for intergenic regions between 50-1000 bp
+	open (FF2, ">intergenic_FF_subset.dna")   || die "Failed to open intergenic_FF2 file\n\n";
+	open (FR2, ">intergenic_FR_subset.dna")   || die "Failed to open intergenic_FR2 file\n\n";
+	open (RF2, ">intergenic_RF_subset.dna")   || die "Failed to open intergenic_RF2 file\n\n";
+	open (FFO2, ">intergenic_FFO_subset.dna") || die "Failed to open intergenic_FFO2 file\n\n";
+	open (FRO2, ">intergenic_FRO_subset.dna") || die "Failed to open intergenic_FRO2 file\n\n";
+	open (RFO2, ">intergenic_RFO_subset.dna") || die "Failed to open intergenic_RFO2 file\n\n";	
+    }
     
-    # second set of files for intergenic regions between 50-1000 bp
-    open (FF2, ">intergenic_FF_subset.dna")   || die "Failed to open intergenic_FF2 file\n\n";
-    open (FR2, ">intergenic_FR_subset.dna")   || die "Failed to open intergenic_FR2 file\n\n";
-    open (RF2, ">intergenic_RF_subset.dna")   || die "Failed to open intergenic_RF2 file\n\n";
-    open (FFO2, ">intergenic_FFO_subset.dna") || die "Failed to open intergenic_FFO2 file\n\n";
-    open (FRO2, ">intergenic_FRO_subset.dna") || die "Failed to open intergenic_FRO2 file\n\n";
-    open (RFO2, ">intergenic_RFO_subset.dna") || die "Failed to open intergenic_RFO2 file\n\n";
 }
 
 ####################################
@@ -86,9 +113,16 @@ if($seqs){
 ####################################
 
 foreach my $chromosome (@chromosomes) {
+
+#    print "$chromosome\n";
     
     # get chromosome sequence, load into $seq string
-    open (DNA, "<$gffdir/CHROMOSOME_${chromosome}.dna") || die "Failed to open dna file\n\n";
+    if($mask){	
+	open (DNA, "<$gffdir/CHROMOSOME_${chromosome}_masked.dna") || die "Failed to open masked dna file\n\n";
+    }
+    else{
+	open (DNA, "<$gffdir/CHROMOSOME_${chromosome}.dna") || die "Failed to open dna file\n\n";
+    }
     $seq = "";
     while(my $tmp =<DNA>){
         chomp($tmp);
@@ -211,6 +245,12 @@ foreach my $chromosome (@chromosomes) {
 	    # now get sequence
 	    $intergenic = substr($seq,$intergenic_start,$intergenic_size);
 
+	    # check whether sequence contains repeats (N's) if using repeat masked chromosomes
+	    if($mask){
+		next SEQ if ($intergenic =~ m/n/);
+	    }
+	    
+	    
 	    # write sequences to file?
 	    if($seqs){
 
