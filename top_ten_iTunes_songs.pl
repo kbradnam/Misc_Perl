@@ -20,6 +20,15 @@ my %album2song_count;
 
 my ($artist,$album,$rating);
 
+# how many songs to show
+my $chart;
+if(!$ARGV[0]){
+    $chart = 10;
+}
+else{
+    $chart = $ARGV[0];
+}
+
 while(<IN>){
     last if (m/<key>Playlists<\/key>/);    
 
@@ -58,8 +67,6 @@ foreach my $key (keys %album2ratings){
 
 # now sort albums by average rating
 
-# how many songs to show
-my $chart = 10;
 my $counter = 0;
 my $final_rating;
 
