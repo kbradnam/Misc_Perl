@@ -47,6 +47,7 @@ my $tace        = "/Korflab/bin/tace";                       # tace executable p
 my $dbdir       = "/Korflab/Data_sources/WormBase/WS150";    # Database path
 my $gffdir      = "$dbdir/CHROMOSOMES";                      # GFF splits directory
 my @chromosomes = qw( I II III IV V X );                     # chromosomes to parse 
+#my @chromosomes = qw(I );                     # chromosomes to parse 
 
 
 
@@ -66,6 +67,8 @@ my $previous;         # strandedness of gene (+ or -) 5' to intergenic region
 my $next;             # strandedness of gene (+ or -) 3' to intergenic region
 my $in_operon;        # true if intergenic region is in operon, otherwise false
 
+# keep track of intergenic regions that have repeats (if working with masked chromosome files)
+my $r_counter =0;
 
 # open sequence output files
 # use different names if working with masked chromosomes
@@ -78,15 +81,7 @@ if($seqs){
 	open (RF, ">intergenic_RF.masked.dna")   || die "Failed to open intergenic_RF file\n\n";
 	open (FFO, ">intergenic_FFO.masked.dna") || die "Failed to open intergenic_FFO file\n\n";
 	open (FRO, ">intergenic_FRO.masked.dna") || die "Failed to open intergenic_FRO file\n\n";
-	open (RFO, ">intergenic_RFO.masked.dna") || die "Failed to open intergenic_RFO file\n\n";
-	
-	# second set of files for intergenic regions between 50-1000 bp
-	open (FF2, ">intergenic_FF_subset.masked.dna")   || die "Failed to open intergenic_FF2 file\n\n";
-	open (FR2, ">intergenic_FR_subset.masked.dna")   || die "Failed to open intergenic_FR2 file\n\n";
-	open (RF2, ">intergenic_RF_subset.masked.dna")   || die "Failed to open intergenic_RF2 file\n\n";
-	open (FFO2, ">intergenic_FFO_subset.masked.dna") || die "Failed to open intergenic_FFO2 file\n\n";
-	open (FRO2, ">intergenic_FRO_subset.masked.dna") || die "Failed to open intergenic_FRO2 file\n\n";
-	open (RFO2, ">intergenic_RFO_subset.masked.dna") || die "Failed to open intergenic_RFO2 file\n\n"; 
+	open (RFO, ">intergenic_RFO.masked.dna") || die "Failed to open intergenic_RFO file\n\n";	
     }
     else{
 	# will be writing various output files for intergenic sequences
@@ -97,7 +92,7 @@ if($seqs){
 	open (FRO, ">intergenic_FRO.dna") || die "Failed to open intergenic_FRO file\n\n";
 	open (RFO, ">intergenic_RFO.dna") || die "Failed to open intergenic_RFO file\n\n";
 	
-	# second set of files for intergenic regions between 50-1000 bp
+	# second set of files for intergenic regions between 50-1000 bp (or $min and $max)
 	open (FF2, ">intergenic_FF_subset.dna")   || die "Failed to open intergenic_FF2 file\n\n";
 	open (FR2, ">intergenic_FR_subset.dna")   || die "Failed to open intergenic_FR2 file\n\n";
 	open (RF2, ">intergenic_RF_subset.dna")   || die "Failed to open intergenic_RF2 file\n\n";
@@ -244,10 +239,11 @@ foreach my $chromosome (@chromosomes) {
 	    
 	    # now get sequence
 	    $intergenic = substr($seq,$intergenic_start,$intergenic_size);
-
+	    
 	    # check whether sequence contains repeats (N's) if using repeat masked chromosomes
 	    if($mask){
 		next SEQ if ($intergenic =~ m/n/);
+		$r_counter++;
 	    }
 	    
 	    
@@ -273,8 +269,8 @@ foreach my $chromosome (@chromosomes) {
 		    print RFO ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
 		}
 
-		# also print subset of sequences in certain size range?
-		if($subset){
+		# also print subset of sequences in certain size range? (no need if using masked chromosomes)
+		if($subset && !$mask){
 		    if(($previous eq $next) && ($in_operon == 0) && ($intergenic_size >= $min) && ($intergenic_size <= $max)){
 			print FF2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
 		    }
