@@ -1,21 +1,28 @@
-#!/usr/local/bin/perl5.8.0 -w
+#!/usr/bin/perl -w
+#
+# duret.pl
+#
+# a script to test my PhD idea about optimal codon usage in protein domains
+#
+# Last updated by: $Author$
+# Last updated on: $Date$
+#
+#############################################################################################
 
+use lib "/Korflab/lib/perl";
 use Ace;
 use strict;
 
 # open a local database connection
-my $db = Ace->connect(-path  =>  '/nfs/disk100/wormpub/DATABASES/current_DB') ;
+my $db = Ace->connect(-path  =>  '/Korflab/Data_sources/WormBase/WS150') ;
 
-my @genes = $db->fetch(-class => "Predicted_gene");
+my @genes = $db->fetch(-class => "elegans_CDS");
 
 my $counter=0;
 
 foreach my $gene (@genes){
   
-  my $status;
-  if   ($gene->at("Properties.Coding.Confirmed_by")){$status = "Confirmed";}	
-  elsif($gene->at("Visible.Matching_cDNA"))         {$status =  "Partially_confirmed";}
-  else                                              {$status = "Predicted";}			
+  my $status = $gene->Prediction_status;
   
   my $lab = $gene->From_laboratory;
 
@@ -29,8 +36,6 @@ foreach my $gene (@genes){
   $protein = $db->fetch(Protein => "$protein") || die "Cannot fetch protein\n";
   my $length = $protein->at("Peptide")->right(2);
 
-#	print "Live " if ($protein->at("Origin.Wormpep.Live"));
-  
   @columns = $protein->at('Homol.Motif_homol');
 
   # want to look for overlapping pfam domains by comparing min and max coordinates
