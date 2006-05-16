@@ -273,6 +273,10 @@ foreach my $chromosome (@chromosomes) {
 	    # write sequences to file?
 	    if($seqs){
 
+		# might need reverse complement for all 'RR' permutations
+		my $reverse_comp = reverse $intergenic;
+		$reverse_comp =~ tr/ACGTacgt/TGCAtgca/;
+		
 		if(($previous eq "+") && ($next eq "+") && ($in_operon == 0)){
 		    print FF   ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
 		    print FFRR ">${chromosome}_${intergenic_start}_${intergenic_end}_${previous}${next}\n$intergenic\n";
@@ -284,8 +288,8 @@ foreach my $chromosome (@chromosomes) {
 		    print RF ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
 		}
 		if(($previous eq "-") && ($next eq "-") && ($in_operon == 0)){
-		    print RR ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-		    print FFRR ">${chromosome}_${intergenic_start}_${intergenic_end}_${previous}${next}\n$intergenic\n";
+		    print RR ">${chromosome}_${intergenic_start}_${intergenic_end}\n$reverse_comp\n";		    
+		    print FFRR ">${chromosome}_${intergenic_start}_${intergenic_end}_${previous}${next}\n$reverse_comp\n";
 		}
 
 		if(($previous eq "+") && ($next eq "+") && ($in_operon == 1)){
@@ -299,8 +303,8 @@ foreach my $chromosome (@chromosomes) {
 		    print RFO ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
 		}
 		if(($previous eq "-") && ($next eq "-") && ($in_operon == 1)){
-		    print RRO   ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-		    print FFRRO ">${chromosome}_${intergenic_start}_${intergenic_end}_${previous}${next}\n$intergenic\n";
+		    print RRO   ">${chromosome}_${intergenic_start}_${intergenic_end}\n$reverse_comp\n";
+		    print FFRRO ">${chromosome}_${intergenic_start}_${intergenic_end}_${previous}${next}\n$reverse_comp\n";
 		}
 
 		
@@ -317,8 +321,8 @@ foreach my $chromosome (@chromosomes) {
 			print RF2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
 		    }
 		    if(($previous eq "-") && ($next eq "-") && ($in_operon == 0) && ($intergenic_size >= $min) && ($intergenic_size <= $max)){
-			print RR2   ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-			print FFRR2 ">${chromosome}_${intergenic_start}_${intergenic_end}_${previous}${next}\n$intergenic\n";
+			print RR2   ">${chromosome}_${intergenic_start}_${intergenic_end}\n$reverse_comp\n";
+			print FFRR2 ">${chromosome}_${intergenic_start}_${intergenic_end}_${previous}${next}\n$reverse_comp\n";
 		    }
 
 		    if(($previous eq "+") && ($next eq "+") && ($in_operon == 1) && ($intergenic_size >= $min) && ($intergenic_size <= $max)){
@@ -332,8 +336,8 @@ foreach my $chromosome (@chromosomes) {
 			print RFO2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
 		    }		    		    
 		    if(($previous eq "-") && ($next eq "-") && ($in_operon == 1) && ($intergenic_size >= $min) && ($intergenic_size <= $max)){
-			print RRO2   ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
-			print FFRRO2 ">${chromosome}_${intergenic_start}_${intergenic_end}_${previous}${next}\n$intergenic\n";
+			print RRO2   ">${chromosome}_${intergenic_start}_${intergenic_end}\n$reverse_comp\n";
+			print FFRRO2 ">${chromosome}_${intergenic_start}_${intergenic_end}_${previous}${next}\n$reverse_comp\n";
 		    }
 		}
 	    }
