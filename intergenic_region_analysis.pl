@@ -19,15 +19,21 @@ my $stats; # write details of intergenic regions to screen
 my $min;   # restrict a subset of regions to those with a minimum size
 my $max;   # restrict a subset of regions to those with a maximum size
 my $mask;  # use repeat mask chromosomes and ignore any intergenic regions which contain N's
+my $gene;  # extract intergenic sequences based on gene annotations
+my $cds;   # extract intergenic sequences based on CDS annotations (i.e. longer intergenic regions)
 
-GetOptions ("seqs"     => \$seqs,
-            "stats"    => \$stats,
-	    "min=i"    => \$min,
-	    "max=i"    => \$max,
-	    "mask"     => \$mask);
+GetOptions ("seqs"   => \$seqs,
+            "stats"  => \$stats,
+	    "min=i"  => \$min,
+	    "max=i"  => \$max,
+	    "mask"   => \$mask,
+	    "gene"   => \$gene,
+	    "cds"    => \$cds);
 
 
 die "Specify -seqs and/or -stats\n" if (!$seqs && !$stats);
+die "Specify -gene or -cds\n" if (!$gene && !$cds);
+die "Specify -gene OR -cds\n" if ($gene && $cds);
 
 if($seqs){
     die "Specify min + max\n" if (($min && !$max) || (!$min && $max));    
@@ -159,9 +165,18 @@ foreach my $chromosome (@chromosomes) {
 	
 	# ignore any line which isn't gene or operon
 	my @gff_line = split /\t/;
-	next unless (($gff_line[1] eq "gene") || ($gff_line[1] eq "operon"));
-	next unless (($gff_line[2] eq "gene") || ($gff_line[2] eq "operon"));
 
+	# either want gene or CDS lines depending on command line options, and operons details
+	if($gene){
+	    next unless (($gff_line[1] eq "gene") || ($gff_line[1] eq "operon"));
+	    next unless (($gff_line[2] eq "gene") || ($gff_line[2] eq "operon"));
+	}
+	if($cds){
+	    next unless (($gff_line[1] eq "curated") || ($gff_line[1] eq "operon"));
+	    next unless (($gff_line[2] eq "CDS")     || ($gff_line[2] eq "operon"));
+	}
+	
+	
 	# extract details
 	my $start     = $gff_line[3];
 	my $stop      = $gff_line[4];
@@ -172,7 +187,7 @@ foreach my $chromosome (@chromosomes) {
 	# and minuses (-) for reverse genes.	
 	my @replace = ("$direction") x $length;	
 
-	splice(@dna,$start,$length, @replace)     if ($gff_line[1] eq "gene");
+	splice(@dna,$start,$length, @replace)     if (($gff_line[1] eq "gene") || ($gff_line[1] eq "curated"));
 	splice(@operons,$start,$length, @replace) if ($gff_line[1] eq "operon");
 	
     }
@@ -251,7 +266,7 @@ foreach my $chromosome (@chromosomes) {
 	    if($seqs){
 
 		if(($previous eq $next) && ($in_operon == 0)){
-		    print FF ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		    print FF ">${chromosome}_${intergenic_start}_${intergenic_end}_${previous}${next}\n$intergenic\n";
 		}
 		if(($previous eq "+") && ($next eq "-") && ($in_operon == 0)){
 		    print FR ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
@@ -260,7 +275,7 @@ foreach my $chromosome (@chromosomes) {
 		    print RF ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
 		}
 		if(($previous eq $next) && ($in_operon == 1)){
-		    print FFO ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+		    print FFO ">${chromosome}_${intergenic_start}_${intergenic_end}_${previous}${next}\n$intergenic\n";
 		}
 		if(($previous eq "+") && ($next eq "-") && ($in_operon == 1)){
 		    print FRO ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
@@ -272,7 +287,7 @@ foreach my $chromosome (@chromosomes) {
 		# also print subset of sequences in certain size range? (no need if using masked chromosomes)
 		if($subset && !$mask){
 		    if(($previous eq $next) && ($in_operon == 0) && ($intergenic_size >= $min) && ($intergenic_size <= $max)){
-			print FF2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+			print FF2 ">${chromosome}_${intergenic_start}_${intergenic_end}_${previous}${next}\n$intergenic\n";
 		    }
 		    if(($previous eq "+") && ($next eq "-") && ($in_operon == 0) && ($intergenic_size >= $min) && ($intergenic_size <= $max)){
 			print FR2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
@@ -281,7 +296,7 @@ foreach my $chromosome (@chromosomes) {
 			print RF2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
 		    }
 		    if(($previous eq $next) && ($in_operon == 1) && ($intergenic_size >= $min) && ($intergenic_size <= $max)){
-			print FFO2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
+			print FFO2 ">${chromosome}_${intergenic_start}_${intergenic_end}_${previous}${next}\n$intergenic\n";
 		    }
 		    if(($previous eq "+") && ($next eq "-") && ($in_operon == 1) && ($intergenic_size >= $min) && ($intergenic_size <= $max)){
 			print FRO2 ">${chromosome}_${intergenic_start}_${intergenic_end}\n$intergenic\n";
