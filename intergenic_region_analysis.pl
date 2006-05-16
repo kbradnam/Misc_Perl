@@ -87,8 +87,8 @@ if($seqs){
 	open (FFO,   ">intergenic_FFO.masked.dna")  || die "Failed to open intergenic_FFO file\n\n";
 	open (FRO,   ">intergenic_FRO.masked.dna")  || die "Failed to open intergenic_FRO file\n\n";
 	open (RFO,   ">intergenic_RFO.masked.dna")  || die "Failed to open intergenic_RFO file\n\n";	
-	open (RRO,   ">intergenic_RFO.masked.dna")  || die "Failed to open intergenic_RRO file\n\n";	
-	open (FFRRO, ">intergenic_RFO.masked.dna")  || die "Failed to open intergenic_FFRRO file\n\n";	
+	open (RRO,   ">intergenic_RRO.masked.dna")  || die "Failed to open intergenic_RRO file\n\n";	
+	open (FFRRO, ">intergenic_FFRRO.masked.dna")  || die "Failed to open intergenic_FFRRO file\n\n";	
     }
     else{
 	# will be writing various output files for intergenic sequences
