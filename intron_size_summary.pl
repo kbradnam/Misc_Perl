@@ -60,7 +60,7 @@ if($release && $release !~ m/WS\d{3}/){
     die "please specify WormBase release as 'WSXXX' (where XXX is an integer)\n";
 }
 # set a default release   
-$release = "WS150" if (!$release);
+$release = "WS160" if (!$release);
 
 # Check confirmed/unconfirmed/all flags
 if(($all && $confirmed) || ($all && $unconfirmed) || ($confirmed && $unconfirmed)){
