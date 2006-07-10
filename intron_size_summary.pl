@@ -2,7 +2,7 @@
 #
 # intron_size_summary.pl
 #
-# A script to count the size distibution of C. elegans introns from a GFF file
+# A script to process and print intron information from a GFF file
 #
 # by Keith Bradnam
 # 3/9/2005
@@ -17,35 +17,41 @@ use Getopt::Long;
 # Command line options
 ########################
 
-my $count;       # separate mode for just counting introns in different size classes
-my $interval;    # what size bins to count introns in?
-my $limit;       # what size to stop counting introns at (use if you only want to count short introns for example)
-my $min;         # print GFF lines matching above minimum intron length
-my $max;         # print GFF lines matching below maximum intron length
-my $confirmed;   # only show introns confirmed by transcript data
-my $unconfirmed; # only show introns not confirmed by transcript data
-my $all;         # show all introns (this is also the default)
-my $release;     # which WormBase release to use (will default to latest)
-my $print;       # send output to a file
-my $ignore_n;    # ignore any intron which contains N's (repeat masked sequence)
-my $flank;       # how many bases of flanking exon sequences to extract
-my $ends;        # Only extract 35 bp from end of sequence (cutting off last 5 bp to ignore acceptor sequence)
-my $test;        # run in test mode
+my $count;         # separate mode for just counting introns in different size classes
+my $interval;      # what size bins to count introns in?
+my $limit;         # what size to stop counting introns at (use if you only want to count short introns for example)
+my $min;           # print GFF lines matching above minimum intron length
+my $max;           # print GFF lines matching below maximum intron length
+my $confirmed;     # only show introns confirmed by transcript data
+my $unconfirmed;   # only show introns not confirmed by transcript data
+my $all;           # show all introns (this is also the default)
+my $release;       # which WormBase release to use (will default to latest)
+my $print;         # send output to a file
+my $ignore_n;      # ignore any intron which contains N's (repeat masked sequence)
+my $flank;         # how many bases of flanking exon sequences to extract
+my $donor;         # Only extract $end_size bp from start of intron 
+my $donor_size;    # size of intron donor sequence to extract
+my $acceptor;      # Only extract $end_size bp from start of intron 
+my $acceptor_size; # size of intron donor sequence to extract
+my $test;          # run in test mode
 
-GetOptions ("count"       => \$count,
-	    "interval=i"  => \$interval,
-	    "limit=i"     => \$limit,
-	    "min=i"       => \$min,
-	    "max=i"       => \$max,
-	    "confirmed"   => \$confirmed,
-	    "unconfirmed" => \$unconfirmed,
-	    "all"         => \$all,
-	    "release=s"   => \$release,
-	    "print"       => \$print, 
-	    "ignore_n"    => \$ignore_n,
-	    "flank=i"     => \$flank,
-	    "ends"        => \$ends,
-	    "test"        => \$test);
+GetOptions ("count"           => \$count,
+	    "interval=i"      => \$interval,
+	    "limit=i"         => \$limit,
+	    "min=i"           => \$min,
+	    "max=i"           => \$max,
+	    "confirmed"       => \$confirmed,
+	    "unconfirmed"     => \$unconfirmed,
+	    "all"             => \$all,
+	    "release=s"       => \$release,
+	    "print"           => \$print, 
+	    "ignore_n"        => \$ignore_n,
+	    "flank=i"         => \$flank,
+	    "donor"           => \$donor,
+	    "donor_size=i"    => \$donor_size,
+	    "acceptor"        => \$acceptor,
+	    "acceptor_size=i" => \$acceptor_size,
+	    "test"            => \$test);
 
 
 ##################################################
@@ -82,6 +88,22 @@ $flank = 0 if(!$flank);
 if(!$min || !$max){
     die "You must specify a minimum and maximum intron size (they may be the same)\n";
 }
+
+# check that if -donor is used that -donor_size is also used
+if($donor && !$donor_size){
+    die "You must use the -donor_size option with the -donor option\n";
+}
+
+# check that if -acceptor is used that -acceptor_size is also used
+if($acceptor && !$acceptor_size){
+    die "You must use the -acceptor_size option with the -acceptor option\n";
+}
+
+# check that both -donor and -acceptor are not specified at the same time
+if($acceptor && $donor){
+    die "You can only use -donor OR -acceptor in one run of this script, not both\n";
+}
+
 
 #############
 # Paths etc #
@@ -193,39 +215,55 @@ foreach my $chromosome (@chromosomes) {
 		    print ">$name\n";
 		}
 		
-		my $intron;
-
 		# if -flank specified, additionally extract extra bases of flanking exons
 		# need to substract 1 from start coordinate to work in array coordinatges
 		my $upstream_flank   = $flank+1;
 		my $downstream_flank = $flank-1;
 		
-		my @intron = @dna[$gff_line[3]-$upstream_flank..$gff_line[4]+$downstream_flank];
+		my @intron;
 
-		# or just specified amounts from 3' end of intron if -ends is specified
-		if($ends){
-		    # want last 40 bp of intron
-		    my $start_offset = 40;
-		    # but want to cut off last 5 bp (splice acceptor sequence)
-		    my $end_offset = 5;
-		    
+		# Just get specified amounts from 5' end of intron if -donor is specified
+		if($donor){
+		    # want first part of intron sequence as specified by $donor_size
 		    if($strand eq "+"){
-			@intron = @dna[$gff_line[4]-$start_offset..$gff_line[4]-$end_offset-1];
+			@intron = @dna[$gff_line[3]-$upstream_flank..$gff_line[3]+$donor_size-2];
 		    }
 		    else{
-			@intron = @dna[$gff_line[3]+$end_offset-1..$gff_line[3]+$start_offset-2];
+			@intron = @dna[$gff_line[4]-$donor_size..$gff_line[4]+$downstream_flank];
 		    }
 		}
+
+		# Or just get specified amounts from 3' end of intron if -acceptor is specified
+		elsif($acceptor){
+		    # want last part of intron sequence as specified by $acceptor_size
+		    if($strand eq "+"){
+			@intron = @dna[$gff_line[4]-$acceptor_size..$gff_line[4]+$downstream_flank];
+		    }
+		    else{
+			@intron = @dna[$gff_line[3]-$upstream_flank..$gff_line[3]+$acceptor_size-2];
+		    }
+		}
+
+		# or finally just get entire intron
+		else{
+		    @intron = @dna[$gff_line[3]-$upstream_flank..$gff_line[4]+$downstream_flank];
+		}
+		
+
+
+		my $intron;		
 		
 		# reverse complement intron sequence if on negative strand
+		# if flanking sequence is requested, put in upper case though have to change the behaviour a bit
+		# if -donor or -acceptor is also specified as there is only one flanking sequence not two 
 		if($strand eq "-"){
 		    my @flipped = reverse(@intron);
 		    # upper case flanking regions
 		    if($flank){
 			my $i = 0;
 			while($i<$flank){
-			    $flipped[$i] = uc($flipped[$i]);
-			    $flipped[-$i-1] = uc($flipped[-$i-1]);
+			    $flipped[$i] = uc($flipped[$i]) unless ($acceptor);
+			    $flipped[-$i-1] = uc($flipped[-$i-1]) unless ($donor);
 			    $i++;
 			}
 		    }
@@ -236,12 +274,11 @@ foreach my $chromosome (@chromosomes) {
 		    ($intron =~ tr/ATCG/TAGC/) if ($flank);
 		}
 		else{
-		    # upper case flanking regions
 		    if($flank){
 			my $i = 0;
 			while($i<$flank){
-			    $intron[$i] = uc($intron[$i]);
-			    $intron[-$i-1] = uc($intron[-$i-1]);
+			    $intron[$i] = uc($intron[$i]) unless ($acceptor);
+			    $intron[-$i-1] = uc($intron[-$i-1]) unless ($donor);
 			    $i++;
 			}
 		    }
