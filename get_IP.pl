@@ -45,13 +45,13 @@ $msg->attach(Type     =>'TEXT',
              );  
 
 # Only attach picture if on mosquito
-if($machine eq "Mosquito"){
+#if($machine eq "Mosquito"){
     $msg->attach(Type     =>'image/gif',
 		 Path     =>'/tmp/aaa.jpg',
 		 Filename =>'aaa.jpg',
 		 Disposition => 'attachment'
 		 );
-}
+#}
 
 ### use Net:SMTP to do the sending
 $msg->send('smtp','localhost', Debug=>0 );
