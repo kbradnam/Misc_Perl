@@ -1,19 +1,19 @@
 #!/usr/bin/perl -w
 
 use strict;
-use Net::SMTP;
+use MIME::Lite;
 
-my $mailprog = '/usr/sbin/sendmail';
+# 1) Get IP address
 my $ip = `curl -s http://checkip.dyndns.org`;
 $ip =~ s/.*?(\d+\.\d+\.\d+\.\d+).*/$1/s;
 
+# 2) Look up where that IP address corresponds to
 my $address = `curl -s http://www.antionline.com/tools-and-toys/ip-locate/`;
 $address =~ m/are located in (.* United States)/;
 my $place = $1;
 
-my $date = `date`;
 
-# which machine is this being run on?
+# 3) Find out which machine is this being run on?
 my $machine = `uname -n`;
 $machine =~ s/\.local$//;
 
@@ -22,20 +22,38 @@ $machine =~ s/\.local$//;
 #print "IP is $ip\n\n";
 
 
-my $smtp = Net::SMTP->new("localhost");
+# 4) Create screenshot
+`screencapture /tmp/aaa.png`;
 
-die "Couldn't connect to SMTP server\n" unless $smtp;
+# 5) convert to jpg.
+`sips -s format jpeg -s formatOptions 25% --resampleWidth 1024 /tmp/aaa.png --out /tmp/aaa.jpg`;
 
-my $from = "kbradnam\@mac.com";
-my $to = "kbradnam\@mac.com";
 
-$smtp->mail($from);
-$smtp->to($to);
-$smtp->data();
-$smtp->datasend("Subject: MyIP: $machine - $ip - $place\n");
-$smtp->datasend("Sent on $date\n");
-$smtp->dataend();
-$smtp->quit();
+### Create a new multipart message:
 
+my $date = `date`;
+
+my $msg = MIME::Lite->new( 
+    From    =>'kbradnam@mac.com',
+    To      =>'kbradnam@mac.com',
+    Subject =>"MyIP: $machine - $ip - $place\n",
+    Type    =>'multipart/mixed');
+        
+### Add parts (each "attach" has same arguments as "new"):
+$msg->attach(Type     =>'TEXT',   
+             Data     =>"Sent on $date\n"
+             );  
+
+# Only attach picture if on mosquito
+if($machine eq "Mosquito"){
+    $msg->attach(Type     =>'image/gif',
+		 Path     =>'/tmp/aaa.jpg',
+		 Filename =>'aaa.jpg',
+		 Disposition => 'attachment'
+		 );
+}
+
+### use Net:SMTP to do the sending
+$msg->send('smtp','localhost', Debug=>0 );
 
 exit;
