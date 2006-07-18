@@ -33,6 +33,7 @@ my $donor;         # Only extract $end_size bp from start of intron
 my $donor_size;    # size of intron donor sequence to extract
 my $acceptor;      # Only extract $end_size bp from start of intron 
 my $acceptor_size; # size of intron donor sequence to extract
+my $gc;            # only print/count introns that start with a GC
 my $test;          # run in test mode
 
 GetOptions ("count"           => \$count,
@@ -51,6 +52,7 @@ GetOptions ("count"           => \$count,
 	    "donor_size=i"    => \$donor_size,
 	    "acceptor"        => \$acceptor,
 	    "acceptor_size=i" => \$acceptor_size,
+	    "gc"              => \$gc,
 	    "test"            => \$test);
 
 
@@ -208,12 +210,6 @@ foreach my $chromosome (@chromosomes) {
 		
 		# set counter to make new intron names for FASTA header file
 		my $name = "${counter}_${cds} ${chr} ${gff_line[3]}-${gff_line[4]} $strand ${length} bp";
-		if($print){
-		    print OUT ">$name\n";
-		}
-		else{
-		    print ">$name\n";
-		}
 		
 		# if -flank specified, additionally extract extra bases of flanking exons
 		# need to substract 1 from start coordinate to work in array coordinatges
@@ -287,17 +283,30 @@ foreach my $chromosome (@chromosomes) {
 		}
 		# change thymine to uracil
 #		$intron =~ tr/t/u/;
-		
+
 		# warn if intron may have a repeat sequence in it
 		if($intron =~ m/n/){
 		    print "WARNING: intron contains a repeat\n";			
 		}
+
+		# skip non GC.. introns if -gc option is used
+		if($gc){
+		    # need to ignore flanking sequences though else sequence will never start with gc
+		    my $test_intron = $intron;
+		    $test_intron =~ s/[A-Z]//g if($flank);
+
+		    next if ($test_intron !~ /^gc/);
+		}
+
+		# print out details
 		if($print){
+		    print OUT ">$name\n";
 		    print OUT "$intron\n" unless (($intron =~ m/n/) && ($ignore_n));
 		}
 		else{
+		    print ">$name\n";
 		    print "$intron\n\n" unless (($intron =~ m/n/) && ($ignore_n));
-		}		      	    
+		}
 	    }	    
 	}
     }	  	    
