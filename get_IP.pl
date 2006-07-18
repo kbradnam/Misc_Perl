@@ -28,7 +28,6 @@ $machine =~ s/\.local$//;
 # 5) convert to jpg.
 `sips -s format jpeg -s formatOptions 25% --resampleWidth 1024 /tmp/aaa.png --out /tmp/aaa.jpg`;
 
-
 ### Create a new multipart message:
 
 my $date = `date`;
@@ -55,5 +54,10 @@ $msg->attach(Type     =>'TEXT',
 
 ### use Net:SMTP to do the sending
 $msg->send('smtp','localhost', Debug=>0 );
+
+
+
+# tidy up
+unlink '/tmp/aaa.jpg','/tmp/aaa.png';
 
 exit;
