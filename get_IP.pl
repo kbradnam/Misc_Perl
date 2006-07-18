@@ -58,6 +58,6 @@ $msg->send('smtp','localhost', Debug=>0 );
 
 
 # tidy up
-unlink '/tmp/aaa.jpg','/tmp/aaa.png';
+#unlink '/tmp/aaa.jpg','/tmp/aaa.png';
 
 exit;
