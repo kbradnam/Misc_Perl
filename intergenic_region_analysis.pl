@@ -21,6 +21,7 @@ my $max;   # restrict a subset of regions to those with a maximum size
 my $mask;  # use repeat mask chromosomes and ignore any intergenic regions which contain N's
 my $gene;  # extract intergenic sequences based on gene annotations
 my $cds;   # extract intergenic sequences based on CDS annotations (i.e. longer intergenic regions)
+my $test;  # test mode, only test one chromosome for speed
 
 GetOptions ("seqs"   => \$seqs,
             "stats"  => \$stats,
@@ -28,7 +29,8 @@ GetOptions ("seqs"   => \$seqs,
 	    "max=i"  => \$max,
 	    "mask"   => \$mask,
 	    "gene"   => \$gene,
-	    "cds"    => \$cds);
+	    "cds"    => \$cds,
+	    "test"   => \$test);
 
 
 die "Specify -seqs and/or -stats\n" if (!$seqs && !$stats);
@@ -50,10 +52,10 @@ $subset = 1 if ($min && $max);
 #############
 
 my $tace        = "/Korflab/bin/tace";                       # tace executable path
-my $dbdir       = "/Korflab/Data_sources/WormBase/WS150";    # Database path
+my $dbdir       = "/Korflab/Data_sources/WormBase/WS160";    # Database path
 my $gffdir      = "$dbdir/CHROMOSOMES";                      # GFF splits directory
 my @chromosomes = qw( I II III IV V X );                     # chromosomes to parse 
-#my @chromosomes = qw(I );                     # chromosomes to parse 
+@chromosomes = qw(I ) if ($test);                            # test mode
 
 
 
