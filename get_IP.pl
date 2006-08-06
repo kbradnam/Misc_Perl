@@ -35,7 +35,9 @@ $machine =~ s/\.local$//;
 
 
 # 4) Create screenshot
-system("sudo /usr/sbin/screencapture -m /tmp/screengrab.png");
+# -x to turn sound off
+# -m to capture main monitor
+system("sudo /usr/sbin/screencapture -x -m /tmp/screengrab.png");
 
 
 # 5) convert to jpg.
