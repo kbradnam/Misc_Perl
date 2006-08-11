@@ -29,8 +29,9 @@ my $machine = `uname -n`;
 $machine =~ s/\.local$//;
 
 
-# 4) Send email using Net::STMTP
-my $smtp = Net::SMTP->new("mailhost") || die "Couldn't connect to mailhost\n";
+# 4) Send email using Net::STMTP (try either mailhost or localhost)
+my @hosts = ('mailhost','localhost');
+my $smtp = Net::SMTP->new(\@hosts) || die "Couldn't connect to host\n";
 
 my $from = "kbradnam\@mac.com";
 my $to   = "kbradnam\@mac.com";
