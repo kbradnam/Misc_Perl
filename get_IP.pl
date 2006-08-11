@@ -38,7 +38,7 @@ my $to = "kbradnam\@mac.com";
 $smtp->mail($from);
 $smtp->to($to);
 $smtp->data();
-$smtp->datasend("Subject: MyIP: $machine - $ip - $place !!!\n");
+$smtp->datasend("Subject: MyIP: $machine - $ip - $place\n");
 $smtp->dataend();
 $smtp->quit();
 
