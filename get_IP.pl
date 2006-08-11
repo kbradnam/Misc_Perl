@@ -24,16 +24,16 @@ $address =~ m/are located in (.* United States)/;
 my $place = $1;
 
 
-# 3) Find out which machine is this being run on?
+# 3) Find out which machine is this being run on (remove any .local suffix)
 my $machine = `uname -n`;
 $machine =~ s/\.local$//;
 
 
-# 4) Send email
-my $smtp = Net::SMTP->new("localhost");
+# 4) Send email using Net::STMTP
+my $smtp = Net::SMTP->new("mailhost") || die "Couldn't connect to mailhost\n";
 
 my $from = "kbradnam\@mac.com";
-my $to = "kbradnam\@mac.com";
+my $to   = "kbradnam\@mac.com";
 
 $smtp->mail($from);
 $smtp->to($to);
