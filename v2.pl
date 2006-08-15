@@ -4,3 +4,4 @@ use strict;
 
 my @vegetables;
 
+@vegetables = ("peas","cabbage","broccoli");
