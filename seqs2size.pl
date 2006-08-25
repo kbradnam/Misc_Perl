@@ -15,6 +15,7 @@ my $seq;
 my $length;
 
  SEQ: while(<>){
+	chomp;
      if(/^>/){
 	 if($flag){
 	     $length = length($seq);
