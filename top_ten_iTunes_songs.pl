@@ -11,23 +11,24 @@ use strict;
 my $library = "/Users/Nod/Music/iTunes/iTunes Music Library.xml";
 print "Using library: $library\n";
 
-open(IN,"<$library") || die "Couldn't open library file\n";
 
-my %album2ratings;
-my %album2rating_count;
-my %album2artist;
-my %album2song_count;
-
+# The basic variables, it's pretty obvious what they will store
 my ($artist,$album,$rating);
+my $label; 				# stores album name + artist joined by '@@@' (to prevent confusion when different artists have the same album name)
+my %artists;  			# hash structure for all ratings by same artist
+my %albums;				# hash structure for all ratings for each album
+my %artists2average;	# hash which will be used for sorting artists by rating
+my %albums2average;		# hash which will be used for sorting albums by rating
+my $chart =10;			# how many songs to print in the final 'charts', defaults to 10 if not specified on command line
+$chart = $ARGV[0] if ($ARGV[0]);
 
-# how many songs to show
-my $chart;
-if(!$ARGV[0]){
-    $chart = 10;
-}
-else{
-    $chart = $ARGV[0];
-}
+###################################################################################
+#
+# Main loop parses iTunes XML file and extracts album, artist, and rating details
+#
+###################################################################################
+
+open(IN,"<$library") || die "Couldn't open library file\n";
 
 while(<IN>){
     last if (m/<key>Playlists<\/key>/);    
@@ -36,33 +37,29 @@ while(<IN>){
 	$artist = $1;
     }
     if (m/<key>Album<\/key><string>(.*)<\/string>$/){
-	$album = $1;
-	($album2artist{$album} = $artist) if ($artist);
-	$album2song_count{$album}++;
-    }
+		$album = $1;
+	    $label = $album."@@@".$artist;
+		
+		# keep track of overal song count for artists and albums
+		$artists{$artist}[0]++;
+		$albums{$label}[0]++;
+
+	}
     if (m/<key>Rating<\/key><integer>(.*)<\/integer>$/){
-	$rating = $1;
-	$album2ratings{$album} += $rating;
-	$album2rating_count{$album}++;
+		$rating = $1;
+	
+		# store total of all ratings so far ([1]), number of songs rated ([2])
+		$artists{$artist}[1] += $rating;	
+		$artists{$artist}[2] ++;
+		$artists2average{$artist} = $artists{$artist}[1] / 	$artists{$artist}[2];
+	
+	
+		$albums{$label}[1] += $rating;
+		$albums{$label}[2] ++;
+		$albums2average{$label} = $albums{$label}[1] / $albums{$label}[2];
     }
 }
 close(IN);
-
-
-# now need a hash to store average rating for each album 
-my %album2average; 
-
-foreach my $key (keys %album2ratings){
-
-    # want at least 5 songs on album and at least 75% of album rated
-    my $percent = $album2rating_count{$key}/$album2song_count{$key};
-    if(($album2song_count{$key} >= 5) && ($percent >= 0.75)){
-	
-	my $average_rating = sprintf("%.2f",$album2ratings{$key} / $album2rating_count{$key});
-
-	$album2average{$key} = $average_rating;	
-    }
-}
 
 
 # now sort albums by average rating
@@ -70,16 +67,42 @@ foreach my $key (keys %album2ratings){
 my $counter = 0;
 my $final_rating;
 
-foreach my $key (sort {$album2average{$b} <=> $album2average{$a}} (keys(%album2average))){
-    $counter++;
-    # need to convert to a 1-5 star rating
-    $final_rating = sprintf("%.2f",$album2average{$key}/20);
+print "\nALBUMS\n";
 
-    print "$counter) $final_rating - $key, $album2artist{$key} ($album2rating_count{$key} out of $album2song_count{$key} songs rated)\n";
-
+my $title;
+foreach my $key (sort {$albums2average{$b} <=> $albums2average{$a}} (keys(%albums2average))){
+	my $percent = $albums{$key}[2] / $albums{$key}[0];
+	if(($percent >=0.75) && ($albums{$key}[2] >5)){
+		$counter++;	
+    	# need to convert to a 1-5 star rating
+    	$final_rating = sprintf("%.2f",$albums2average{$key}/20);
+	
+		# need to separate out artist and album info
+		$title = $key;
+		$title =~ s/@@@/, /;
+	    print "$counter) $final_rating - $title ($albums{$key}[2] songs out of $albums{$key}[0] rated)\n";
+	}
     last if ($counter == $chart);
 }
 
+
+
+# now do same thing for artists
+
+$counter=0;
+print "\n\nARTISTS\n";
+
+foreach my $key (sort {$artists2average{$b} <=> $artists2average{$a}} (keys(%artists2average))){
+
+	my $percent = $artists{$key}[1] / $artists{$key}[0];
+	if(($percent >=0.50) && ($artists{$key}[2] >10)){
+		$counter++;	
+    	# need to convert to a 1-5 star rating
+    	$final_rating = sprintf("%.2f",$artists2average{$key}/20);
+	    print "$counter) $final_rating - $key ($artists{$key}[2] songs out of $artists{$key}[0] rated)\n";
+	}
+    last if ($counter == $chart);
+}
 
 
 exit(0);
