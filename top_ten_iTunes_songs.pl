@@ -21,6 +21,7 @@ my %artists2average;	# hash which will be used for sorting artists by rating
 my %albums2average;		# hash which will be used for sorting albums by rating
 my $chart =10;			# how many songs to print in the final 'charts', defaults to 10 if not specified on command line
 $chart = $ARGV[0] if ($ARGV[0]);
+my %ratings2counts; # rating is key, value is count
 
 ###################################################################################
 #
@@ -47,7 +48,8 @@ while(<IN>){
 	}
     if (m/<key>Rating<\/key><integer>(.*)<\/integer>$/){
 		$rating = $1;
-	
+		$ratings2counts{$rating}++;
+		
 		# store total of all ratings so far ([1]), number of songs rated ([2])
 		$artists{$artist}[1] += $rating;	
 		$artists{$artist}[2] ++;
@@ -105,4 +107,11 @@ foreach my $key (sort {$artists2average{$b} <=> $artists2average{$a}} (keys(%art
 }
 
 
+# Finally, print counts of each rating
+print "\n\nRATING COUNTS\n";
+
+foreach my $key (sort {$a <=> $b} (keys(%ratings2counts))){
+    my $rating = sprintf("%.0d",$key/20);
+    print "$rating - $ratings2counts{$key}\n";
+}
 exit(0);
