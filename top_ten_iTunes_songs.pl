@@ -7,9 +7,13 @@
 # Last updated on: $Date$
 
 use strict;
+use Getopt::Long;
 
-my $library = "/Users/Nod/Music/iTunes/iTunes Music Library.xml";
-print "Using library: $library\n";
+# command line options
+my $library;	# what library to use, defaults to home directory of current user
+
+GetOptions ("lib|library=s"     => \$library);
+
 
 
 # The basic variables, it's pretty obvious what they will store
@@ -23,6 +27,11 @@ my $chart =10;			# how many songs to print in the final 'charts', defaults to 10
 $chart = $ARGV[0] if ($ARGV[0]);
 my %ratings2counts; # rating is key, value is count
 
+
+# check whichi library to use and whether library exists
+&check_library;
+
+
 ###################################################################################
 #
 # Main loop parses iTunes XML file and extracts album, artist, and rating details
@@ -35,8 +44,8 @@ while(<IN>){
     last if (m/<key>Playlists<\/key>/);    
 
     if (m/<key>Artist<\/key><string>(.*)<\/string>$/){
-	$artist = $1;
-    }
+		$artist = $1;
+	}	 
     if (m/<key>Album<\/key><string>(.*)<\/string>$/){
 		$album = $1;
 	    $label = $album."@@@".$artist;
@@ -59,6 +68,11 @@ while(<IN>){
 		$albums{$label}[1] += $rating;
 		$albums{$label}[2] ++;
 		$albums2average{$label} = $albums{$label}[1] / $albums{$label}[2];
+
+		#if ($artist eq "Hem"){
+		#	print "\t$artists{$artist}[1] $artists{$artist}[2]\n";
+		#}
+
     }
 }
 close(IN);
@@ -115,3 +129,18 @@ foreach my $key (sort {$a <=> $b} (keys(%ratings2counts))){
     print "$rating - $ratings2counts{$key}\n";
 }
 exit(0);
+
+
+
+sub check_library{
+	unless($library){
+		my $path = glob("~/Music/iTunes");
+		$library = $path."/iTunes Music Library.xml";
+	}
+	if(-e $library){
+		print "Using library: $library\n";
+	}
+	else{
+		die "iTunes library \'$library\' does not exist\n";
+	}
+}
