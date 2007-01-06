@@ -51,32 +51,24 @@ my $path = "/Volumes/GenBank/genbank${release}";
 
 die "$path directory does not exist.\n" if (! -e "$path");
 
-
 # have list of all GenBank files that we will be interested in (invertebrates, mammals, plants,
 # primates, rodents, and vertebrates
-my @files = ("inv1", "inv2", "inv3", "inv4", "inv5", "inv6", "inv7","inv8",
-	     "mam1", "mam2",
-	     "pln1", "pln2", "pln3", "pln4", "pln5", "pln6", "pln7", "pln8", "pln9", "pln10", "pln11",
-	     "pln12","pln13", "pln14", "pln15", "pln16",
-	     "pri1", "pri2", "pri3", "pri4", "pri5", "pri6", "pri7", "pri8", "pri9", "pri10", "pri11",
-	     "pri12","pri13", "pri14", "pri15", "pri16", "pri17", "pri18", "pri19", "pri20", "pri21",
-	     "pri22","pri23", "pri24", "pri25", "pri26", "pri27", "pri28","pri29",
-	     "rod1", "rod2", "rod3", "rod4", "rod5", "rod6", "rod7", "rod8", "rod9", "rod10", "rod11",
-	     "rod12","rod13", "rod14", "rod15", "rod16", "rod17", "rod18","rod19","rod20","rod21",
-	     "vrt1", "vrt2", "vrt3", "vrt4", "vrt5", "vrt6", "vrt7", "vrt8", "vrt9");
+
+my @inv = glob("$path/gbinv*.seq");
+my @mam = glob("$path/gbmam*.seq");
+my @pln = glob("$path/gbpln*.seq");
+my @pri = glob("$path/gbpri*.seq");
+my @rod = glob("$path/gbrod*.seq");
+my @vrt = glob("$path/gbvrt*.seq");
+my @htg = glob("$path/gbhtg*.seq");
+
+# get list of wgs files not kept in standard division files
+my @wgs = glob("${path}/wgs/wgs.*.gbff");
+
+# combine everything together
+my @files = (@inv,@mam,@pln,@pri,@rod,@vrt,@htg,@wgs);
 	     
-# get list of wgs files
-my @more_files = glob("${path}/wgs/wgs.*.gbff");
-
-# combine into one array
-@files = (@files,@more_files);
-
-#@files = ("pri1", "pri2", "pri3", "pri4", "pri5", "pri6", "pri7", "pri8", "pri9", "pri10", "pri11",
-#	     "pri12","pri13", "pri14", "pri15", "pri16", "pri17", "pri18", "pri19", "pri20", "pri21",
-#	     "pri22","pri23", "pri24", "pri25", "pri26", "pri27", "pri28","pri29");
-#@files = ("inv1", "inv2", "inv3", "inv4", "inv5", "inv6", "inv7","inv8");
-#@files = ("inv1");
-
+#@files = glob("$path/gbinv1.seq");
 
 
 ############################################################
@@ -87,25 +79,22 @@ my @more_files = glob("${path}/wgs/wgs.*.gbff");
 #
 ############################################################
 
+# count number of genbank entries processed
+my $entries;
+
 # Change record delimiter to split on //
 # newlines needed to avoid // in URLs for example
 $/ = "\n//\n";
 
 while (my $file = shift(@files)){
 
-    print "$file\n";
-    
-    # different file opening routines depending on name of file
-    if($file =~ m/gbff$/){
-		open (FILE,"<$file") || die "Can't open gb{$file}.seq\n";
-    }
-    else{
-		open (FILE,"<${path}/gb${file}.seq") || die "Can't open ${path}/gb${file}.seq\n";
-    }
+    print "Processing $file\n";
+    open (FILE,"<$file") || die "Can't open $file\n"; 
     
     ENTRY: while (<FILE>) {
 	
 		my ($locus,$mol,$accession,$species);
+		$entries++;
 	
 		# skip to start of first record if at the beginning of a file
 		if(m/^GB\S+\.SEQ/){
@@ -178,21 +167,24 @@ while (my $file = shift(@files)){
 		  			# CDS             complement(join(290022..290246,290389..290873,
 		  			#                 290960..291199,291264))
 		  			# bit of a fudge, only looking for pair of coordinates at start and end of CDS
-		  			next unless ($cds =~ m/^\d+\.\.\d+/);
-		  			next unless ($cds =~ m/\d+\.\.\d+$/);
+		  			next unless ($cds =~ m/^[\d<]+\.\.\d+/);
+		  			next unless ($cds =~ m/\d+\.\.[>\d]+$/);
 
 		  			# to find internal occurances, look for three consecutive digits (no ..)
 		  			next if($cds =~ m/\d+,\d+,\d+/);		   		 
 	
 					# store number of introns
 					my $introns;
-	
+
 		  			# some CDSs don't know the exact ends of exons (denoted by use of < and > characters)
 		  			# so will treat these entries separately
 		  			if ($cds =~ m/[<>]/){
 			  			$introns = $cds =~ tr/,/,/;
 			  			# keep count of these CDSs which have at least 1 intron
 						if($introns > 0){
+							$all_species{$species}[0] += 0;
+							$all_species{$species}[1] += 0;
+							$all_species{$species}[2] += 0;
 							$all_species{$species}[3]++;
 						}
 		  			}
@@ -218,18 +210,22 @@ while (my $file = shift(@files)){
     close(FILE) || die "Can not close file\n";
 }
 
+print "\n\nProcessed $entries GenBank entries\n\n";
 
 open(OUT,">species_CDS_intron_count.csv") || die "Can't open output file\n";
-print OUT "Species,CDS_count,Intron_count,Single_exon_CDS_count\n";
+print OUT "Species,CDS_count,Intron_count,Single_exon_CDS_count,CDSs_with_introns_but_missing_ends\n";
 
 foreach my $species (sort(keys(%all_species))){
 	# Only print entries with at least 100 CDSs?
 	if($all_species{$species}[0] >= 100){
+		
+		# reset third counter to zero if there were no data for this category
+		($all_species{$species}[3] = 0) if (!defined($all_species{$species}[3]));
+
 		print OUT "$species,$all_species{$species}[0],$all_species{$species}[1],$all_species{$species}[2],$all_species{$species}[3]\n";     
 	}    
 }
 
 close(OUT) || die "Can't close file\n";
-
 
 exit(0);
