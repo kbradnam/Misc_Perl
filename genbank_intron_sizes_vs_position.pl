@@ -58,7 +58,7 @@ my %species2other_introns;
 
 
 # specify path to GenBank release
-my $path = "/GenBank/genbank${release}";
+my $path = "/Volumes/GenBank/genbank${release}";
 #$path = glob("~keith");
 
 
@@ -101,53 +101,54 @@ my @more_files = glob("${path}/wgs/wgs.*.gbff");
 # newlines needed to avoid // in URLs for example
 $/ = "\n//\n";
 
-# want to write some output to a file as we go (for scatterplots of exon/intron vs flanking intron/exon sizes)
-#open(CSV,">introns_vs_exons_r${release}.csv") || die "Couldn't open introns vs exons output file\n";
-
 while (my $file = shift(@files)){
 
     print "$file\n";
     
     # different file opening routines depending on name of file
     if($file =~ m/gbff$/){
-	open (FILE,"<$file") || die "Can't open gb{$file}.seq\n";
+		open (FILE,"<$file") || die "Can't open gb{$file}.seq\n";
     }
     else{
-	open (FILE,"<${path}/gb${file}.seq") || die "Can't open ${path}/gb${file}.seq\n";
+		open (FILE,"<${path}/gb${file}.seq") || die "Can't open ${path}/gb${file}.seq\n";
     }
     
     ENTRY: while (<FILE>) {
 	
-	my ($locus,$mol,$accession,$species);
+			my ($locus,$mol,$accession,$species);
 	
-	# skip to start of first record if at the beginning of a file
-	if(m/^GB\S+\.SEQ/){
-	    m/LOCUS\s+(\S+)\s+\d+ bp\s+(\S+)\s+/ || die "No LOCUS field found for:\n\n$_\n"; 
-	    $locus = $1;
-	    $mol  = $2;
-	}
-	else{
-	    m/^LOCUS\s+(\S+)\s+\d+ bp\s+(\S+)\s+/ || die "No LOCUS field found for:\n\n$_\n"; 
-	    $locus = $1;
-	    $mol  = $2;
-	}       
-	# insert dividers for splitting remainder of entry
-	s/\n(\S+)/\nSPLITHERE\n$1/g;
+			# skip to start of first record if at the beginning of a file
+			if(m/^GB\S+\.SEQ/){
+	    		m/LOCUS\s+(\S+)\s+\d+ bp\s+(\S+)\s+/ || die "1) No LOCUS field found for:\n\n$_\n"; 
+	    		$locus = $1;
+	    		$mol  = $2;
+			}
+			else{
+	    		m/^LOCUS\s+(\S+)\s+\d+ bp\s+(\S+)\s+/ || die "2) No LOCUS field found for:\n\n$_\n"; 
+	    		$locus = $1;
+	    		$mol  = $2;
+			}       
+			
+			# skip if there is no CDS entry anywhere
+			# this will no doubt match other things but will generally help speed things up 		
+			next ENTRY unless (m/CDS/);
+		
+			# insert dividers for splitting remainder of entry
+			s/\n(\S+)/\nSPLITHERE\n$1/g;
 	
-	# now loop through rest of single GenBank entry
-	for (split(/SPLITHERE\n/)){
+			# now loop through rest of single GenBank entry
+			for (split(/SPLITHERE\n/)){
 
-	    # get accession
-	    if (m/ACCESSION\s+(\S+)/){
-		$accession = $1;
-	    }
+	    		# get accession
+	    		if (m/ACCESSION\s+(\S+)/){
+					$accession = $1;
+	    		}
 
-	    # get species name
-	    if (/^SOURCE/) {
-		m/ORGANISM\s+(\S+\s+\S+)/;
-		$species = $1;
-	    }
-	    
+	    		# get species name
+	    		if (/^SOURCE/) {
+					m/ORGANISM\s+(\S+\s+\S+)/;
+					$species = $1;
+	    		}
 	    
 	    # split up each feature object
 	    if (/^FEATURES/) {
@@ -251,42 +252,42 @@ my %species2means;
 # another hash to keep track of count of introns in each species
 my %species2count;
 
-open(OUT,">species2intron_size.csv") || die "Can't open output file\n";
+open(OUT,">species2intron_size.gb${release}.${min}.${max}.csv") || die "Can't open output file\n";
 
 foreach my $species (sort(keys(%all_species))){
        
     # what's the max number of introns for any gene in that species?
     my $intron_positions = scalar(@{$species2introns{$species}});
 
-
     for(my $i=1; $i<$intron_positions;$i++){
 
-	# calculate mean intron size at position N
-	my $sum = sum(@{@{$species2introns{$species}}[$i]});
-	my $introns = scalar(@{@{$species2introns{$species}}[$i]});
-	# add number of introns to count
-	$species2count{$species}+= $introns;
-	my $mean = $sum/$introns;
+		# calculate mean intron size at position N
+		my $sum = sum(@{@{$species2introns{$species}}[$i]});
+		my $introns = scalar(@{@{$species2introns{$species}}[$i]});
 
-	# for simplicity store the means in a new array (hash of arrays)
-	$species2means{$species}[$i] = $mean;
+		# add number of introns to count
+		$species2count{$species}+= $introns;
+		my $mean = $sum/$introns;
+
+		# for simplicity store the means in a new array (hash of arrays)
+		$species2means{$species}[$i] = $mean;
     }
 }
 
 
-
-
 # Now work through new array to print average intron size at each intron position in each species
 foreach my $species (sort(keys(%all_species))){
+	
 
+	
     # need to count all introns in each species and only print those above a threshold (set by $limit)
     if($species2count{$species} > $limit){
-	print OUT "$species,$species2count{$species},$species,";
-	for(my $i =1;$i<(@{$species2means{$species}});$i++){
-	    my $mean = sprintf "%.1f",${$species2means{$species}}[$i];
-	    print OUT "$mean,";
-	}
-	print OUT "\n";
+		print OUT "$species,$species2count{$species},$species,";
+		for(my $i =1;$i<(@{$species2means{$species}});$i++){
+	    	my $mean = sprintf "%.1f",${$species2means{$species}}[$i];
+	    	print OUT "$mean,";
+		}
+		print OUT "\n";
     }
 }
 
