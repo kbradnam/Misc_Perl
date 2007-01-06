@@ -64,28 +64,24 @@ my $path = "/Volumes/GenBank/genbank${release}";
 
 die "$path directory does not exist.\n" if (! -e "$path");
 
-
 # have list of all GenBank files that we will be interested in (invertebrates, mammals, plants,
-# primates, rodents, and vertebrates
-my @files = ("inv1", "inv2", "inv3", "inv4", "inv5", "inv6", "inv7","inv8",
-	     "mam1", "mam2",
-	     "pln1", "pln2", "pln3", "pln4", "pln5", "pln6", "pln7", "pln8", "pln9", "pln10", "pln11",
-	     "pln12","pln13", "pln14", "pln15", "pln16",
-	     "pri1", "pri2", "pri3", "pri4", "pri5", "pri6", "pri7", "pri8", "pri9", "pri10", "pri11",
-	     "pri12","pri13", "pri14", "pri15", "pri16", "pri17", "pri18", "pri19", "pri20", "pri21",
-	     "pri22","pri23", "pri24", "pri25", "pri26", "pri27", "pri28","pri29",
-	     "rod1", "rod2", "rod3", "rod4", "rod5", "rod6", "rod7", "rod8", "rod9", "rod10", "rod11",
-	     "rod12","rod13", "rod14", "rod15", "rod16", "rod17", "rod18","rod19","rod20","rod21",
-	     "vrt1", "vrt2", "vrt3", "vrt4", "vrt5", "vrt6", "vrt7", "vrt8", "vrt9");
+# primates, rodents, vertebrates, and htg divisons)
 
-# get list of wgs files
-my @more_files = glob("${path}/wgs/wgs.*.gbff");
+my @inv = glob("$path/gbinv*.seq");
+my @mam = glob("$path/gbmam*.seq");
+my @pln = glob("$path/gbpln*.seq");
+my @pri = glob("$path/gbpri*.seq");
+my @rod = glob("$path/gbrod*.seq");
+my @vrt = glob("$path/gbvrt*.seq");
+my @htg = glob("$path/gbhtg*.seq");
 
-# combine into one array
-@files = (@files,@more_files);
+# get list of wgs files not kept in standard division files
+my @wgs = glob("${path}/wgs/wgs.*.gbff");
 
-#@files = ("inv1", "inv2", "inv3", "inv4", "inv5", "inv6", "inv7","inv8");
-#@files = ("inv1");
+# combine everything together
+my @files = (@inv,@mam,@pln,@pri,@rod,@vrt,@htg,@wgs);
+             
+#@files = glob("$path/gbinv1.seq");
 
 
 
@@ -101,17 +97,14 @@ my @more_files = glob("${path}/wgs/wgs.*.gbff");
 # newlines needed to avoid // in URLs for example
 $/ = "\n//\n";
 
+# count number of genbank entries processed
+my $entries;
+
 while (my $file = shift(@files)){
 
-    print "$file\n";
+    print "Processing $file\n";
     
-    # different file opening routines depending on name of file
-    if($file =~ m/gbff$/){
-		open (FILE,"<$file") || die "Can't open gb{$file}.seq\n";
-    }
-    else{
-		open (FILE,"<${path}/gb${file}.seq") || die "Can't open ${path}/gb${file}.seq\n";
-    }
+    open (FILE,"<$file") || die "Can't open gb{$file}.seq\n";
     
     ENTRY: while (<FILE>) {
 	
@@ -128,6 +121,9 @@ while (my $file = shift(@files)){
 	    		$locus = $1;
 	    		$mol  = $2;
 			}       
+
+			# check molecule type, ignore mRNAs as there won't be any introns
+                	next ENTRY unless ($mol eq "DNA");
 			
 			# skip if there is no CDS entry anywhere
 			# this will no doubt match other things but will generally help speed things up 		
@@ -243,6 +239,7 @@ while (my $file = shift(@files)){
     close(FILE) || die "Can not close file\n";
 }
 
+print "\n\nProcessed $entries GenBank entries\n\n";
 
 # hash
 # species name is key, value is an array of average intron sizes at position N
