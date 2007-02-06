@@ -53,7 +53,7 @@ SEQ:while(<INFILE>){
 }
 
 if($flag){
-   	# print OUT &tidy_seq($seq),"\n";
+   	print OUT &tidy_seq($seq),"\n";
 }
 
 
