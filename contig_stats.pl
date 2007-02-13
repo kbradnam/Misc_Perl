@@ -52,7 +52,7 @@ $n += $seq =~ tr/n/n/;
 
 
 # calculate N's as a percentage
-my $percent_N = sprintf("%.1f",$n/$total_length);
+my $percent_N = sprintf("%.1f",($n/$total_length)*100);
 
 print "\n$total_length - total assembly length (bp)\n";
 print "$n - N's (${percent_N}%)\n";
