@@ -29,8 +29,15 @@ my $seq;
 # to start of next line. We always have three possible endlines so we need a few variables
 my ($endline,$endline1,$endline2,$endline3);
 
+# a couple of variables for dealing with poly-N runs, a counter and a flag to let us know
+# that we are in a poly-N region
+my ($n_count, $n_flag) = 0;
+
 while(<IN>){
 	chomp;
+	
+	# skip blank lines
+	next if (m/^(\s)*$/);
 	
     if (m/^>/){
 		# if we reach a new sequence first print out $endline from
@@ -44,23 +51,35 @@ while(<IN>){
 		# then print header line and set $newseq to remember that we are in new sequence
 		print OUT "$_\n";
 		$newseq = 1;
-	}
-	elsif(m/^(\s)*$/){
-		# skip if blank
-		next;
-	}
+	}	
 	else{
+		# make lower case just to make sure that we can more easily
+		# recognise polyN runs later on (which will be in uppercase)
+		tr/A-Z/a-z/;	
 		
-		# will prepend end of previous line unless we are in new sequence
+		# if we have nothing but N's add the number of these to $n_count and flag $n_flag to true
+		# can also just jump ahead to next line
+		if (m/^n+$/){
+			$n_count += length($_);			
+			$n_flag = 1;
+			next;
+		}
+		
+		# now to test if there is not a whole line of N's in current line but previous line
+		# or lines were Ns. If so print out $n_count and reset variables
+		if(($_ !~ m/^n+$/) && ($n_flag == 1)){
+			print OUT "{$n_count}N\n";
+			$n_count = $n_flag = 0;
+		}
+		
+		
+		# will prepend end of previous line unless we are at the first line of a new sequence
 		unless($newseq == 1){	
 			$_ = $endline.$_;
 		}
 		$newseq = 0;
-		# make lower case just to make sure that we can more easily
-		# recognise polyN runs later on (which will be in uppercase)
-		tr/A-Z/a-z/;
-
-		# need to take whatever repeat ends the line (even if it is just a single nucletotide). 
+	
+		# need to take whatever repeat ends the line (even if it is just a single nucleotide). 
 		# This could also be the whole line look for poly-N runs first, but then look for poly-XY runs, 
 		# and then poly-XYZ runs
 		m/(a+|c+|g+|t+|n+)$/i;
@@ -85,8 +104,6 @@ while(<IN>){
 			
 		# skip line now if $endline has swallowed up everything and $_ is blank
 		# but process $endline if $endline is getting too big
-#		print length($endline)."\n";
-
 		if(m/^(\s)*$/){
 			if(length($endline)>5000){
 					$_ = $endline;
@@ -101,9 +118,18 @@ while(<IN>){
 		OUT->autoflush(1);	
 	}
 }
-# print whatever is left from the end of the last sequence in the file
-$endline = &compress($endline);	
-print OUT "$endline\n";
+# print whatever is left from the end of the last sequence in the file (assuming there is something
+# in $endline)
+if($endline){
+	$endline = &compress($endline);	
+	print OUT "$endline\n";
+}
+
+# likewise, print N's if we still have something in $n_count and $n_flag is true
+if($n_flag == 1){
+	print OUT "{$n_count}N\n";
+}
+
 
 close(IN)  || die "Couldn't close input file\n";  
 close(OUT) || die "Couldn't close damned output file\n";
