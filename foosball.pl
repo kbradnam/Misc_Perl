@@ -21,19 +21,26 @@ my %player2stats;
 # up their name
 my %rank2player;
 
-
 # read results from a csv file
 my $game_counter = 0;
 &read_results;
 
 #&calculate_ratings("Ian Korf","1","Victoria Whitworth","10","y");
-&calculate_ratings("Ian ","5","Martin 	","10","n");
 
+# print two tables, one for people who have played more than 5 games, one for the rest
+my ($high,$low);
 
-# print table
 foreach my $key (reverse sort {$player2ratings{$a} <=> $player2ratings{$b}} keys %player2ratings){
-#	print "\"$key\",$player2ratings{$key}\n";	
+	my $formatted =  sprintf("%.2f",$player2ratings{$key});
+
+	if($player2stats{$key}[0] >= 5){
+		$high .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$formatted\n";	
+	}
+	else{
+		$low .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$formatted\n";	
+	}
 }
+print "$high\n\n$low\n";
 
 exit(0);
 
@@ -46,10 +53,8 @@ sub read_results{
 	while(<IN>){
 		$game_counter++;
 		chomp;
-		@details = split(/,/);
-	
-	
-		&calculate_ratings("$details[0]","$details[1]","$details[3]","$details[2]","$details[4]");
+		@details = split(/,/);			
+		&calculate_ratings("$details[0]","$details[1]","$details[2]","$details[3]","$details[4]");
 	}	
 }
 close(IN);
@@ -64,16 +69,17 @@ sub calculate_ratings{
 	my $score2 = shift;
 	my $tournament = shift;
 
-	# add players to hash if they are new and set rating to zero
+	# add players to hash if they are new and set rating and player stats to zero
 	if(!defined($player2ratings{$p1})){
 		$player2ratings{$p1} = 0;
+		$player2stats{$p1}[0] = 0;
+		$player2stats{$p1}[1] = 0;
 	}
 	if(!defined($player2ratings{$p2})){
 		$player2ratings{$p2} = 0;
+		$player2stats{$p2}[0] = 0;
+		$player2stats{$p2}[1] = 0;
 	}
-	# add game count to player2stats
-	$player2stats{$p1}++;
-	$player2stats{$p2}++;
 
 	# need to assign score of higher ranking player to $p1_score and lower ranking 
 	# to $p2_score as this affects the results. If rankings are equal then it doesn't
@@ -117,10 +123,11 @@ sub calculate_ratings{
 	$we2 = 1/(10**( $ratings_diff/400)+1);
 
 	print "====================== Game $game_counter ==========================\n";
-	print "$p1_name: played $player2stats{$p1_name}, rated $player2ratings{$p1_name}, Win expectation = $we1\n";
-	print "$p2_name: played $player2stats{$p2_name}, rated $player2ratings{$p2_name}, Win expectation = $we2\n\n";
+	print "$p1_name: played $player2stats{$p1_name}[0], rated $player2ratings{$p1_name}, Win expectation = $we1\n";
+	print "$p2_name: played $player2stats{$p2_name}[0], rated $player2ratings{$p2_name}, Win expectation = $we2\n\n";
 
-	# calculate $w (i.e. who won?)
+
+	# calculate $w (i.e. who won?) and add wins to player2stats
 	if ($p1_score == $p2_score){
 		($w1 = $w2 = 0.5); 
 		print "$p1_name ties with $p2_name ($p1_score - $p2_score)\n";
@@ -129,12 +136,19 @@ sub calculate_ratings{
 		$w1 = 1;
 		$w2 = 0;
 		print "$p1_name beats $p2_name ($p1_score - $p2_score)\n";
+		$player2stats{$p1_name}[1]++;
 	}
 	elsif($p1_score < $p2_score){
 		$w1 = 0;
 		$w2 = 1;
 		print "$p2_name beats $p1_name ($p2_score - $p1_score)\n";
+		$player2stats{$p2_name}[1]++;
 	}
+
+	# add game count to player2stats
+	$player2stats{$p1_name}[0]++;
+	$player2stats{$p2_name}[0]++;
+
 	
 	# calculate $k and $g
 	$g = 1   if ($score_diff <= 1);
