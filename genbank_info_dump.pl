@@ -3,8 +3,7 @@
 # genbank_info_dump.pl
 #
 # a script to process all genbank sequence files and extract information on intron and exon sizes
-# this script mostly dumps info to a big csv file to be processed by other scripts. It also
-# has a summary mode to report counts of what it found
+# this script mostly dumps info into two csv files (for exons and introns) to be processed by other scripts. 
 #
 # by Keith Bradnam
 #
@@ -27,33 +26,20 @@ my $release;   # which release of genbank to query against?  Specify an integer
 
 GetOptions("release=i"=> \$release);
 
-die "Must specify a GenBank release number to query against\n" if (!defined($release));
+die "Must use -release option to specify a GenBank release number to query against\n" if (!defined($release));
 
-
-########################
-# misc variables
-########################
-
-# Hash for keeping track of all species and related data
-# Key is species name, value is an array which contains:
-# 0 - Total number of CDSs
-# 1 - Total number of introns
-# 2 - Number of CDSs with no introns (single exon genes)
-# 3 - CDSs with multiple exons but where the start or end may not be known
-
-my %all_species;
-
+################
+# Paths etc.
+################
 
 # specify path to GenBank release
-my $path = "/Volumes/GenBank/genbank${release}";
-#$path = glob("~keith");
-
+my $path = "/Volumes/genbank/${release}";
+#$path = glob("~/Desktop");
 
 die "$path directory does not exist.\n" if (! -e "$path");
 
 # have list of all GenBank files that we will be interested in (invertebrates, mammals, plants,
 # primates, rodents, and vertebrates
-
 my @inv = glob("$path/gbinv*.seq");
 my @mam = glob("$path/gbmam*.seq");
 my @pln = glob("$path/gbpln*.seq");
@@ -68,7 +54,33 @@ my @wgs = glob("${path}/wgs/wgs.*.gbff");
 # combine everything together
 my @files = (@inv,@mam,@pln,@pri,@rod,@vrt,@htg,@wgs);
 	     
-#@files = glob("$path/gbinv1.seq");
+@files = glob("$path/gbinv1.seq");
+
+
+########################
+# misc variables
+########################
+
+# Use array to keep track of 4 basic stats:
+# 1) total number of genbank entries processed
+# 2) number of entries with at least one valid CDS feature
+# 3) number of entries with at least one valid exon in a CDS feature
+# 4) numer of entries with undefined start/end coordinates of CDS
+# 5) number of entries with at least one intron in a CDS feature
+my @entries;
+
+# three main things to extract per entry 
+my ($mol,$accession,$species);
+
+# true/false flags to know if we are on reverse strand or not and
+# whether CDS has undetermined start/end coordinates of an exon
+my ($reverse_strand,$undetermined);
+
+# need to keep track of which CDS within a variable you are at
+my $cds_counter;
+
+# two variables to store exon and intron lengths
+my ($exons,$introns);
 
 
 ############################################################
@@ -79,8 +91,10 @@ my @files = (@inv,@mam,@pln,@pri,@rod,@vrt,@htg,@wgs);
 #
 ############################################################
 
-# count number of genbank entries processed
-my $entries;
+
+# two output streams for exons and introns
+open(EXON,">genbank_dump_r${release}_exon.csv") || die "Can't open exon output file\n";
+open(INTRON,">genbank_dump_r${release}_intron.csv") || die "Can't open intron output file\n";
 
 # Change record delimiter to split on //
 # newlines needed to avoid // in URLs for example
@@ -93,19 +107,18 @@ while (my $file = shift(@files)){
     
     ENTRY: while (<FILE>) {
 	
-		my ($locus,$mol,$accession,$species);
-		$entries++;
+		# count entry & reset CDS counter
+		$entries[0]++;
+		$cds_counter = 0;
 	
 		# skip to start of first record if at the beginning of a file
 		if(m/^GB\S+\.SEQ/){
-	    	m/LOCUS\s+(\S+)\s+\d+ bp\s+(\S+)\s+/ || die "1) No LOCUS field found for:\n\n$_\n"; 
-	    	$locus = $1;
-	    	$mol  = $2;
+	    	m/LOCUS\s+\S+\s+\d+ bp\s+(\S+)\s+/ || die "1) No molecule field found for:\n\n$_\n"; 
+	    	$mol  = $1;
 		}
 		else{
-	    	m/^LOCUS\s+(\S+)\s+\d+ bp\s+(\S+)\s+/ || die "2) No LOCUS field found for:\n\n$_\n"; 
-	    	$locus = $1;
-	    	$mol  = $2;
+	    	m/^LOCUS\s+\S+\s+\d+ bp\s+(\S+)\s+/ || die "2) No molecule field found for:\n\n$_\n"; 
+	    	$mol  = $1;
 		}       
 		
 		# check molecule type, ignore mRNAs as there won't be any introns
@@ -114,6 +127,10 @@ while (my $file = shift(@files)){
 		# skip if there is no CDS entry anywhere
 		# this will no doubt match other things but will generally help speed things up 		
 		next ENTRY unless (m/CDS/);
+
+		
+		# count entries with CDS
+		$entries[1]++;
 
 		# insert dividers for splitting remainder of entry
 		s/\n(\S+)/\nSPLITHERE\n$1/g;
@@ -130,9 +147,6 @@ while (my $file = shift(@files)){
 	    	if (/^SOURCE/) {
 				m/ORGANISM\s+(\S+\s+\S+)/;
 				$species = $1;
-				# skip if not human
-				#next ENTRY unless ($species eq "Homo sapiens");
-				
 	    	}
 	    	    
 	   		# split up each feature object
@@ -144,7 +158,19 @@ while (my $file = shift(@files)){
 		    
 		  			# skip if not a CDS, remove the CDS feature name as well
 		  			next unless (s/CDS\s+//);
-		  
+		  		
+				
+					# are we on reverse strand?
+					if(m/complement/){
+						$reverse_strand = 1;
+					}
+					else{
+						$reverse_strand = 0;
+					}
+					
+					# set flag for undetermined start/end of exons
+					$undetermined = 0;
+		
 		  			# insert dividers for splitting into qualifiers and substitute excess space
 		  			chomp ;
 		  			s/\n\s{21}\//ZZZZ/g;
@@ -152,7 +178,11 @@ while (my $file = shift(@files)){
 		  
 		  			# now only want first part of CDS feature which will be just the coordinates
 		  			my @qualifiers = split (/ZZZZ/); # split into qualifiers
-		  			my $cds = shift (@qualifiers); # pull out location                
+		  			my $cds = shift (@qualifiers); # pull out location               
+					
+					# count all CDSs
+					$entries[2]++;
+							 
 		  			$cds =~ s/\(//g;
 		  			$cds =~ s/\)//g;
 		  			$cds =~ s/join//g;
@@ -161,48 +191,67 @@ while (my $file = shift(@files)){
 		  			# ignore any CDS entry which contains references to other accessions, e.g.
 		  			# AY437144.1:26..80
 		  			next if ($cds =~ m/[A-Z]/);
-		  		  
+		  		  		
 		  			# check that there are always pairs of exon coordinates, e.g. avoid scenarios like
 		  			# this in accession AE003538 (has a final single exon start coordinate but with no end
 		  			# CDS             complement(join(290022..290246,290389..290873,
 		  			#                 290960..291199,291264))
-		  			# bit of a fudge, only looking for pair of coordinates at start and end of CDS
+		  			# bit of a fudge, only looking for pair of coordinates at start and end of CDS					
 		  			next unless ($cds =~ m/^[\d<]+\.\.\d+/);
 		  			next unless ($cds =~ m/\d+\.\.[>\d]+$/);
-
+					
 		  			# to find internal occurances, look for three consecutive digits (no ..)
-		  			next if($cds =~ m/\d+,\d+,\d+/);		   		 
-	
-					# store number of introns
-					my $introns;
+		  			next if ($cds =~ m/\d+,\d+,\d+/);		   		 
 
-		  			# some CDSs don't know the exact ends of exons (denoted by use of < and > characters)
-		  			# so will treat these entries separately
-		  			if ($cds =~ m/[<>]/){
-			  			$introns = $cds =~ tr/,/,/;
-			  			# keep count of these CDSs which have at least 1 intron
-						if($introns > 0){
-							$all_species{$species}[0] += 0;
-							$all_species{$species}[1] += 0;
-							$all_species{$species}[2] += 0;
-							$all_species{$species}[3]++;
-						}
-		  			}
-			 		else{
-		  				# can now trust that we have a complete, correct CDS entry so can increment
-		  				# cds counter
-		  				$all_species{$species}[0]++;
-		  
-		  				# number of commas will in $cds will be the number of introns		  
-		  				$introns = $cds =~ tr/,/,/;
+					# now we have removed most of the problem CDSs we can treat what is left
+					# as valid entries for further processing
+					# increment total CDS counter, and current CDS couunter for this entry
+					$entries[3]++;
+					$cds_counter++;					
 
-		  				# now increment total number of introns, and number of CDSs with no introns (if there are any)
-		  				$all_species{$species}[1]+= $introns;
-		  
-		  				if($introns == 0){
-		  					$all_species{$species}[2]++;
-		  				}    
+					# print "CDS: $cds\n";				
+			
+					# some CDSs don't know the exact ends of exons (denoted by use of < and > characters)
+					# so have to exclude these entries when calculating exon lengths
+			 		if ($cds =~ m/[<>]/){
+						$entries[4]++;
+						$undetermined = "1";
+						# remove these characters so that we can still calculate intron sizes
+						$cds =~ s/[<>]//g;
+			  		}
+					
+					# now want to find out both exon and intron sizes
+					$exons = $introns = $cds;	
+					$exons =~ s/(\d+)\.\.(\d+)/$2-$1+1/ge;
+					
+					# set introns to be nothing if we have a single exon gene
+					# else advance intron counter
+					if ($cds !~ m/,/){
+						$introns = "";
 					}
+					else{
+						$entries[5]++;
+					}
+
+					# replace intron coords with intron lengths
+					$introns =~ s/(\d+),(\d+)/$2-$1-1/ge;
+
+					# remove first and last exon coordinates and change '..' to commas
+					$introns =~ s/^\d+\.\.([\d,\.]+)\.\.\d+$/$1/;
+					$introns =~ s/\.\./,/g;
+
+					# final challenge is to reverse order of coordinates if on the reverse strand
+					if($reverse_strand == 1){
+						my @int = split(/,/,$introns);
+						$introns = join(",",reverse(@int));
+						my @ex = split(/,/,$exons);
+						$exons = join(",",reverse(@ex));						
+					}
+
+					# print out details unless we are dealing with exons with undetermined ends
+					# or single exon genes
+					print EXON "$species,$accession,$cds_counter,$exons\n" unless ($undetermined == 1);
+					print INTRON "$species,$accession,$cds_counter,$introns\n" if ($introns);
 	      		}
 	    	}
 		}
@@ -210,22 +259,12 @@ while (my $file = shift(@files)){
     close(FILE) || die "Can not close file\n";
 }
 
-print "\n\nProcessed $entries GenBank entries\n\n";
+print "\n\nProcessed $entries[0] GenBank entries:\n\n";
+print "$entries[1] entries contained $entries[2] CDS features\n";
+print "$entries[3] usable CDS features in total ($entries[4] of which have undetermined exon start/end coordinates)\n";
+print "$entries[5] usable CDS features with at least one intron\n";
 
-open(OUT,">species_CDS_intron_count.csv") || die "Can't open output file\n";
-print OUT "Species,CDS_count,Intron_count,Single_exon_CDS_count,CDSs_with_introns_but_missing_ends\n";
-
-foreach my $species (sort(keys(%all_species))){
-	# Only print entries with at least 100 CDSs?
-	if($all_species{$species}[0] >= 100){
-		
-		# reset third counter to zero if there were no data for this category
-		($all_species{$species}[3] = 0) if (!defined($all_species{$species}[3]));
-
-		print OUT "$species,$all_species{$species}[0],$all_species{$species}[1],$all_species{$species}[2],$all_species{$species}[3]\n";     
-	}    
-}
-
-close(OUT) || die "Can't close file\n";
+close(EXON) || die "Can't close exon file\n";
+close(INTRON) || die "Can't close intron file\n";
 
 exit(0);
