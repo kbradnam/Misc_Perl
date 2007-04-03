@@ -54,7 +54,7 @@ my @wgs = glob("${path}/wgs/wgs.*.gbff");
 # combine everything together
 my @files = (@inv,@mam,@pln,@pri,@rod,@vrt,@htg,@wgs);
 	     
-@files = glob("$path/gbinv1.seq");
+#@files = glob("$path/gbinv1.seq");
 
 
 ########################
