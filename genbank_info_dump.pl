@@ -63,20 +63,21 @@ die "No *.seq files found in $path\n" if (@files == 0);
 # misc variables
 ########################
 
-# Use array to keep track of 5 basic stats:
+# Use array to keep track of 6 stats:
 # 1) total number of genbank entries processed
-# 2) number of entries with at least one valid CDS feature
-# 3) number of entries with at least one valid exon in a CDS feature
-# 4) numer of entries with undefined start/end coordinates of CDS
-# 5) number of entries with at least one intron in a CDS feature
+# 2) number of entries with at least one CDS feature
+# 3) total number of CDS features
+# 4) number of unusable partial CDSs
+# 5) number of single bp exons at end of CDS (presumably part of UTR)
+# 6) numer of usuable CDSs (can be just one exon)
+# 7) number of usable CDSs with at least one intron
 my @entries;
 
 # three main things to extract per entry 
 my ($mol,$accession,$species);
 
-# true/false flags to know if we are on reverse strand or not and
-# whether CDS has undetermined start/end coordinates of an exon
-my ($reverse_strand,$undetermined);
+# true/false flags to know if we are on reverse strand or not 
+my $reverse_strand;
 
 # need to keep track of which CDS within a variable you are at
 my $cds_counter;
@@ -160,8 +161,12 @@ while (my $file = shift(@files)){
 		    
 		  			# skip if not a CDS, remove the CDS feature name as well
 		  			next unless (s/CDS\s+//);
-		  		
-				
+		  			
+					# now we are at a CDS, so count it (whether it is good or bad) and note it's number
+					# relative to whole entry
+					$entries[2]++;
+					$cds_counter++;			
+					
 					# are we on reverse strand?
 					if(m/complement/){
 						$reverse_strand = 1;
@@ -170,9 +175,6 @@ while (my $file = shift(@files)){
 						$reverse_strand = 0;
 					}
 					
-					# set flag for undetermined start/end of exons
-					$undetermined = 0;
-		
 		  			# insert dividers for splitting into qualifiers and substitute excess space
 		  			chomp ;
 		  			s/\n\s{21}\//ZZZZ/g;
@@ -180,10 +182,7 @@ while (my $file = shift(@files)){
 		  
 		  			# now only want first part of CDS feature which will be just the coordinates
 		  			my @qualifiers = split (/ZZZZ/); # split into qualifiers
-		  			my $cds = shift (@qualifiers); # pull out location               
-					
-					# count all CDSs
-					$entries[2]++;
+		  			my $cds = shift (@qualifiers); # pull out location               				
 							 
 		  			$cds =~ s/\(//g;
 		  			$cds =~ s/\)//g;
@@ -193,34 +192,34 @@ while (my $file = shift(@files)){
 		  			# ignore any CDS entry which contains references to other accessions, e.g.
 		  			# AY437144.1:26..80
 		  			next if ($cds =~ m/[A-Z]/);
-		  		  		
-		  			# check that there are always pairs of exon coordinates, e.g. avoid scenarios like
-		  			# this in accession AE003538 (has a final single exon start coordinate but with no end
-		  			# CDS             complement(join(290022..290246,290389..290873,
-		  			#                 290960..291199,291264))
-		  			# bit of a fudge, only looking for pair of coordinates at start and end of CDS					
-		  			next unless ($cds =~ m/^[\d<]+\.\.\d+/);
-		  			next unless ($cds =~ m/\d+\.\.[>\d]+$/);
+		  		  	
+					# ignore partial CDSs (with < or > in the CDS description) but keep count of them
+					if ($cds =~ m/[<>]/){
+						$entries[3]++;
+						next;
+					}
+					
+					# sometimes there are single base exons at the start or end of a CDS 
+		  			# these only get one coordinate rather than the same coordinate twice (joined by ..)
+		  			# E.g. complement(join(7218853,7218909..7219111))
+					#
+		  			# these are likely where the exon is a part of a 5' or 3' UTR. Post-processing
+					# scripts can decide whether they want to use these or not, but we need to change
+					# this into a format where we still calculate the length
+					if (($cds =~ m/^\d+,\d+/) || ($cds =~ m/\d+,\d+$/)){
+						$entries[4]++; 
+						# just duplicate the single coordinate
+						$cds =~ s/^(\d+),(\d+)/$1\.\.$1,$2/;
+						$cds =~ s/(\d+),(\d+)$/$1,$2\.\.$2/;
+					}
 					
 		  			# to find internal occurances, look for three consecutive digits (no ..)
 		  			next if ($cds =~ m/\d+,\d+,\d+/);		   		 
 
 					# now we have removed most of the problem CDSs we can treat what is left
 					# as valid entries for further processing
-					# increment total CDS counter, and current CDS couunter for this entry
-					$entries[3]++;
-					$cds_counter++;					
-
-					# print "CDS: $cds\n";				
-			
-					# some CDSs don't know the exact ends of exons (denoted by use of < and > characters)
-					# so have to exclude these entries when calculating exon lengths
-			 		if ($cds =~ m/[<>]/){
-						$entries[4]++;
-						$undetermined = "1";
-						# remove these characters so that we can still calculate intron sizes
-						$cds =~ s/[<>]//g;
-			  		}
+					$entries[5]++;
+									
 					
 					# now want to find out both exon and intron sizes
 					$exons = $introns = $cds;	
@@ -232,7 +231,7 @@ while (my $file = shift(@files)){
 						$introns = "";
 					}
 					else{
-						$entries[5]++;
+						$entries[6]++;
 					}
 
 					# replace intron coords with intron lengths
@@ -250,9 +249,8 @@ while (my $file = shift(@files)){
 						$exons = join(",",reverse(@ex));						
 					}
 
-					# print out details unless we are dealing with exons with undetermined ends
-					# or single exon genes
-					print EXON "$species,$accession,$cds_counter,$exons\n" unless ($undetermined == 1);
+					# print out details unless we are dealing with single exon genes (so no introns)
+					print EXON "$species,$accession,$cds_counter,$exons\n";
 					print INTRON "$species,$accession,$cds_counter,$introns\n" if ($introns);
 	      		}
 	    	}
@@ -261,10 +259,11 @@ while (my $file = shift(@files)){
     close(FILE) || die "Can not close file\n";
 }
 
-print "\n\nProcessed $entries[0] GenBank entries:\n\n";
-print "$entries[1] entries contained $entries[2] CDS features\n";
-print "$entries[3] usable CDS features in total ($entries[4] of which have undetermined exon start/end coordinates)\n";
-print "$entries[5] usable CDS features with at least one intron\n";
+print "\n\nProcessed $entries[0] GenBank entries, $entries[1] of which contains CDSs:\n\n";
+print "$entries[2] CDS features in total\n";
+print "$entries[3] partial CDS features which can't be used\n";
+print "$entries[5] usable full-length CDS features\n";
+print "$entries[6] usable CDS features with at least one intron\n";
 
 close(EXON) || die "Can't close exon file\n";
 close(INTRON) || die "Can't close intron file\n";
