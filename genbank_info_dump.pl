@@ -16,25 +16,28 @@
 
 
 use strict;
+use Cwd;
 use Getopt::Long;
 use List::Util qw(sum);
 
 ########################
 # Command line options
 ########################
-my $release;   # which release of genbank to query against?  Specify an integer
+my $release;   	# which release of genbank to query against?  Specify an integer
+my $test; 		# simple test mode which just uses files in current working directory
+GetOptions("release=i"=> \$release,
+			"test"    => \$test);
 
-GetOptions("release=i"=> \$release);
-
-die "Must use -release option to specify a GenBank release number to query against\n" if (!defined($release));
+die "Must use -release option to specify a GenBank release number to query against\n" if (!defined($release) && !$test);
 
 ################
 # Paths etc.
 ################
 
-# specify path to GenBank release
-my $path = "/Volumes/genbank/${release}";
-#$path = glob("~/Desktop");
+# specify path (which changes if in test mode)
+my $path;
+$path = "/Volumes/genbank/${release}" if ($release);
+$path = getcwd if ($test);
 
 die "$path directory does not exist.\n" if (! -e "$path");
 
@@ -53,15 +56,14 @@ my @wgs = glob("${path}/wgs/wgs.*.gbff");
 
 # combine everything together
 my @files = (@inv,@mam,@pln,@pri,@rod,@vrt,@htg,@wgs);
-	     
-#@files = glob("$path/gbinv1.seq");
-
-
+	 
+die "No *.seq files found in $path\n" if (@files == 0);    
+	
 ########################
 # misc variables
 ########################
 
-# Use array to keep track of 4 basic stats:
+# Use array to keep track of 5 basic stats:
 # 1) total number of genbank entries processed
 # 2) number of entries with at least one valid CDS feature
 # 3) number of entries with at least one valid exon in a CDS feature
@@ -93,8 +95,8 @@ my ($exons,$introns);
 
 
 # two output streams for exons and introns
-open(EXON,">genbank_dump_r${release}_exon.csv") || die "Can't open exon output file\n";
-open(INTRON,">genbank_dump_r${release}_intron.csv") || die "Can't open intron output file\n";
+open(EXON,">genbank_dump_exon.csv") || die "Can't open exon output file\n";
+open(INTRON,">genbank_dump_intron.csv") || die "Can't open intron output file\n";
 
 # Change record delimiter to split on //
 # newlines needed to avoid // in URLs for example
