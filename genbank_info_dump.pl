@@ -160,7 +160,7 @@ while (my $file = shift(@files)){
 	      		FEATURE: for (split(/ZZZZ/)) {
 		    
 		  			# skip if not a CDS, remove the CDS feature name as well
-		  			next unless (s/CDS\s+//);
+		  			next unless (s/^CDS\s+//);
 		  			
 					# now we are at a CDS, so count it (whether it is good or bad) and note it's number
 					# relative to whole entry
