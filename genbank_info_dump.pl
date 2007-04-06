@@ -150,6 +150,10 @@ while (my $file = shift(@files)){
 	    	if (/^SOURCE/) {
 				m/ORGANISM\s+(\S+\s+\S+)/;
 				$species = $1;
+				# occasionally certain entries are structured in a way that gives problems, simplest to ignore these
+				# these entries usually only contain the genus and no species suffix, such that $species always ends
+				# up with 'Eukaryota' from the next line in the genbank entry
+				next ENTRY if ($species =~ m/Eukaryota/);
 	    	}
 	    	    
 	   		# split up each feature object
@@ -215,28 +219,31 @@ while (my $file = shift(@files)){
 					
 		  			# to find internal occurances, look for three consecutive digits (no ..)
 		  			next if ($cds =~ m/\d+,\d+,\d+/);		   		 
-
-					# now we have removed most of the problem CDSs we can treat what is left
-					# as valid entries for further processing
-					$entries[5]++;
-									
-					
+			
 					# now want to find out both exon and intron sizes
 					$exons = $introns = $cds;	
 					$exons =~ s/(\d+)\.\.(\d+)/$2-$1+1/ge;
 					
 					# set introns to be nothing if we have a single exon gene
-					# else advance intron counter
-					if ($cds !~ m/,/){
-						$introns = "";
-					}
-					else{
-						$entries[6]++;
-					}
+					$introns = "" if ($cds !~ m/,/);
+
 
 					# replace intron coords with intron lengths
 					$introns =~ s/(\d+),(\d+)/$2-$1-1/ge;
 
+					# skip any entry with zero or negative intron/exon lengths
+					next if ($introns =~ m/\.\.0/);
+					next if ($introns =~ m/\.\.-/);
+					next if ($exons =~ m/\.\.0/);
+					next if ($exons =~ m/\.\.-/);	
+						
+					# now we have removed most of the problem CDSs we can treat what is left
+					# as valid entries for further processing
+					$entries[5]++;
+
+					# increment intron counter if CDS had introns
+					$entries[6]++ if (defined($introns));
+	
 					# remove first and last exon coordinates and change '..' to commas
 					$introns =~ s/^\d+\.\.([\d,\.]+)\.\.\d+$/$1/;
 					$introns =~ s/\.\./,/g;
