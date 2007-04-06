@@ -115,11 +115,9 @@ foreach my $species (sort(keys(%all_species))){
 	
 	# Only proceed if we have enough introns
 	if (defined($species2count{$species}{"1"}) && ($species2count{$species}{"1"}>$limit)){
-		print "\"$species\"\n";
-
 		# a couple of variables to store everything before printing
 		my ($mean_stats, $se_stats, $z_stats);
-		$mean_stats = "\"Average intron sizes\"\nNumber_of_introns,Number_of_genes,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20\n";		
+		$mean_stats = "Species,Type,Number_of_introns,Number_of_genes,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20\n";		
 	
 		# now loop through number of introns in a gene 1..x to print averages
 		for (my $i=1; $i < @{$species2introns{$species}};$i++){
@@ -132,9 +130,9 @@ foreach my $species (sort(keys(%all_species))){
 			# more genes than defined by $limit
 			if(defined($species2count{$species}{$i}) && ($species2count{$species}{$i}>$limit)){
 
-				$mean_stats .= "$i,$species2count{$species}{$i},";
-				$se_stats .= "$i,$species2count{$species}{$i},";
-				$z_stats .= "$i,$species2count{$species}{$i},";
+				$mean_stats .= "\"$species\",mean,$i,$species2count{$species}{$i},";
+				$se_stats .= "\"$species\",SE,$i,$species2count{$species}{$i},";
+				$z_stats .= "\"$species\",Z,$i,$species2count{$species}{$i},";
 				
 				# holders for old stats
 				my ($prev_mean,$prev_n,$prev_std_dev);
@@ -174,11 +172,9 @@ foreach my $species (sort(keys(%all_species))){
 			
 		}
 		# now print out everything
-		print "$mean_stats\n";
-		print "\"Standard error\"\nNumber_of_introns,Number_of_genes,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20\n";
-		print "$se_stats\n";
-		print "\"Z stat\"\nNumber_of_introns,Number_of_genes,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20\n";
-		print "$z_stats\n";
+		print "$mean_stats";
+		print "$se_stats";
+		print "$z_stats";
 		print "\n";
 	}
 }
