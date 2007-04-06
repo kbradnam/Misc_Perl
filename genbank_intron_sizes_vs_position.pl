@@ -112,46 +112,74 @@ close(IN) || die "Couldn't close $input\n";
 # now loop through big data structure to get stats. Species first...
 
 foreach my $species (sort(keys(%all_species))){
-
-	# now loop through number of introns in a gene 1..x
-	for (my $i=1; $i < @{$species2introns{$species}};$i++){
 	
-		# skip if $min and/or $max has been set
-		next if ($i < $min);
-		next if ($i > $max);
-		
-		# do we actually have data for the current number of introns, and do we have
-		# more genes than defined by $limit
-		if(defined($species2count{$species}{$i}) && ($species2count{$species}{$i}>$limit)){
-			#print "$species - $species2count{$species}{$i} genes with $i introns\n";
-		
-			# now loop through each intron position to calculate average length, stdev etc. at each position
-			my (@means,@std_errs);
-			for (my $j=1; $j < @{$species2introns{$species}[$i]};$j++){
+	# Only proceed if we have enough introns
+	if (defined($species2count{$species}{"1"}) && ($species2count{$species}{"1"}>$limit)){
+		print "\"$species\"\n";
+
+		# a couple of variables to store everything before printing
+		my ($mean_stats, $se_stats, $z_stats);
+		$mean_stats = "\"Average intron sizes\"\nNumber_of_introns,Number_of_genes,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20\n";		
+	
+		# now loop through number of introns in a gene 1..x to print averages
+		for (my $i=1; $i < @{$species2introns{$species}};$i++){
+
+			# skip if $min and/or $max has been set
+			next if ($i < $min);
+			next if ($i > $max);
+
+			# do we actually have data for the current number of introns, and do we have
+			# more genes than defined by $limit
+			if(defined($species2count{$species}{$i}) && ($species2count{$species}{$i}>$limit)){
+
+				$mean_stats .= "$i,$species2count{$species}{$i},";
+				$se_stats .= "$i,$species2count{$species}{$i},";
+				$z_stats .= "$i,$species2count{$species}{$i},";
 				
-				# calculate statistics and load to temporary arrays
-				my $n = @{$species2introns{$species}[$i][$j]};
-				my $mean = sum(@{$species2introns{$species}[$i][$j]})/$n;
-				my $std_dev = sqrt(sum(map {($_ - $mean) ** 2} @{$species2introns{$species}[$i][$j]}) / ($n-1));
-				my $std_err = $std_dev/sqrt($mean);
-				push(@means,sprintf("%.2f",$mean));
-				push(@std_errs,sprintf("%.2f",$std_err));
-				#print "Intron position $j: @{$species2introns{$species}[$i][$j]}\n";
-				#print "Mean = $mean Stdev = $std_dev Std Err =  $std_err\n";
+				# holders for old stats
+				my ($prev_mean,$prev_n,$prev_std_dev);
+				
+				# now loop through each intron position to calculate average length, stdev etc. at each position
+				for (my $j=1; $j < @{$species2introns{$species}[$i]};$j++){
+
+					# calculate statistics and load to temporary variables
+					my $n = @{$species2introns{$species}[$i][$j]};
+					my $mean = sprintf("%.2f",sum(@{$species2introns{$species}[$i][$j]})/$n);
+					my $std_dev = sqrt(sum(map {($_ - $mean) ** 2} @{$species2introns{$species}[$i][$j]}) / ($n-1));
+					my $std_err = sprintf("%.2f",$std_dev/sqrt($n));
+					my $z_stat = sprintf("%.2f",($std_dev**2)/$n);
+					$mean_stats .= "$mean,";
+					$se_stats .= "$std_err,";
+									
+					
+					# if we are at least at the second intron, we can compare average size to previous intron
+					# to see if they are significantly different (via a z-test)
+					if($j>1){
+						my $z = sprintf("%.2f",($mean - $prev_mean)/sqrt(($std_dev**2/$n)+($prev_std_dev**2/$prev_n)));
+						$z_stats .= "$z,";
+					}
+					else{
+						$z_stats .= ",";
+					}
+					# set current values to previous values
+					$prev_mean = $mean;
+					$prev_n = $n;
+					$prev_std_dev = $std_dev;
+					
 				}
-			# now print results
-			print "$species,$i,$species2count{$species}{$i},";
-			for(my $k=0;$k<@means;$k++){
-				print "$means[$k],";
-			}
-			print "\n";
-			print "$species,$i,$species2count{$species}{$i},";
-			for(my $k=0;$k<@std_errs;$k++){
-				print "$std_errs[$k],";
-			}
-			print "\n\n";
+				$mean_stats .= "\n";
+				$se_stats .= "\n";
+				$z_stats .= "\n";
+			} 
 			
 		}
+		# now print out everything
+		print "$mean_stats\n";
+		print "\"Standard error\"\nNumber_of_introns,Number_of_genes,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20\n";
+		print "$se_stats\n";
+		print "\"Z stat\"\nNumber_of_introns,Number_of_genes,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20\n";
+		print "$z_stats\n";
+		print "\n";
 	}
 }
 
