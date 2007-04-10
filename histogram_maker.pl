@@ -43,7 +43,7 @@ open (IN, "<$ARGV[0]") || die "Failed to open input file\n\n";
 
 while (<IN>) { 
 	chomp;
-	die "Non numeric character in input file\n" if (m/[^0-9\.]/);
+	die "Non numeric character in input file\n" if (m/[^0-9\.\-]/);
 	push(@numbers,$_);	
 }	  	    
     
