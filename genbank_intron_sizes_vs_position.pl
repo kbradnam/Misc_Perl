@@ -24,23 +24,18 @@ use List::Util qw(sum);
 ########################
 # Command line options
 ########################
-my $limit;     # set a cut-off for how many introns are needed per species
-my $min;       # Only match genes with a minimum number of introns
-my $max;       # only match genes with a maximum number of introns
+my $limit;     # set a cut-off for how many introns are needed per species (at first intron position)
 my $input;	   # the name of the intron dump file from genbank_info_dump.pl
+my $min;       # set min length for introns, any CDS with any intron below that length is ignored
 
 GetOptions("limit=i"  => \$limit,
-	       "min=i"    => \$min,
-	       "max=i"    => \$max,
-		   "input=s" => \$input);
+		   "input=s"  => \$input,
+		   "min=i"    => \$min);
 
 die "Must use -input option to specify a file containing intron info from genbank\n" if (!defined($input));
 
-#set default for $limit,$min, and $max if not specified
-$limit = 100  if (!defined($limit));
-$min   = 1     if (!defined($min));
-$max   = 10000 if (!defined($max));
-
+#set default for $limit if not specified
+$limit  = 100   if (!defined($limit));
 
 ########################
 # misc variables
@@ -64,6 +59,9 @@ my %species2count;
 # e.g. {Bos taurus}[7][1] = (34,52,244,121)  - four cow genes have 7 introns exactly and th lengths of the first introns are 34,52 etc
 my %species2introns;
 
+# keep track of CDSs with introns shorter than value set by $min
+my $short_counter = 0;
+
 
 
 ############################################################
@@ -76,7 +74,7 @@ my %species2introns;
 
 open (IN,"<$input") || die "Can't open $input file\n";
 
-while (<IN>) {
+LINE: while (<IN>) {
 	# split line and extract relevant information to separate variables
 	# need to know how long each line is to work out how many introns there are
 	chomp;
@@ -89,6 +87,16 @@ while (<IN>) {
 	my $length = @details;
 	my ($species,$accession,$cds) = (@details[0..2]);
 	my @introns = (@details[3..$length-1]);
+	
+	# check all intron sizes if -ignore option specified, skip CDSs with short intron
+	if($min){
+		foreach my $i (@introns){
+			if ($i < $min){
+				$short_counter++;
+				next LINE;
+			}
+		}
+	}
 	
 	# might have occasional problem with some species names in genbank
 	# names should be alphanumerical characters, spaces, and maybe a period and dash
@@ -109,22 +117,20 @@ while (<IN>) {
 
 close(IN) || die "Couldn't close $input\n";
 
-# now loop through big data structure to get stats. Species first...
 
+# simple string to print later in output
+my $header = "Species,Type,Number_of_introns,Number_of_genes,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20\n";		
+
+# now loop through big data structure to get stats. Species first...
 foreach my $species (sort(keys(%all_species))){
 	
-	# Only proceed if we have enough introns
+	# Only proceed if we have enough introns (at intron position 1)
 	if (defined($species2count{$species}{"1"}) && ($species2count{$species}{"1"}>$limit)){
 		# a couple of variables to store everything before printing
 		my ($mean_stats, $se_stats, $z_stats);
-		$mean_stats = "Species,Type,Number_of_introns,Number_of_genes,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20\n";		
 	
 		# now loop through number of introns in a gene 1..x to print averages
 		for (my $i=1; $i < @{$species2introns{$species}};$i++){
-
-			# skip if $min and/or $max has been set
-			next if ($i < $min);
-			next if ($i > $max);
 
 			# do we actually have data for the current number of introns, and do we have
 			# more genes than defined by $limit
@@ -171,13 +177,18 @@ foreach my $species (sort(keys(%all_species))){
 			} 
 			
 		}
-		# now print out everything
-		print "$mean_stats";
-		print "$se_stats";
-		print "$z_stats";
-		print "\n";
+		# now print out everything (if we have everything)
+		if (defined($mean_stats)){
+			print "$header";
+			print "$mean_stats";
+			print "$se_stats";
+			print "$z_stats";
+			print "\n";
+		}
 	}
 }
 
+
+print "\n$short_counter CDSs with at least one introns shorter than $min bp length were ignored\n" if ($min);
 	
 exit(0);
