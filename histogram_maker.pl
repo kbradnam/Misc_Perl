@@ -125,8 +125,8 @@ BIN:for ($bin_start = $min; $bin_start < $max; $bin_start += $interval){
 	$percent = sprintf("%.4f",($bin_counter/$records));
     print "\"${bin_start} - ${rounded_bin_end}\",$bin_counter,$percent\n";
 
-	# extra block to print out a final >x category if there are records above value of $max
-	if(@sorted !=0 && $sorted[0] >$max){
+	# extra block to print out a final >x category if there are records above value of $max 
+	if(@sorted !=0 && (close_enough_or_bigger($sorted[0],$max))){
 		my $size = scalar(@sorted);
 		$percent = sprintf("%.4f",($size/$records));
    		print "\">${rounded_bin_end}\",$size,$percent\n";	
