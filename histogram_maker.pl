@@ -21,10 +21,9 @@ my $interval;      # what size bins to count things in?
 my $min;           # force a start point for counting
 my $max;           # force an end point for counting
 
-GetOptions ("interval=i"      => \$interval,
-	    	"min=i"           => \$min,
-	    	"max=i"           => \$max);
-	    
+GetOptions ("interval=f"      => \$interval,
+	    	"min=f"           => \$min,
+	    	"max=f"           => \$max);
 
 ##################################################
 # Sanity check on specified command line options
@@ -79,21 +78,22 @@ print "Parsing $records records\n\n";
 
 my $bin_start;
 my $bin_end;
-#my $number;
+my $rounded_bin_end;
 my $percent;
 my $bin_counter;
 
 BIN:for ($bin_start = $min; $bin_start < $max; $bin_start += $interval){
-	
 	# exit loop if we get here and there is no data left
 	last BIN if (@sorted == 0);
 	
 	# reset bin counter for each bin
 	$bin_counter = 0;
 
-	# set bin end 
-    $bin_end = $bin_start+$interval-1;
-    
+	# set bin end, we go down to 10 decimal places which might not be sensitive enough
+    # the rounded bin end figure is just for the final print out to look a bit neater
+	$bin_end = $bin_start+$interval-0.0000000001;
+	$rounded_bin_end = $bin_start+$interval-0.01;
+	
 	#  if $min is greater than many records, we should first count everything less than $min
 	if($sorted[0] <$min){	
 		while ($sorted[0] < $min){
@@ -102,33 +102,84 @@ BIN:for ($bin_start = $min; $bin_start < $max; $bin_start += $interval){
 			last BIN if (@sorted == 0);
 		}
 		$percent = sprintf("%.4f",($bin_counter/$records));
-		print "<${bin_start},$bin_counter,$percent\n";
+		print "\"<${bin_start}\",$bin_counter,$percent\n";
 		$bin_counter = 0;
 	}
 
 	#  move to next bin if the smallest value is greater than the current bin end size
 	if ($sorted[0] > $bin_end){
 		$percent = sprintf("%.4f",($bin_counter/$records));
-		print "${bin_start}-${bin_end},$bin_counter,$percent\n";
+		print "\"${bin_start} - ${rounded_bin_end}\",$bin_counter,$percent\n";
 		next BIN;
 	}
-	
+		
 	# if we are still here than the current record should be in this bin size and we can add 
 	# to current total
-	while($sorted[0] >= $bin_start && $sorted[0] <= $bin_end){
+#	print "# sorted[0] = *$sorted[0]*  bin_start = *$bin_start*\n";
+	while( (close_enough_or_bigger($sorted[0],$bin_start)) && (close_enough_or_smaller($sorted[0],$bin_end)) ){
 		$bin_counter++;
 		shift(@sorted);
 		last if (@sorted == 0);
 	}
+	
 	$percent = sprintf("%.4f",($bin_counter/$records));
-    print "${bin_start}-${bin_end},$bin_counter,$percent\n";
+    print "\"${bin_start} - ${rounded_bin_end}\",$bin_counter,$percent\n";
 
 	# extra block to print out a final >x category if there are records above value of $max
 	if(@sorted !=0 && $sorted[0] >$max){
 		my $size = scalar(@sorted);
 		$percent = sprintf("%.4f",($size/$records));
-   		print ">${bin_end},$size,$percent\n";	
+   		print "\">${rounded_bin_end}\",$size,$percent\n";	
 	}
-
 }
 
+# Need new functions to test for equality when dealing with floating point numbers
+# E.g. 0.6 in perl might actually be stored as 0.60000000000000008882 which 
+# means that it won't evaluate to true when you use the == operator
+sub close_enough{
+	my $a = shift;
+	my $b = shift;
+	
+	# find the difference and compare to your desired theshold whether this is close
+	# enough to be considered 'the same'. Differences have to be smaller than 10 decimal
+	# places to be considered the same which should work in most common sense scenarios
+	my $result = abs($a-$b);
+	if ($result < 0.0000000001){
+		return(1);
+	}
+	else{
+		return(0);
+	}
+}
+
+sub close_enough_or_bigger{
+	my $a = shift;
+	my $b = shift;
+	
+	# find the difference and compare to your desired theshold whether this is close
+	# enough to be considered 'the same'. Differences have to be smaller than 10 decimal
+	# places to be considered the same which should work in most common sense scenarios
+	my $result = abs($a-$b);
+	if ($result < 0.0000000001 || ($a>$b)){
+		return(1);
+	}
+	else{
+		return(0);
+	}
+}
+
+sub close_enough_or_smaller{
+	my $a = shift;
+	my $b = shift;
+	
+	# find the difference and compare to your desired theshold whether this is close
+	# enough to be considered 'the same'. Differences have to be smaller than 10 decimal
+	# places to be considered the same which should work in most common sense scenarios
+	my $result = abs($a-$b);
+	if ($result < 0.0000000001 || ($a<$b)){
+		return(1);
+	}
+	else{
+		return(0);
+	}
+}
