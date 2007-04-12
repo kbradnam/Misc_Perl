@@ -28,7 +28,7 @@ $chart = $ARGV[0] if ($ARGV[0]);
 my %ratings2counts; # rating is key, value is count
 
 
-# check whichi library to use and whether library exists
+# check which library to use and whether library exists
 &check_library;
 
 
@@ -134,8 +134,8 @@ exit(0);
 
 sub check_library{
 	unless($library){
-		my $path = glob("~/Music/iTunes");
-		$library = $path."/iTunes Music Library.xml";
+		my $path = glob("/Volumes/Multimedia/iTunes");
+		$library = $path."/iTunes Library.xml";
 	}
 	if(-e $library){
 		print "Using library: $library\n";
