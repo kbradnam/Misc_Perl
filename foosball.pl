@@ -11,8 +11,8 @@
 
 use strict;
 
-# two main hashes for storing data, the stats hash will contain details of games played, wins
-# goals scored and conceded etc. The ratings hash will just contain the floating point rating of
+# two main hashes for storing data, the stats hash will contain details of games played [0], 
+# games won [1] and games drawn [2]. The ratings hash will just contain the floating point rating of
 # each player
 my %player2ratings;
 my %player2stats;
@@ -34,10 +34,10 @@ foreach my $key (reverse sort {$player2ratings{$a} <=> $player2ratings{$b}} keys
 	my $formatted =  sprintf("%.2f",$player2ratings{$key});
 
 	if($player2stats{$key}[0] >= 5){
-		$high .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$formatted\n";	
+		$high .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$player2stats{$key}[2],$formatted\n";	
 	}
 	else{
-		$low .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$formatted\n";	
+		$low .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$player2stats{$key}[2],$formatted\n";	
 	}
 }
 print "$high\n\n$low\n";
@@ -74,11 +74,13 @@ sub calculate_ratings{
 		$player2ratings{$p1} = 0;
 		$player2stats{$p1}[0] = 0;
 		$player2stats{$p1}[1] = 0;
+		$player2stats{$p1}[2] = 0;
 	}
 	if(!defined($player2ratings{$p2})){
 		$player2ratings{$p2} = 0;
 		$player2stats{$p2}[0] = 0;
 		$player2stats{$p2}[1] = 0;
+		$player2stats{$p2}[2] = 0;
 	}
 
 	# need to assign score of higher ranking player to $p1_score and lower ranking 
@@ -119,18 +121,20 @@ sub calculate_ratings{
 
 	# calculate $we1 (higher ranking player) and $we2 (lower ranking player)
 	# These two scores should sum to 1
-	$we1 = 1/(10**(-$ratings_diff/400)+1);
-	$we2 = 1/(10**( $ratings_diff/400)+1);
+	$we1 = sprintf("%.3f",1/(10**(-$ratings_diff/400)+1));
+	$we2 = sprintf("%.3f",1/(10**( $ratings_diff/400)+1));
 
 	print "====================== Game $game_counter ==========================\n";
 	print "$p1_name: played $player2stats{$p1_name}[0], rated $player2ratings{$p1_name}, Win expectation = $we1\n";
 	print "$p2_name: played $player2stats{$p2_name}[0], rated $player2ratings{$p2_name}, Win expectation = $we2\n\n";
 
 
-	# calculate $w (i.e. who won?) and add wins to player2stats
+	# calculate $w (i.e. who won?) and add wins and draws to player2stats
 	if ($p1_score == $p2_score){
 		($w1 = $w2 = 0.5); 
 		print "$p1_name ties with $p2_name ($p1_score - $p2_score)\n";
+		$player2stats{$p1_name}[2]++;
+		$player2stats{$p2_name}[1]++;
 	}
 	if ($p1_score > $p2_score){
 		$w1 = 1;
@@ -161,8 +165,8 @@ sub calculate_ratings{
 #	print "Match status weighting (k) = $k, goal difference weighting (g) = $g\n";
 
 	# now can calculate final ratings
-	my $rating1 = $k*$g*($w1-$we1);
-	my $rating2 = $k*$g*($w2-$we2);
+	my $rating1 = sprintf("%.2f",$k*$g*($w1-$we1));
+	my $rating2 = sprintf("%.2f",$k*$g*($w2-$we2));
 
 	# add these points to their current ratings
 	$player2ratings{$p1_name}+= $rating1;
