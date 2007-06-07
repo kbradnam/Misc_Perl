@@ -96,8 +96,8 @@ my ($exons,$introns);
 
 
 # two output streams for exons and introns
-open(EXON,">genbank_dump_exon.csv") || die "Can't open exon output file\n";
-open(INTRON,">genbank_dump_intron.csv") || die "Can't open intron output file\n";
+open(EXON,">genbank_r${release}_exons.csv") || die "Can't open exon output file\n";
+open(INTRON,">genbank_r${release}_introns.csv") || die "Can't open intron output file\n";
 
 # Change record delimiter to split on //
 # newlines needed to avoid // in URLs for example
