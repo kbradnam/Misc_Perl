@@ -11,7 +11,6 @@
 # Last updated on: $Date$
 
 use strict;
-use lib "/Korflab/lib/perl";
 use Getopt::Long;
 use FAlite;
 
@@ -28,18 +27,19 @@ my $stats;      # report stats on log likelihood scores
 my $min;        # Set minimum cut off for use with -stats option
 my $max;        # Set maximum cut off for use with -stats option
 my $interval;   # Set interval size for use with -stats option
+my $species;    # code to determine which species to use expected frequencies from
 
-
-GetOptions ("motif=s"     => \$motif,
-	    "target=s"    => \$target,
-	    "threshold=f" => \$threshold,
-	    "scores"      => \$scores,
-	    "seqs"        => \$seqs,	    
-	    "stats"       => \$stats,
-	    "min=f"       => \$min,
-	    "max=f"       => \$max,
-	    "interval=f"  => \$interval,
-	    );
+GetOptions ("motif=s"    => \$motif,
+	       "target=s"    => \$target,
+	       "threshold=f" => \$threshold,
+	       "scores"      => \$scores,
+	       "seqs"        => \$seqs,	    
+	       "stats"       => \$stats,
+	       "min=f"       => \$min,
+	       "max=f"       => \$max,
+	       "interval=f"  => \$interval,
+		   "species=s"   => \$species,
+);
 
 # check that both command line options are specified
 die "Need to specify both -motif and -target options\n" if(!$motif || !$target);
@@ -50,6 +50,21 @@ die "-motif option must specify a valid Nested MICA *.xms output file\n" if($mot
 # check files exist
 die "$motif does not seem to exist\n" if (! -e $motif);
 die "$target does not seem to exist\n" if (! -e $target);
+
+# check that species code has been chosen
+if(!$species){
+	print "\nPlease specify a suitable species code using the -species option.\n";
+	print "Species codes are required to determine the correct expected nucleotide\nfrequencies when scoring motifs\n\n";
+	print "Current options (all case-insensitive) are:\n";
+	print "AtI - Arabidopsis thaliana introns\n";
+	print "AtG - Arabidopsis thaliana genomic\n";
+	print "CeI - Caenorhabditis elegans introns\n";
+	print "CeG - Caenorhabditis elegans genomic\n\n";
+	die "Choose one option only.\n\n";
+}
+
+# have we chosen an option to print some output?
+die "You have to choose at least one of -stats, -seqs, or -scores else there will be no output\n" if (!$seqs && !$stats && !$scores);
 
 # set threshold if none specified
 $threshold = 0 if (!$threshold);
@@ -77,14 +92,25 @@ my $motif_length;
 
 
 # Need sets of expected nucleotide frequencies to compute log likelihood scores
-# one set is based on (confirmed) intron base frequencies, the second is based on 
-# the entire worm genome
-my %expected_intronic = ("A" => "0.33339","C" => "0.16194",
-			 "G" => "0.16021","T" => "0.34446");
-my %expected_genomic  = ("A" => "0.32280","C" => "0.17733",
-			 "G" => "0.17709","T" => "0.32279");
+# set of frequencies chosen by -species option
+# following may have to be tidied up if I need to add more species
+my %expected;
 
-
+if($species =~ m/cei/i){
+	%expected = ("A" => "0.33339","C" => "0.16194", "G" => "0.16021","T" => "0.34446");
+}
+elsif($species =~ m/ceg/i){
+	%expected = ("A" => "0.32280","C" => "0.17733","G" => "0.17709","T" => "0.32279");
+}
+elsif($species =~ m/ati/i){
+	%expected = ("A" => "0.2769","C" => "0.1575", "G" => "0.1587","T" => "0.4069");
+}
+elsif($species =~ m/atg/i){
+	%expected = ("A" => "0.3195","C" => "0.1800", "G" => "0.1798","T" => "0.3192");
+}
+else{
+	die "\'$species\' is not a valid species code.\n";
+}
 # track base position in motif
 my $pos =0;
 my $max_pos = 0;
@@ -108,7 +134,7 @@ while(<MOTIF>){
 	my $freq = $2;
 	
 	# take logarithm of observed over expected frequency and add to @motifs
-	$motif[$pos]{$base} = log($freq/$expected_intronic{$base});
+	$motif[$pos]{$base} = log($freq/$expected{$base});
     }
 }
 close(MOTIF) || die "Couldn't close $motif\n";
