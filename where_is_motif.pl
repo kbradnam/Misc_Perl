@@ -202,8 +202,9 @@ while(my $entry = $fasta->nextEntry) {
 
 	  my $score =0;
 	  for(my $j =0; $j<@sequence;$j++){
-	      my $base = uc($sequence[$j]);
-	      $score += $motif[$j]{$base};
+			my $base = uc($sequence[$j]);
+			# add to motif score unless there is an N, which effectively counts as zero
+		  	($score += $motif[$j]{$base}) unless ($base eq "N");
 	  }
 	  # only want to print out scores above threshold, add scores to array if
 	  # tracking stats
