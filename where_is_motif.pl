@@ -204,7 +204,7 @@ while(my $entry = $fasta->nextEntry) {
 		for(my $j =0; $j<@sequence;$j++){
 			my $base = uc($sequence[$j]);
 			# add to motif score unless there the base isn't an A,T,C or G, which effectively counts as zero
-		  	unless($base =~ m/[ATCG]/){
+		  	unless($base =~ m/[^ATCG]/){
 				($score += $motif[$j]{$base});	
 			}
 		}
