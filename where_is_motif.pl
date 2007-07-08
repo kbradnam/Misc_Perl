@@ -56,8 +56,14 @@ if(!$species){
 	print "\nPlease specify a suitable species code using the -species option.\n";
 	print "Species codes are required to determine the correct expected nucleotide\nfrequencies when scoring motifs\n\n";
 	print "Current options (all case-insensitive) are:\n";
-	print "AtI - Arabidopsis thaliana introns\n";
-	print "AtG - Arabidopsis thaliana genomic\n";
+	print "AtI  - Arabidopsis thaliana introns\n";
+	print "AtG  - Arabidopsis thaliana genomic\n";
+	print "AtC  - Arabidopsis thaliana CDS\n";
+	print "AtIG - Arabidopsis thaliana intergenic\n";
+	print "At5U - Arabidopsis thaliana 5' UTR (exons)\n";
+	print "At3U - Arabidopsis thaliana 3' UTR (exons)\n";
+	print "AtU  - Arabidopsis thaliana upstream region of genes (1000 bp 5' to transcript)\n";
+	print "AtD  - Arabidopsis thaliana upstream region of genes (1000 bp 3' to transcript)\n";
 	print "CeI - Caenorhabditis elegans introns\n";
 	print "CeG - Caenorhabditis elegans genomic\n\n";
 	die "Choose one option only.\n\n";
@@ -94,6 +100,7 @@ my $motif_length;
 # Need sets of expected nucleotide frequencies to compute log likelihood scores
 # set of frequencies chosen by -species option
 # following may have to be tidied up if I need to add more species
+# Frequencies were calculated from chromosomes or various TAIR 7 downloads (apart from Introns which were from Tali)
 my %expected;
 
 if($species =~ m/cei/i){
@@ -102,15 +109,37 @@ if($species =~ m/cei/i){
 elsif($species =~ m/ceg/i){
 	%expected = ("A" => "0.32280","C" => "0.17733","G" => "0.17709","T" => "0.32279");
 }
-elsif($species =~ m/ati/i){
+
+elsif($species =~ m/^ati$/i){
 	%expected = ("A" => "0.2769","C" => "0.1575", "G" => "0.1587","T" => "0.4069");
 }
 elsif($species =~ m/atg/i){
 	%expected = ("A" => "0.3195","C" => "0.1800", "G" => "0.1798","T" => "0.3192");
 }
+elsif($species =~ m/at5u/i){
+	%expected = ("A" => "0.3016","C" => "0.2181", "G" => "0.1594","T" => "0.3210");
+}
+elsif($species =~ m/at3u/i){
+	%expected = ("A" => "0.2960","C" => "0.1473", "G" => "0.1732","T" => "0.3835");
+}
+elsif($species =~ m/atig/i){
+	%expected = ("A" => "0.3424","C" => "0.1562", "G" => "0.1556","T" => "0.3421");
+}
+elsif($species =~ m/atc/i){
+	%expected = ("A" => "0.2868","C" => "0.2031", "G" => "0.2387","T" => "0.2713");
+}
+elsif($species =~ m/atu/i){
+	%expected = ("A" => "0.3342","C" => "0.1685", "G" => "0.1651","T" => "0.3321");
+}
+elsif($species =~ m/atd/i){
+	%expected = ("A" => "0.3211","C" => "0.1787", "G" => "0.1724","T" => "0.3277");
+}
 else{
 	die "\'$species\' is not a valid species code.\n";
 }
+
+
+
 # track base position in motif
 my $pos =0;
 my $max_pos = 0;
@@ -122,19 +151,19 @@ open(MOTIF,"<$motif") || die "Could not open $motif file\n";
 while(<MOTIF>){
     # keep track of motif position, need to stop if we get to the second motif
     if (m/<column pos=\"(\d+)\"/){
-	$pos = $1;	
-	($max_pos = $pos) if ($pos > $max_pos);
-	last if ($pos < $max_pos);
-	$motif_length++;
+		$pos = $1;	
+		($max_pos = $pos) if ($pos > $max_pos);
+		last if ($pos < $max_pos);
+		$motif_length++;
     }
 
     # get nucleotide frequencies from input filre
     if(m/weight symbol=\"([a-z])[a-z]+\">(0\.\d+)<\/weight/){
-	my $base = uc($1);
-	my $freq = $2;
+		my $base = uc($1);
+		my $freq = $2;
 	
-	# take logarithm of observed over expected frequency and add to @motifs
-	$motif[$pos]{$base} = log($freq/$expected{$base});
+		# take logarithm of observed over expected frequency and add to @motifs
+		$motif[$pos]{$base} = log($freq/$expected{$base});
     }
 }
 close(MOTIF) || die "Couldn't close $motif\n";
@@ -165,7 +194,7 @@ while(my $entry = $fasta->nextEntry) {
     my $length = length($seq);
 
     # loop through sequence in windows equal to motif size
-      for (my $i = 0; $i < length($seq)-$motif_length; $i++) {
+    for (my $i = 0; $i < length($seq)-$motif_length; $i++) {
 
 	  # extract a window of sequence, split it, and place in array	
 	  my $window = substr($seq, $i, $motif_length);
