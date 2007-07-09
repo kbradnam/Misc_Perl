@@ -57,6 +57,7 @@ if(!$species){
 	print "Species codes are required to determine the correct expected nucleotide\nfrequencies when scoring motifs\n\n";
 	print "Current options (all case-insensitive) are:\n";
 	print "AtI  - Arabidopsis thaliana introns\n";
+	print "AtIR - Arabidopsis thaliana introns (reverse complemented)\n";
 	print "AtG  - Arabidopsis thaliana genomic\n";
 	print "AtC  - Arabidopsis thaliana CDS\n";
 	print "AtIG - Arabidopsis thaliana intergenic\n";
@@ -112,6 +113,9 @@ elsif($species =~ m/ceg/i){
 
 elsif($species =~ m/^ati$/i){
 	%expected = ("A" => "0.2769","C" => "0.1575", "G" => "0.1587","T" => "0.4069");
+}
+elsif($species =~ m/^atir$/i){
+	%expected = ("A" => "0.4069","C" => "0.1587", "G" => "0.1575","T" => "0.2769");
 }
 elsif($species =~ m/atg/i){
 	%expected = ("A" => "0.3195","C" => "0.1800", "G" => "0.1798","T" => "0.3192");
