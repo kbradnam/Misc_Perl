@@ -28,6 +28,8 @@ my $min;        # Set minimum cut off for use with -stats option
 my $max;        # Set maximum cut off for use with -stats option
 my $interval;   # Set interval size for use with -stats option
 my $species;    # code to determine which species to use expected frequencies from
+my $mcount;	 	# count (and show) amount and percentage of motif in each sequence (one line per sequence)
+my $msummary;	# show motif count and percentage for all sequences combined
 
 GetOptions ("motif=s"    => \$motif,
 	       "target=s"    => \$target,
@@ -39,6 +41,8 @@ GetOptions ("motif=s"    => \$motif,
 	       "max=f"       => \$max,
 	       "interval=f"  => \$interval,
 		   "species=s"   => \$species,
+		   "mcount"      => \$mcount,  
+		   "msummary"    => \$msummary
 );
 
 # check that both command line options are specified
@@ -71,7 +75,13 @@ if(!$species){
 }
 
 # have we chosen an option to print some output?
-die "You have to choose at least one of -stats, -seqs, or -scores else there will be no output\n" if (!$seqs && !$stats && !$scores);
+if (!$seqs && !$stats && !$scores && !$mcount && !$msummary){
+	die "You have to choose at least one of -stats, -seqs, or -scores else there will be no output\n";	
+}
+# can't choose mcount with other options
+if($mcount && ($seqs || $stats)){
+	die "Don't choose -mcount with -seqs or -scores\n";	
+}
 
 # set threshold if none specified
 $threshold = 0 if (!$threshold);
@@ -94,6 +104,7 @@ my @all_scores if ($stats);
 # corresponds to the base of the motif each value will be a key (A,C,G, or T) with
 # the log likelihoods being the values
 my @motif;
+
 # will need to know motif length later on
 my $motif_length;
 
@@ -153,7 +164,7 @@ my $max_pos = 0;
 open(MOTIF,"<$motif") || die "Could not open $motif file\n";
 
 while(<MOTIF>){
-    # keep track of motif position, need to stop if we get to the second motif
+	# keep track of motif position, need to stop if we get to the second motif
     if (m/<column pos=\"(\d+)\"/){
 		$pos = $1;	
 		($max_pos = $pos) if ($pos > $max_pos);
@@ -187,24 +198,33 @@ open(TARGET,"<$target") || die "Couldn't open $target file\n";
 
 my $fasta = new FAlite(\*TARGET);
 
-# loop through each sequence in target file
+# keep track of total length of sequence in each file and total length of motif, plus number of sequences
+my ($total_length,$total_motif,$seq_count);
 
+# loop through each sequence in target file
 while(my $entry = $fasta->nextEntry) {
-    my $header = $entry->def;
+	$seq_count++;
+	
+	my $header = $entry->def;
     # trim header
     $header =~ s/ .*//;
 
     my $seq = lc($entry->seq);
     my $length = length($seq);
-
+	$total_length += $length;
+	
+	# will count total amount of motif in each sequence (motifs may overlap so need to be sure we are not double counting)
+	# to help this we will temporarily store a copy of $seq to mask out where any motifs are with a '-' character then
+	# we can just count the dashes to know how many bases of a sequence are motif
+	my $temp_seq = $seq;
+	
     # loop through sequence in windows equal to motif size
     for (my $i = 0; $i < length($seq)-$motif_length; $i++) {
+		# extract a window of sequence, split it, and place in array	
+		my $window = substr($seq, $i, $motif_length);
+		my @sequence = split(//,$window);
 
-	  # extract a window of sequence, split it, and place in array	
-	  my $window = substr($seq, $i, $motif_length);
-	  my @sequence = split(//,$window);
-
-	  my $score =0;
+		my $score =0;
 		for(my $j =0; $j<@sequence;$j++){
 			my $base = uc($sequence[$j]);
 			# add to motif score unless there the base isn't an A,T,C or G, which effectively counts as zero
@@ -212,28 +232,42 @@ while(my $entry = $fasta->nextEntry) {
 				($score += $motif[$j]{$base});	
 			}
 		}
-	  # only want to print out scores above threshold, add scores to array if
-	  # tracking stats
-	  my $new_score = sprintf("%.2f",$score);
-	  push(@all_scores,$new_score) if ($stats);
+		# only want to print out scores above threshold, add scores to array if
+		# tracking stats
+		my $new_score = sprintf("%.2f",$score);
+		push(@all_scores,$new_score) if ($stats);
 
-	  # print output if requested
-	  if($scores || $seqs){
-	      # want to show location of motif within original sequence
-	      my $highlight = uc($window);
-	      my $new_seq = $seq;
-	      $new_seq =~ s/$window/ $highlight /g;
-	      if($score > $threshold){
-		  my $start_coord = $i+1;
-		  print "$header $new_score $start_coord/$length $window\n" if ($scores);
-		  print "$new_seq\n" if ($seqs);	      
-	      }
-	  }
-      }
+		# mask $temp_seq with region of motif (if above threshold)
+		(substr($temp_seq,$i,11) = "-" x $motif_length) if ($score > $threshold);
+
+		# print output if requested
+		if($scores || $seqs){
+	    	# want to show location of motif within original sequence
+	    	my $highlight = uc($window);
+	    	my $new_seq = $seq;
+	    	$new_seq =~ s/$window/ $highlight /g;
+	    	if($score > $threshold){
+				my $start_coord = $i+1;
+		  		print "$header $new_score $start_coord/$length $window\n" if ($scores);
+		  		print "$new_seq\n" if ($seqs);	      
+			}
+	  	}
+	}
+	
+	# count motif in sequence, add to running total
+	my $motif_count = ($temp_seq =~ tr /-/-/);
+	$total_motif += $motif_count;
+	my $percent_motif = sprintf("%.3f",($motif_count / $length) * 100);
+	print "$header motif_count: $motif_count/$length $percent_motif%\n" if ($mcount);
 }
 
 close(TARGET) || die "Couldn't close $target\n";
 
+# print motif summary if requested
+if($msummary){
+	my $percent_motif = sprintf("%.3f",($total_motif/$total_length) * 100);
+	print "\nSUMMARY: number_of_sequences $seq_count total_sequence_length $total_length motif_total $total_motif $percent_motif%\n\n\n";
+}
 
 
 # Process stats if required
