@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 #
 # where_is_motif.pl
 #
@@ -11,6 +11,7 @@
 # Last updated on: $Date$
 
 use strict;
+use warnings;
 use Getopt::Long;
 use FAlite;
 
@@ -20,68 +21,37 @@ use FAlite;
 
 my $motif;      # nested MICA *.xms file with (single) motif
 my $target;     # file with sequences in which to find motif
-my $threshold;  # limit for which to report motif hits
+my $threshold;  # limit for log-odds score for which to report motif hits
 my $scores;     # Show scores
-my $seqs;       # Show motif sequences in output
-my $stats;      # report stats on log likelihood scores
+my $seqs;       # Show motif sequences in output (one sequence per motif in each intron)
+my $species;    # code to determine which species to use expected frequencies from
+my $mdensity;	# count (and show) amount and percentage of motif in each sequence (one line per sequence)
+my $mseqs;		# just show sequences of each intron that have motifs above threshold (one sequence per intron)
+my $msummary;	# show motif count and percentage for all sequences combined
+
+my $stats;      # report stats on all log likelihood scores found
 my $min;        # Set minimum cut off for use with -stats option
 my $max;        # Set maximum cut off for use with -stats option
 my $interval;   # Set interval size for use with -stats option
-my $species;    # code to determine which species to use expected frequencies from
-my $mcount;	 	# count (and show) amount and percentage of motif in each sequence (one line per sequence)
-my $msummary;	# show motif count and percentage for all sequences combined
 
 GetOptions ("motif=s"    => \$motif,
 	       "target=s"    => \$target,
 	       "threshold=f" => \$threshold,
 	       "scores"      => \$scores,
 	       "seqs"        => \$seqs,	    
-	       "stats"       => \$stats,
+	    
+		   "species=s"   => \$species,
+		   "mdensity"    => \$mdensity,  
+		   "mseqs"		 => \$mseqs,
+		   "msummary"    => \$msummary,
+		   "stats"       => \$stats,
 	       "min=f"       => \$min,
 	       "max=f"       => \$max,
 	       "interval=f"  => \$interval,
-		   "species=s"   => \$species,
-		   "mcount"      => \$mcount,  
-		   "msummary"    => \$msummary
 );
 
-# check that both command line options are specified
-die "Need to specify both -motif and -target options\n" if(!$motif || !$target);
-
-# check that motif file looks like a valid file
-die "-motif option must specify a valid Nested MICA *.xms output file\n" if($motif !~ m/\.xms$/);
-
-# check files exist
-die "$motif does not seem to exist\n" if (! -e $motif);
-die "$target does not seem to exist\n" if (! -e $target);
-
-# check that species code has been chosen
-if(!$species){
-	print "\nPlease specify a suitable species code using the -species option.\n";
-	print "Species codes are required to determine the correct expected nucleotide\nfrequencies when scoring motifs\n\n";
-	print "Current options (all case-insensitive) are:\n";
-	print "AtI  - Arabidopsis thaliana introns\n";
-	print "AtIR - Arabidopsis thaliana introns (reverse complemented)\n";
-	print "AtG  - Arabidopsis thaliana genomic\n";
-	print "AtC  - Arabidopsis thaliana CDS\n";
-	print "AtIG - Arabidopsis thaliana intergenic\n";
-	print "At5U - Arabidopsis thaliana 5' UTR (exons)\n";
-	print "At3U - Arabidopsis thaliana 3' UTR (exons)\n";
-	print "AtU  - Arabidopsis thaliana upstream region of genes (1000 bp 5' to transcript)\n";
-	print "AtD  - Arabidopsis thaliana upstream region of genes (1000 bp 3' to transcript)\n";
-	print "CeI - Caenorhabditis elegans introns\n";
-	print "CeG - Caenorhabditis elegans genomic\n\n";
-	die "Choose one option only.\n\n";
-}
-
-# have we chosen an option to print some output?
-if (!$seqs && !$stats && !$scores && !$mcount && !$msummary){
-	die "You have to choose at least one of -stats, -seqs, or -scores else there will be no output\n";	
-}
-# can't choose mcount with other options
-if($mcount && ($seqs || $stats)){
-	die "Don't choose -mcount with -seqs or -scores\n";	
-}
+# are we using correct command-line options?
+&pre_flight_checks;
 
 # set threshold if none specified
 $threshold = 0 if (!$threshold);
@@ -89,7 +59,6 @@ $threshold = 0 if (!$threshold);
 # keep track of scores if making stats
 my @all_scores if ($stats);
     
-
 
 ##############################################################
 #
@@ -116,47 +85,46 @@ my $motif_length;
 my %expected;
 
 if($species =~ m/cei/i){
-	%expected = ("A" => "0.33339","C" => "0.16194", "G" => "0.16021","T" => "0.34446");
+	%expected = ("a" => "0.33339","c" => "0.16194", "g" => "0.16021","t" => "0.34446");
 }
 elsif($species =~ m/ceg/i){
-	%expected = ("A" => "0.32280","C" => "0.17733","G" => "0.17709","T" => "0.32279");
+	%expected = ("a" => "0.32280","c" => "0.17733","g" => "0.17709","t" => "0.32279");
 }
 
 elsif($species =~ m/^ati$/i){
-	%expected = ("A" => "0.2769","C" => "0.1575", "G" => "0.1587","T" => "0.4069");
+	%expected = ("a" => "0.2769","c" => "0.1575", "g" => "0.1587","t" => "0.4069");
 }
 elsif($species =~ m/^atir$/i){
-	%expected = ("A" => "0.4069","C" => "0.1587", "G" => "0.1575","T" => "0.2769");
+	%expected = ("a" => "0.4069","c" => "0.1587", "g" => "0.1575","t" => "0.2769");
 }
 elsif($species =~ m/atg/i){
-	%expected = ("A" => "0.3195","C" => "0.1800", "G" => "0.1798","T" => "0.3192");
+	%expected = ("a" => "0.3195","c" => "0.1800", "g" => "0.1798","t" => "0.3192");
 }
 elsif($species =~ m/at5u/i){
-	%expected = ("A" => "0.3016","C" => "0.2181", "G" => "0.1594","T" => "0.3210");
+	%expected = ("a" => "0.3016","c" => "0.2181", "g" => "0.1594","t" => "0.3210");
 }
 elsif($species =~ m/at3u/i){
-	%expected = ("A" => "0.2960","C" => "0.1473", "G" => "0.1732","T" => "0.3835");
+	%expected = ("a" => "0.2960","c" => "0.1473", "g" => "0.1732","t" => "0.3835");
 }
 elsif($species =~ m/atig/i){
-	%expected = ("A" => "0.3424","C" => "0.1562", "G" => "0.1556","T" => "0.3421");
+	%expected = ("a" => "0.3424","c" => "0.1562", "g" => "0.1556","t" => "0.3421");
 }
 elsif($species =~ m/atc/i){
-	%expected = ("A" => "0.2868","C" => "0.2031", "G" => "0.2387","T" => "0.2713");
+	%expected = ("a" => "0.2868","c" => "0.2031", "g" => "0.2387","t" => "0.2713");
 }
 elsif($species =~ m/atu/i){
-	%expected = ("A" => "0.3342","C" => "0.1685", "G" => "0.1651","T" => "0.3321");
+	%expected = ("a" => "0.3342","c" => "0.1685", "g" => "0.1651","t" => "0.3321");
 }
 elsif($species =~ m/atd/i){
-	%expected = ("A" => "0.3211","C" => "0.1787", "G" => "0.1724","T" => "0.3277");
+	%expected = ("a" => "0.3211","c" => "0.1787", "g" => "0.1724","t" => "0.3277");
 }
 else{
 	die "\'$species\' is not a valid species code.\n";
 }
 
 
-
 # track base position in motif
-my $pos =0;
+my $pos = 0;
 my $max_pos = 0;
 
 
@@ -174,7 +142,7 @@ while(<MOTIF>){
 
     # get nucleotide frequencies from input filre
     if(m/weight symbol=\"([a-z])[a-z]+\">(0\.\d+)<\/weight/){
-		my $base = uc($1);
+		my $base = lc($1);
 		my $freq = $2;
 	
 		# take logarithm of observed over expected frequency and add to @motifs
@@ -205,8 +173,8 @@ my ($total_length,$total_motif,$seq_count);
 while(my $entry = $fasta->nextEntry) {
 	$seq_count++;
 	
+	# get and trim header
 	my $header = $entry->def;
-    # trim header
     $header =~ s/ .*//;
 
     my $seq = lc($entry->seq);
@@ -216,49 +184,58 @@ while(my $entry = $fasta->nextEntry) {
 	# will count total amount of motif in each sequence (motifs may overlap so need to be sure we are not double counting)
 	# to help this we will temporarily store a copy of $seq to mask out where any motifs are with a '-' character then
 	# we can just count the dashes to know how many bases of a sequence are motif
-	my $temp_seq = $seq;
+	my $masked_seq = $seq;
+	
+	# flag variable to know whether intron contained at least one motif above threshold
+	my $above_threshold = 0;
 	
     # loop through sequence in windows equal to motif size
     for (my $i = 0; $i < length($seq)-$motif_length; $i++) {
 		# extract a window of sequence, split it, and place in array	
 		my $window = substr($seq, $i, $motif_length);
 		my @sequence = split(//,$window);
-
-		my $score =0;
-		for(my $j =0; $j<@sequence;$j++){
-			my $base = uc($sequence[$j]);
-			# add to motif score unless there the base isn't an A,T,C or G, which effectively counts as zero
-		  	unless($base =~ m/[^ATCG]/){
-				($score += $motif[$j]{$base});	
+		
+		# Calculate motif score: only A,T,C,G bases counts towards score 
+		my $score = 0;
+		for(my $j = 0; $j<@sequence;$j++){
+			($score += $motif[$j]{$sequence[$j]}) if ($sequence[$j] =~ m/[atcg]/);
+		}
+		$score = sprintf("%.2f",$score);
+		
+		# Add score to @all_scores array if tracking stats
+		push(@all_scores,$score) if ($stats);		
+		
+		
+		# if we've found some sequence that is above the threshold...
+		if($score > $threshold){
+			# note that we are above the threshold
+			$above_threshold = 1;
+			
+			# and mask the motif out of $masked_seq
+			substr($masked_seq,$i,11) = ("-" x $motif_length);
+			
+			# print out current motif details if -scores or -seqs specified
+			if($scores){
+				my $start_coord = $i+1;
+			  	print "$header $score $start_coord/$length $window\n";
+			}
+			if($seqs){
+				my $highlight = uc($window);
+				my $new_seq = $seq;
+				$new_seq =~ s/$window/ $highlight /g;
+				print "$new_seq\n" if ($seqs);
 			}
 		}
-		# only want to print out scores above threshold, add scores to array if
-		# tracking stats
-		my $new_score = sprintf("%.2f",$score);
-		push(@all_scores,$new_score) if ($stats);
-
-		# mask $temp_seq with region of motif (if above threshold)
-		(substr($temp_seq,$i,11) = "-" x $motif_length) if ($score > $threshold);
-
-		# print output if requested
-		if($scores || $seqs){
-	    	# want to show location of motif within original sequence
-	    	my $highlight = uc($window);
-	    	my $new_seq = $seq;
-	    	$new_seq =~ s/$window/ $highlight /g;
-	    	if($score > $threshold){
-				my $start_coord = $i+1;
-		  		print "$header $new_score $start_coord/$length $window\n" if ($scores);
-		  		print "$new_seq\n" if ($seqs);	      
-			}
-	  	}
 	}
 	
 	# count motif in sequence, add to running total
-	my $motif_count = ($temp_seq =~ tr /-/-/);
+	my $motif_count = ($masked_seq =~ tr /-/-/);
 	$total_motif += $motif_count;
 	my $percent_motif = sprintf("%.3f",($motif_count / $length) * 100);
-	print "$header motif_count: $motif_count/$length $percent_motif%\n" if ($mcount);
+	print "$header motif_count: $motif_count/$length $percent_motif%\n" if ($mdensity);
+	
+	# print out intron sequence if -mseqs specified and intron contains a motif above threshold
+	print "$header\n$seq\n" if ($mseqs && $above_threshold);
 }
 
 close(TARGET) || die "Couldn't close $target\n";
@@ -270,7 +247,11 @@ if($msummary){
 }
 
 
+#########################################
+#
 # Process stats if required
+#
+#########################################
 
 if($stats){
     # structure to count log likelihood in different intervals
@@ -285,38 +266,94 @@ if($stats){
     my %limits;
     
     for(my $i=$min; $i<=$max; $i+=$interval){
-	$limits{$i} = $i+$interval;
+		$limits{$i} = $i+$interval;
     }
 
     # work through all scores in @all_scores
     
     OUTER: while (@all_scores){
-	# need to make sure that no score is outside min and max range
-	my $flag = 0;
-	my $score = shift(@all_scores);
+		# need to make sure that no score is outside min and max range
+		my $flag = 0;
+		my $score = shift(@all_scores);
 
-	# now loop through all possible limit categories
-	foreach my $key (sort {$limits{$a} <=> $limits{$b}}(keys(%limits))){
-	    if(($score >= $key) && ($score < $limits{$key})){
-		$counts{$key}++;
-		$flag = 1;
-		next OUTER;
-	    }
-	}
-	# warn if any score is outside min and max
-	print "ERROR! $score lies outside min ($min) and max ($max) boundaries\n" if ($flag ==0);
+		# now loop through all possible limit categories
+		foreach my $key (sort {$limits{$a} <=> $limits{$b}}(keys(%limits))){
+	    	if(($score >= $key) && ($score < $limits{$key})){
+				$counts{$key}++;
+				$flag = 1;
+				next OUTER;
+	    	}
+		}
+		# warn if any score is outside min and max
+		print "ERROR! $score lies outside min ($min) and max ($max) boundaries\n" if ($flag == 0);
     }
 
     foreach my $key (sort {$limits{$a} <=> $limits{$b}}(keys(%limits))){
 
-	# set upper limit to be slightly less
-	my $upper = $limits{$key}-0.001;
+		# set upper limit to be slightly less
+		my $upper = $limits{$key} - 0.001;
 	
-	# print counts (if they exist), else print zero
-	($counts{$key} = 0) if (!defined($counts{$key}));
-	print "$key,$upper,$counts{$key}\n";
-	   
+		# print counts (if they exist), else print zero
+		($counts{$key} = 0) if (!defined($counts{$key}));
+		print "$key,$upper,$counts{$key}\n";   
     }
 
 }
 exit(0);
+
+
+#############################################
+#
+#
+#          S u b r o u t i n e s 
+#
+#
+##############################################
+
+sub pre_flight_checks{
+	# check that both command line options are specified
+	die "Need to specify both -motif and -target options\n" if(!$motif || !$target);
+
+	# check that motif file looks like a valid file
+	die "-motif option must specify a valid Nested MICA *.xms output file\n" if($motif !~ m/\.xms$/);
+
+	# check files exist
+	die "$motif does not seem to exist\n" if (! -e $motif);
+	die "$target does not seem to exist\n" if (! -e $target);
+
+	# check that species code has been chosen
+	if(!$species){
+		print "\nPlease specify a suitable species code using the -species option.\n";
+		print "Species codes are required to determine the correct expected nucleotide\nfrequencies when scoring motifs\n\n";
+		print "Current options (all case-insensitive) are:\n";
+		print "AtI  - Arabidopsis thaliana introns\n";
+		print "AtIR - Arabidopsis thaliana introns (reverse complemented)\n";
+		print "AtG  - Arabidopsis thaliana genomic\n";
+		print "AtC  - Arabidopsis thaliana CDS\n";
+		print "AtIG - Arabidopsis thaliana intergenic\n";
+		print "At5U - Arabidopsis thaliana 5' UTR (exons)\n";
+		print "At3U - Arabidopsis thaliana 3' UTR (exons)\n";
+		print "AtU  - Arabidopsis thaliana upstream region of genes (1000 bp 5' to transcript)\n";
+		print "AtD  - Arabidopsis thaliana upstream region of genes (1000 bp 3' to transcript)\n";
+		print "CeI - Caenorhabditis elegans introns\n";
+		print "CeG - Caenorhabditis elegans genomic\n\n";
+		die "Choose one option only.\n\n";
+	}
+
+	# have we chosen an option to print some output?
+	if (!$seqs && !$stats && !$scores && !$mdensity && !$msummary && !$mseqs){
+		die "You have to choose at least one of -stats, -seqs, or -scores else there will be no output\n";	
+	}
+	# can't choose mdensity with other options
+	if($mdensity && ($seqs || $stats || $mseqs)){
+		die "Don't choose -mdensity with -seqs or -scores or -mseqs\n";	
+	}  
+	# can't choose mseqs with other options
+	if($mseqs && ($seqs || $stats || $mdensity)){
+		die "Don't choose -mseqs with -seqs or -scores or -mdensity\n";	
+	}  	
+	# don't specify a threshold if using -stats
+	if($threshold && $stats){
+		die "Don't specify -threshold option when using -stats option\n";
+	}
+}
