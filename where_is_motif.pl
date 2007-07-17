@@ -232,7 +232,7 @@ while(my $entry = $fasta->nextEntry) {
 	my $motif_count = ($masked_seq =~ tr /-/-/);
 	$total_motif += $motif_count;
 	my $percent_motif = sprintf("%.3f",($motif_count / $length) * 100);
-	print "$header motif_count: $motif_count/$length $percent_motif%\n" if ($mdensity);
+	print "$header motif_density: $motif_count/$length $percent_motif%\n" if ($mdensity);
 	
 	# print out intron sequence if -mseqs specified and intron contains a motif above threshold
 	print "$header\n$seq\n" if ($mseqs && $above_threshold);
@@ -342,7 +342,7 @@ sub pre_flight_checks{
 
 	# have we chosen an option to print some output?
 	if (!$seqs && !$stats && !$scores && !$mdensity && !$msummary && !$mseqs){
-		die "You have to choose at least one of -stats, -seqs, or -scores else there will be no output\n";	
+		die "You have to choose at least one of the following options:\n-stats, -seqs, -scores, -mdensity, -msummary, -mseqs\n";	
 	}
 	# can't choose mdensity with other options
 	if($mdensity && ($seqs || $stats || $mseqs)){
