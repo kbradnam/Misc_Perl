@@ -118,6 +118,9 @@ elsif($species =~ m/atu/i){
 elsif($species =~ m/atd/i){
 	%expected = ("a" => "0.3211","c" => "0.1787", "g" => "0.1724","t" => "0.3277");
 }
+elsif($species =~ m/dmi/i){
+	%expected = ("a" => "0.29.17","c" => "0.2067", "g" => "0.1999","t" => "0.3017");
+}
 else{
 	die "\'$species\' is not a valid species code.\n";
 }
@@ -166,8 +169,9 @@ open(TARGET,"<$target") || die "Couldn't open $target file\n";
 
 my $fasta = new FAlite(\*TARGET);
 
-# keep track of total length of sequence in each file and total length of motif, plus number of sequences
-my ($total_length,$total_motif,$seq_count);
+# keep track of total length of sequence in each file and total length of motif, 
+# total number of motifs and total number of sequences
+my ($total_length,$total_motif,$seq_count,$total_motif_count);
 
 # loop through each sequence in target file
 while(my $entry = $fasta->nextEntry) {
@@ -211,6 +215,9 @@ while(my $entry = $fasta->nextEntry) {
 			# note that we are above the threshold
 			$above_threshold = 1;
 			
+			# count motif
+			$total_motif_count++;
+			
 			# and mask the motif out of $masked_seq
 			substr($masked_seq,$i,11) = ("-" x $motif_length);
 			
@@ -243,7 +250,9 @@ close(TARGET) || die "Couldn't close $target\n";
 # print motif summary if requested
 if($msummary){
 	my $percent_motif = sprintf("%.3f",($total_motif/$total_length) * 100);
-	print "\nSUMMARY: number_of_sequences $seq_count total_sequence_length $total_length motif_total $total_motif $percent_motif%\n\n\n";
+	print "\nSUMMARY:\n"; 
+	print "number_of_sequences: $seq_count total_sequence_length: $total_length\n";
+	print "number_of_motifs: $total_motif_count total_motif_length: $total_motif motif_density: $percent_motif%\n\n\n";
 }
 
 
@@ -336,7 +345,8 @@ sub pre_flight_checks{
 		print "AtU  - Arabidopsis thaliana upstream region of genes (1000 bp 5' to transcript)\n";
 		print "AtD  - Arabidopsis thaliana upstream region of genes (1000 bp 3' to transcript)\n";
 		print "CeI - Caenorhabditis elegans introns\n";
-		print "CeG - Caenorhabditis elegans genomic\n\n";
+		print "CeG - Caenorhabditis elegans genomic\n";
+		print "DmI - Drosophila melanogaster introns\n\n";
 		die "Choose one option only.\n\n";
 	}
 
