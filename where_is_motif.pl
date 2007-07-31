@@ -117,7 +117,7 @@ elsif($species =~ m/atd/i){
 	%expected = ("a" => "0.3211","c" => "0.1787", "g" => "0.1724","t" => "0.3278");
 }
 elsif($species =~ m/dmi/i){
-	%expected = ("a" => "0.29.42","c" => "0.2040", "g" => "0.1979","t" => "0.3040");
+	%expected = ("a" => "0.2942","c" => "0.2040", "g" => "0.1979","t" => "0.3040");
 }
 else{
 	die "\'$species\' is not a valid species code.\n";
