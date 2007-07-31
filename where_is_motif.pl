@@ -38,8 +38,7 @@ GetOptions ("motif=s"    => \$motif,
 	       "target=s"    => \$target,
 	       "threshold=f" => \$threshold,
 	       "scores"      => \$scores,
-	       "seqs"        => \$seqs,	    
-	    
+	       "seqs"        => \$seqs,	    	    
 		   "species=s"   => \$species,
 		   "mdensity"    => \$mdensity,  
 		   "mseqs"		 => \$mseqs,
@@ -90,7 +89,6 @@ if($species =~ m/cei/i){
 elsif($species =~ m/ceg/i){
 	%expected = ("a" => "0.32280","c" => "0.17733","g" => "0.17709","t" => "0.32279");
 }
-
 elsif($species =~ m/^ati$/i){
 	%expected = ("a" => "0.2769","c" => "0.1575", "g" => "0.1587","t" => "0.4069");
 }
@@ -107,7 +105,7 @@ elsif($species =~ m/at3u/i){
 	%expected = ("a" => "0.2960","c" => "0.1473", "g" => "0.1732","t" => "0.3835");
 }
 elsif($species =~ m/atig/i){
-	%expected = ("a" => "0.3424","c" => "0.1562", "g" => "0.1556","t" => "0.3421");
+	%expected = ("a" => "0.3437","c" => "0.1568", "g" => "0.1562","t" => "0.3433");
 }
 elsif($species =~ m/atc/i){
 	%expected = ("a" => "0.2868","c" => "0.2031", "g" => "0.2387","t" => "0.2713");
@@ -116,10 +114,10 @@ elsif($species =~ m/atu/i){
 	%expected = ("a" => "0.3342","c" => "0.1685", "g" => "0.1651","t" => "0.3321");
 }
 elsif($species =~ m/atd/i){
-	%expected = ("a" => "0.3211","c" => "0.1787", "g" => "0.1724","t" => "0.3277");
+	%expected = ("a" => "0.3211","c" => "0.1787", "g" => "0.1724","t" => "0.3278");
 }
 elsif($species =~ m/dmi/i){
-	%expected = ("a" => "0.29.17","c" => "0.2067", "g" => "0.1999","t" => "0.3017");
+	%expected = ("a" => "0.29.42","c" => "0.2040", "g" => "0.1979","t" => "0.3040");
 }
 else{
 	die "\'$species\' is not a valid species code.\n";
@@ -343,7 +341,7 @@ sub pre_flight_checks{
 		print "At5U - Arabidopsis thaliana 5' UTR (exons)\n";
 		print "At3U - Arabidopsis thaliana 3' UTR (exons)\n";
 		print "AtU  - Arabidopsis thaliana upstream region of genes (1000 bp 5' to transcript)\n";
-		print "AtD  - Arabidopsis thaliana upstream region of genes (1000 bp 3' to transcript)\n";
+		print "AtD  - Arabidopsis thaliana downstream region of genes (1000 bp 3' to transcript)\n";
 		print "CeI - Caenorhabditis elegans introns\n";
 		print "CeG - Caenorhabditis elegans genomic\n";
 		print "DmI - Drosophila melanogaster introns\n\n";
