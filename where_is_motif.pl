@@ -127,7 +127,7 @@ else{
 # track base position in motif
 my $pos = 0;
 my $max_pos = 0;
-
+my $motif_size;
 
 # open motif file and read in one motif
 open(MOTIF,"<$motif") || die "Could not open $motif file\n";
@@ -152,7 +152,8 @@ while(<MOTIF>){
 }
 close(MOTIF) || die "Couldn't close $motif\n";
 
-
+# calculate size of motif
+$motif_size = $max_pos+1;
 
 ##############################################################
 #
@@ -217,7 +218,7 @@ while(my $entry = $fasta->nextEntry) {
 			$total_motif_count++;
 			
 			# and mask the motif out of $masked_seq
-			substr($masked_seq,$i,11) = ("-" x $motif_length);
+			substr($masked_seq,$i,$motif_size) = ("-" x $motif_length);
 			
 			# print out current motif details if -scores or -seqs specified
 			if($scores){
