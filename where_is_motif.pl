@@ -73,9 +73,8 @@ my @all_scores if ($stats);
 # the log likelihoods being the values
 my @motif;
 
-# will need to know motif length later on
+# will need to know motif length for later on
 my $motif_length;
-
 
 # Need sets of expected nucleotide frequencies to compute log likelihood scores
 # set of frequencies chosen by -species option
@@ -127,7 +126,6 @@ else{
 # track base position in motif
 my $pos = 0;
 my $max_pos = 0;
-my $motif_size;
 
 # open motif file and read in one motif
 open(MOTIF,"<$motif") || die "Could not open $motif file\n";
@@ -141,7 +139,7 @@ while(<MOTIF>){
 		$motif_length++;
     }
 
-    # get nucleotide frequencies from input filre
+    # get nucleotide frequencies from input file
     if(m/weight symbol=\"([a-z])[a-z]+\">(0\.\d+)<\/weight/){
 		my $base = lc($1);
 		my $freq = $2;
@@ -151,9 +149,6 @@ while(<MOTIF>){
     }
 }
 close(MOTIF) || die "Couldn't close $motif\n";
-
-# calculate size of motif
-$motif_size = $max_pos+1;
 
 ##############################################################
 #
@@ -170,7 +165,7 @@ my $fasta = new FAlite(\*TARGET);
 
 # keep track of total length of sequence in each file and total length of motif, 
 # total number of motifs and total number of sequences
-my ($total_length,$total_motif,$seq_count,$total_motif_count);
+my ($total_seq_length,$total_motif_length,$seq_count,$total_motif_count);
 
 # loop through each sequence in target file
 while(my $entry = $fasta->nextEntry) {
@@ -182,7 +177,7 @@ while(my $entry = $fasta->nextEntry) {
 
     my $seq = lc($entry->seq);
     my $length = length($seq);
-	$total_length += $length;
+	$total_seq_length += $length;
 	
 	# will count total amount of motif in each sequence (motifs may overlap so need to be sure we are not double counting)
 	# to help this we will temporarily store a copy of $seq to mask out where any motifs are with a '-' character then
@@ -218,7 +213,7 @@ while(my $entry = $fasta->nextEntry) {
 			$total_motif_count++;
 			
 			# and mask the motif out of $masked_seq
-			substr($masked_seq,$i,$motif_size) = ("-" x $motif_length);
+			substr($masked_seq,$i,$motif_length) = ("-" x $motif_length);
 			
 			# print out current motif details if -scores or -seqs specified
 			if($scores){
@@ -236,7 +231,7 @@ while(my $entry = $fasta->nextEntry) {
 	
 	# count motif in sequence, add to running total
 	my $motif_count = ($masked_seq =~ tr /-/-/);
-	$total_motif += $motif_count;
+	$total_motif_length += $motif_count;
 	my $percent_motif = sprintf("%.3f",($motif_count / $length) * 100);
 	print "$header motif_density: $motif_count/$length $percent_motif%\n" if ($mdensity);
 	
@@ -248,10 +243,10 @@ close(TARGET) || die "Couldn't close $target\n";
 
 # print motif summary if requested
 if($msummary){
-	my $percent_motif = sprintf("%.3f",($total_motif/$total_length) * 100);
+	my $percent_motif = sprintf("%.3f",($total_motif_length/$total_seq_length) * 100);
 	print "\nSUMMARY:\n"; 
-	print "number_of_sequences: $seq_count total_sequence_length: $total_length\n";
-	print "number_of_motifs: $total_motif_count total_motif_length: $total_motif motif_density: $percent_motif%\n\n\n";
+	print "number_of_sequences: $seq_count total_sequence_length: $total_seq_length\n";
+	print "number_of_motifs: $total_motif_count total_motif_length: $total_motif_length motif_density: $percent_motif%\n\n\n";
 }
 
 
