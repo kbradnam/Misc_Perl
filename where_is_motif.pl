@@ -245,6 +245,7 @@ close(TARGET) || die "Couldn't close $target\n";
 if($msummary){
 	my $percent_motif = sprintf("%.3f",($total_motif_length/$total_seq_length) * 100);
 	print "\nSUMMARY:\n"; 
+	print "motif_size: $motif_length\n";
 	print "number_of_sequences: $seq_count total_sequence_length: $total_seq_length\n";
 	print "number_of_motifs: $total_motif_count total_motif_length: $total_motif_length motif_density: $percent_motif%\n\n\n";
 }
