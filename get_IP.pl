@@ -27,14 +27,15 @@ my $place = $1;
 # 3) Find out which machine is this being run on (remove any .local suffix)
 my $machine = `uname -n`;
 $machine =~ s/\.local$//;
+chomp($machine);
 
 
 # 4) Send email using Net::STMTP (try either mailhost or localhost)
 my @hosts = ('mailhost','localhost');
 my $smtp = Net::SMTP->new(\@hosts) || die "Couldn't connect to host\n";
 
-my $from = "kbradnam\@mac.com";
-my $to   = "kbradnam\@mac.com";
+my $from = 'keithwho@mac.com';
+my $to   = 'keithwho@mac.com';
 
 $smtp->mail($from);
 $smtp->to($to);

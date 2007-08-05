@@ -20,7 +20,7 @@ use MIME::Lite;
 # 1) Find out which machine is this being run on?
 my $machine = `uname -n`;
 $machine =~ s/\.local$//;
-
+chomp($machine);
 
 # 2) Create screenshot
 # -x to turn sound off
@@ -36,8 +36,8 @@ system("/usr/bin/sips -s format jpeg -s formatOptions ${compression}% --resample
 # 4) create email
 
 my $msg = MIME::Lite->new( 
-			   From    =>'kbradnam@mac.com',
-			   To      =>'kbradnam@mac.com',
+			   From    =>'keithwho@mac.com',
+			   To      =>'keithwho@mac.com',
 			   Subject =>"SCREENSHOT: $machine\n",
 			   Type    =>'image/jpg',
 			   Encoding => 'base64',
