@@ -20,5 +20,7 @@ while(1){
         last unless(length $answer && defined $answer);
         print  grep eval {m/$answer/}, @words;       
         print "Continuing after error: $@\n\n" if ($@);
+
+	exit if ($ARGV[1] == 1);
 }
 exit(0);
