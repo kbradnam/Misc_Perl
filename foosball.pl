@@ -33,7 +33,7 @@ my ($high,$low);
 foreach my $key (reverse sort {$player2ratings{$a} <=> $player2ratings{$b}} keys %player2ratings){
 	my $formatted =  sprintf("%.2f",$player2ratings{$key});
 
-	if($player2stats{$key}[0] >= 5){
+	if($player2stats{$key}[0] >= 10){
 		$high .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$player2stats{$key}[2],$formatted\n";	
 	}
 	else{
@@ -62,12 +62,12 @@ close(IN);
 
 
 sub calculate_ratings{
-	# take details of players names, scores, and whether match was a tournament game or now (y/n)
+	# take details of players names, scores, and whether match was a competitive game or now (y/n)
 	my $p1 = shift;
 	my $score1 = shift;
 	my $p2 = shift;
 	my $score2 = shift;
-	my $tournament = shift;
+	my $competitive = shift;
 
 	# add players to hash if they are new and set rating and player stats to zero
 	if(!defined($player2ratings{$p1})){
@@ -106,7 +106,7 @@ sub calculate_ratings{
 	my $score_diff = abs($p1_score - $p2_score);
 
 	# stats for ELO rating
-	my $k;   # weighting constant, depending on tournament or friendly and margin of victory
+	my $k;   # weighting constant, depending on competitive or friendly and margin of victory
 	my $g;   # goal coefficent based on margin of victory
 	my $w1;  # result of game (1 for winner, 0.5 each for a draw, 0 for loser)
 	my $w2;  # result of game (1 for winner, 0.5 each for a draw, 0 for loser)
@@ -158,8 +158,8 @@ sub calculate_ratings{
 	$g = 1   if ($score_diff <= 1);
 	$g = 1.5 if ($score_diff == 2);
 	$g = ((11+$score_diff)/8) if ($score_diff > 2);
-	$k = 20 if ($tournament eq "n");
-	$k = 30 if ($tournament eq "y");
+	$k = 20 if ($competitive eq "n");
+	$k = 30 if ($ eq "y");
 
 #	print "\n";	
 #	print "Match status weighting (k) = $k, goal difference weighting (g) = $g\n";
