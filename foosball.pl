@@ -53,7 +53,11 @@ sub read_results{
 	while(<IN>){
 		$game_counter++;
 		chomp;
-		@details = split(/,/);			
+		@details = split(/,/);
+		
+		# if competitive match field not specified, set to 'n'
+		($details[4] = "n") if (!defined($details[4]));			
+		
 		&calculate_ratings("$details[0]","$details[1]","$details[2]","$details[3]","$details[4]");
 	}	
 }
@@ -159,7 +163,7 @@ sub calculate_ratings{
 	$g = 1.5 if ($score_diff == 2);
 	$g = ((11+$score_diff)/8) if ($score_diff > 2);
 	$k = 20 if ($competitive eq "n");
-	$k = 30 if ($ eq "y");
+	$k = 30 if ($competitive eq "y");
 
 #	print "\n";	
 #	print "Match status weighting (k) = $k, goal difference weighting (g) = $g\n";
