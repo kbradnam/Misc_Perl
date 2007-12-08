@@ -13,6 +13,7 @@ use strict;
 use warnings;
 use Getopt::Long;
 
+
 ########################
 # Command line options
 ########################
@@ -49,8 +50,8 @@ my @chromosomes = qw( I II III IV V X );                     # chromosomes to pa
 
 my $seq;              # will hold chromosome sequence as a string...
 my @dna;              # ...which will then get split into an array...
-my @dna2;			  #...and copied. This copy will store a hash of the information at each base
-my @dna3;			  # ...this copy will store details of genes and which strand they are on
+my @dna2;		      # ...this copy will store details of genes and which strand they are on
+my @features;		  # A string at each position will encode features (e.g. 'EIG')
 my $chr_length;       # obvious really
 my $intergenic;       # will store sequence of an intergenic region
 my $intergenic_start; # start coord
@@ -58,7 +59,6 @@ my $intergenic_end;   # stop coord
 my $intergenic_size;  # length
 my $previous;         # strandedness of gene (+ or -) 5' to intergenic region
 my $next;             # strandedness of gene (+ or -) 3' to intergenic region
-
 
 
 #########################################
@@ -82,13 +82,9 @@ close(GENES);
 foreach my $chromosome (@chromosomes) {
     
     # get chromosome sequence, load into $seq string
-	if($test){
-		open (DNA, "<CHROMOSOME_I.dna") || die "Failed to open dna file\n\n";
-	}
-    else{
-		open (DNA, "<$gffdir/CHROMOSOME_${chromosome}.dna") || die "Failed to open dna file\n\n";
-    }
+	open (DNA, "<$gffdir/CHROMOSOME_${chromosome}.dna") || die "Failed to open dna file\n\n";
     $seq = "";
+
     while(my $tmp =<DNA>){
         chomp($tmp);
         # skip header line
@@ -96,27 +92,21 @@ foreach my $chromosome (@chromosomes) {
         $seq .= $tmp;
     }
     close(DNA);
-   
+  
+
     # to make things easier to calculate, will add a character to left end of $seq and @dna, such that position 1 of dna
     # sequence becomes array element 1 (rather than zero).  Add 'S' for 'Start'
     $seq = "S".$seq;
-
     # split to an array, make a copy and calculate size
     @dna=();
     @dna = split(//,$seq);
-	@dna3 = @dna;
+	@dna2 = @dna;
     $chr_length = scalar(@dna)-1;
-
+	
     #################################################
     # GFF step: extract details of genes
     #################################################
-
-    if($test){
-		open (GFF_in, "<CHROMOSOME_I.gff") || die "Failed to open gff file\n\n";
-	}
-    else{
-		open (GFF_in, "<$gffdir/CHROMOSOME_${chromosome}.gff") || die "Failed to open gff file\n\n";
-	}
+	open (GFF_in, "<$gffdir/CHROMOSOME_${chromosome}.gff") || die "Failed to open gff file\n\n";	
 	
     while (<GFF_in>) {
 		chomp;
@@ -125,37 +115,35 @@ foreach my $chromosome (@chromosomes) {
 		next if m/^\#/;
 		my ($location,$source,$feature,$start,$stop,$score,$strand,$phase,$comment) = split /\t/;
 		my $length = $stop-$start+1;
-		
-		# confirmed intron data will match the following
-		# GFF_source = curated
-		# GFF_feature = exon
-		# Comment contains CDS name that matches a confirmed gene list
-			
+					
 		# process gene entries
 		if (($source eq "gene") && ($feature eq "gene")){
 			&annotate("G",$start,$stop);
-			
 			# if this gene is confirmed, annotate that as a separate thing
 			$comment =~ s/Gene \"(.*)\"//;
 			my $id = $1;
 			if ($genes{$id}){
-				annotate("+",$start,$stop);
+				annotate("C",$start,$stop);
 				print "$chromosome Confirmed_gene $start $stop $length\n" if ($out1);
 			}
 			
-			# substitute the appropriate part of @dna3 and with pluses (+) for forward genes
+			# substitute the appropriate part of @dna2 and with pluses (+) for forward genes
 			# and minuses (-) for reverse genes.	
 			my @replace = ("$strand") x $length;	
-			splice(@dna3,$start,$length, @replace);
-		}
+			splice(@dna2,$start,$length, @replace);
+		}		
 		# process intron entries
 		elsif(($source eq "Coding_transcript") && ($feature eq "intron")){
 			&annotate("I",$start,$stop);
 			# print details for confirmed introns
 			print "$chromosome Confirmed_intron $start $stop $length\n" if ($comment =~ m/Confirmed_/ && $out1);
 		}
+	
+		# don't have to proceed if we are only printing out simple output
+		next if ($out1);
+	
 		# process exon entries
-		elsif(($source eq "Coding_transcript") && ($feature eq "exon")){
+		if(($source eq "Coding_transcript") && ($feature eq "exon")){
 			&annotate("E",$start,$stop);
 		}
 		# process protein-coding exon entries
@@ -204,7 +192,7 @@ foreach my $chromosome (@chromosomes) {
 		# want to ignore the first stretch of non-coding sequence at the telomere
 		# as this is not strictly intergenic sequence
 		if($flag == 0){
-	    	while(($dna3[$i] ne "+") && ($dna3[$i] ne "-")){
+	    	while(($dna2[$i] ne "+") && ($dna2[$i] ne "-")){
 				$i++;
 	    	}
 	    	# now must be in the first coding region so can change $flag value and print out
@@ -216,7 +204,7 @@ foreach my $chromosome (@chromosomes) {
 		}	
 
 		# keep skipping forwards until you enter an intergenic region, i.e. not a plus or minus
-		if (($dna3[$i] eq "+") || ($dna3[$i] eq "-")){
+		if (($dna2[$i] eq "+") || ($dna2[$i] eq "-")){
 			$previous_gene_end = $i;
 			next SEQ;	
 		}
@@ -224,12 +212,12 @@ foreach my $chromosome (@chromosomes) {
 	    $intergenic_start = $i;
 
 	    # what direction was previous gene?
-	    $previous = $dna3[$i-1];
+	    $previous = $dna2[$i-1];
 	    
         # now start counting until you leave intergenic region
 	    $intergenic_size = 0;
 
-	    while(($dna3[$i] ne "+") && ($dna3[$i] ne "-")){
+	    while(($dna2[$i] ne "+") && ($dna2[$i] ne "-")){
 			$intergenic_size++;
 			$i++;
 			# Need to quit if we are at the end of the chromosome so
@@ -246,7 +234,7 @@ foreach my $chromosome (@chromosomes) {
 	    $intergenic_end = $i-1;
 	    
 	    # what is direction of next gene?
-	    $next = $dna3[$i];
+	    $next = $dna2[$i];
 		
 		# work out orientation of genes
 		my $symbol;
@@ -254,16 +242,15 @@ foreach my $chromosome (@chromosomes) {
 		($symbol = "C") if ($previous eq "+" && $next eq "-");
 		($symbol = "D") if ($previous eq "-" && $next eq "+");
 		
-		print "$chromosome Intergenic $intergenic_start $intergenic_end $intergenic_size $symbol $previous$next\n" if($out1);
+		print "$chromosome Intergenic $intergenic_start $intergenic_end $intergenic_size $symbol\n" if($out1);
 		&annotate("N",$intergenic_start,$intergenic_end);
 	}
 	    
 	# print vertical output (unless -out1 specified)
-	exit unless ($out2);
-	
-	foreach my $i (1..$chr_length){
-		my @keys = keys (%{$dna2[$i]});
-		print "$i) $dna[$i] @keys \n";
+	if($out2){
+		foreach my $i (1..$chr_length){
+			print "$dna[$i]\t$features[$i]\n";	
+		}	
 	}
 }
 
@@ -274,8 +261,14 @@ sub annotate{
 	my $stop = shift;
 		
 	foreach my $i ($start..$stop){
-		$dna2[$i]{$type} = 1;
-	}
+		# add feature position in array, unless it is already there
+		if(!defined($features[$i])){
+			$features[$i] = $type;			
+		}
+		else{
+			($features[$i] .= $type) unless ($features[$i] =~ m/$type/);
+		}
+	}	
 }
 
 exit(0);
