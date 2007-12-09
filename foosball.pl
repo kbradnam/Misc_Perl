@@ -21,8 +21,26 @@ my %player2stats;
 # up their name
 my %rank2player;
 
-# read results from a csv file
+# track maximum all-time score and player
+my $max = 0;
+my $max_player;
+
 my $game_counter = 0;
+
+
+# in command-line mode?
+if(defined($ARGV[3])){
+	$player2ratings{"A"} = $ARGV[0];
+	$player2ratings{"B"} = $ARGV[1];
+	my $a_score = $ARGV[2];
+	my $b_score = $ARGV[3];
+	$player2stats{"A"}[0] = 1;
+	$player2stats{"B"}[0] = 1;
+	&calculate_ratings("A","$a_score","B","$b_score","n");
+	exit;
+}
+
+# read results from a csv file
 &read_results;
 
 #&calculate_ratings("Ian Korf","1","Victoria Whitworth","10","y");
@@ -40,8 +58,9 @@ foreach my $key (reverse sort {$player2ratings{$a} <=> $player2ratings{$b}} keys
 		$low .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$player2stats{$key}[2],$formatted\n";	
 	}
 }
-print "$high\n\n$low\n";
+print "$high\n\n$low\n\n";
 
+print "Max score so far achieved is $max by $max_player\n";
 exit(0);
 
 
@@ -180,4 +199,14 @@ sub calculate_ratings{
 	print "$p2_name gains $rating2 points, new total $player2ratings{$p2_name}\n";	
 	
 	print "========================================================\n\n\n";
+
+	# update max rating details if necessary
+	if($player2ratings{$p1_name} > $max){
+		$max = $player2ratings{$p1_name};
+		$max_player = $p1_name;
+	}
+	if($player2ratings{$p2_name} > $max){
+		$max = $player2ratings{$p2_name};
+		$max_player = $p2_name;
+	}
 }
