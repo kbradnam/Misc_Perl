@@ -39,10 +39,8 @@ die "Must specify a file of confirmed gene IDs with -confirmed option\n" if (!$c
 # Paths etc 
 #############
 
-my $dbdir       = "/Korflab/Data_sources/WormBase/WS180";    # Database path
-my $gffdir      = "$dbdir/CHROMOSOMES";                      # GFF splits directory
-my @chromosomes = qw( I II III IV V X );                     # chromosomes to parse 
-@chromosomes = qw (I) if ($test);
+my @chromosomes = qw( I II III IV V X );                     
+@chromosomes = qw (X) if ($test);     
 
 ###################
 # Misc. variables
@@ -52,6 +50,7 @@ my $seq;              # will hold chromosome sequence as a string...
 my @dna;              # ...which will then get split into an array...
 my @dna2;		      # ...this copy will store details of genes and which strand they are on
 my @features;		  # A string at each position will encode features (e.g. 'EIG')
+my @sidd;			  # will store sidd scores at each base
 my $chr_length;       # obvious really
 my $intergenic;       # will store sequence of an intergenic region
 my $intergenic_start; # start coord
@@ -75,14 +74,25 @@ open(GENES,"<$confirmed") || die "Can't open confirmed genes file: $confirmed\n"
 close(GENES);
 
 
+
+
 ####################################
 # Main loop through each chromosome
 ####################################
 
 foreach my $chromosome (@chromosomes) {
     
+	print "Processing chromosome $chromosome\n\n";
+	
+	# reset relevant arrays
+	undef(@dna);
+	undef(@dna2);
+	undef(@sidd);
+	undef(@features);
+
+	
     # get chromosome sequence, load into $seq string
-	open (DNA, "<$gffdir/CHROMOSOME_${chromosome}.dna") || die "Failed to open dna file\n\n";
+	open (DNA, "<CHROMOSOME_${chromosome}.dna") || die "Failed to open dna file\n\n";
     $seq = "";
 
     while(my $tmp =<DNA>){
@@ -98,7 +108,7 @@ foreach my $chromosome (@chromosomes) {
     # sequence becomes array element 1 (rather than zero).  Add 'S' for 'Start'
     $seq = "S".$seq;
     # split to an array, make a copy and calculate size
-    @dna=();
+   
     @dna = split(//,$seq);
 	@dna2 = @dna;
     $chr_length = scalar(@dna)-1;
@@ -106,7 +116,7 @@ foreach my $chromosome (@chromosomes) {
     #################################################
     # GFF step: extract details of genes
     #################################################
-	open (GFF_in, "<$gffdir/CHROMOSOME_${chromosome}.gff") || die "Failed to open gff file\n\n";	
+	open (GFF_in, "<CHROMOSOME_${chromosome}.gff") || die "Failed to open gff file\n\n";	
 	
     while (<GFF_in>) {
 		chomp;
@@ -245,14 +255,49 @@ foreach my $chromosome (@chromosomes) {
 		print "$chromosome Intergenic $intergenic_start $intergenic_end $intergenic_size $symbol\n" if($out1);
 		&annotate("N",$intergenic_start,$intergenic_end);
 	}
-	    
+
 	# print vertical output (unless -out1 specified)
 	if($out2){
-		foreach my $i (1..$chr_length){
-			print "$dna[$i]\t$features[$i]\n";	
+		open(OUT,">c$chromosome.tmp") || die "Couldn't write output file\n";
+	
+		foreach my $i (1..$chr_length){	
+			print OUT "$dna[$i]\t$features[$i]\n";	
 		}	
+		close(OUT);
 	}
+
+	# combine output files
+	open(SIDD, "<chr${chromosome}.asidd") || die "Failed to open tmp file\n\n";
+	open(DATA, "<c${chromosome}.tmp") || die "Failed to open data file\n";
+	open(OUT, ">chromosome${chromosome}.sidd") || die "Failed to create output file\n";
+
+	my ($line1,$line2);
+	# skip first line of SIDD file
+	$line1 = <SIDD>;
+	print OUT "# ASIDD output for C. elegans chromosome $chromosome\n#\n";
+	print OUT "# 1st column is DNA sequence (5' to 3')\n#\n";
+	print OUT "# 2nd column indicates base annotation as follows:\n";
+	print OUT "# G=Genic, N=Intergenic, I=Intronic, E=Exonic, C=Confirmed gene, 5=5' UTR exons, 3=3'UTR exons\n";
+	print OUT "# P=Protein coding exons, R=RepeatMasker repeat, L=Low complexity repeat, T=Telomeric sequence\n#\n";
+	print OUT "# 3rd column indicates ASIDD score for that base\n";
+	
+	for (1..$chr_length){
+		$line1 = <SIDD>;
+		$line2 = <DATA>;
+		chomp($line1);
+		chomp($line2);
+		$line1 =~ m/(\d+\.\d+)/;
+		print OUT "$line2\t$1\n";
+	}
+
+	close(OUT);
+	close(DATA);
+	close(SIDD);
+	# tidy up
+	unlink("c$chromosome.tmp");
 }
+
+
 
 # subroutine that will annotate the virtual sequence with characters at each base
 sub annotate{
