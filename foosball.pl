@@ -157,7 +157,7 @@ sub calculate_ratings{
 		($w1 = $w2 = 0.5); 
 		print "$p1_name ties with $p2_name ($p1_score - $p2_score)\n";
 		$player2stats{$p1_name}[2]++;
-		$player2stats{$p2_name}[1]++;
+		$player2stats{$p2_name}[2]++;
 	}
 	if ($p1_score > $p2_score){
 		$w1 = 1;
