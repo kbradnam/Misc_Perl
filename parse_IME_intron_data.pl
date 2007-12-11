@@ -54,30 +54,54 @@ while(my $entry = $fasta->nextEntry) {
 	# 2) For any intron add to %all_data hash
 	push(@{$all_data{$intron}},length($entry->seq));
 	
-	# 3) now look out for CDS introns for genes for which we have already seen at least one 5' UTR intron
-	# for these introns we need to offset the value of $intron by however many 5'UTR introns come before it
+	# 3) now look out for CDS introns 
+	# If the genes already has at least one 5' UTR intron then we need to offset the 
+	# value of $intron by however many 5'UTR introns come before it
 	if(($type eq "CDS") && defined($gene2utr_count{$gene})){
 		push(@{$cds_data{$intron-$gene2utr_count{$gene}}},length($entry->seq));
 	}
+	elsif($type eq "CDS"){
+		push(@{$cds_data{$intron}},length($entry->seq));
+	}
 }
 close(FILE) || die "Couldn't close $ARGV[0]\n";
+
 
 # now process data to get averages at each position
 foreach my $position (sort {$a <=> $b} (keys(%all_data))){
 	
 	# for each intron position, want 3 sets of stats
-	my @stats1 = &calc_stats(\%all_data,$position);
-	my @stats2 = &calc_stats(\%cds_data,$position);
-	my @stats3;
+	# Only calculate if there is intron data at that position
+
+	my @stats1;
+	if (defined(${$all_data{$position}}[0])){
+		@stats1 = &calc_stats(\%all_data,$position);
+	}
+	else{
+		@stats1 = qw (0 0 0 0 0);
+	}
+
+	my @stats2;
+	if (defined(${$cds_data{$position}}[0])){
+		@stats2 = &calc_stats(\%cds_data,$position);
+	}
+	else{
+		@stats2 = qw (0 0 0 0 0);
+	}
+	
+	my @stats3;	
 	if (defined(${$utr_data{$position}}[0])){
 		@stats3 = &calc_stats(\%utr_data,$position); 
 	}
 	else{
-		@stats3 = "";
+		@stats3 = qw (0 0 0 0 0);
 	}
 	# join stats together in one big happy list
 	my $output = join (',',$position,@stats1,@stats2,@stats3);
+
 	print "$output\n";
+
+	# don't need to look at all intron positions
 	last if ($position >14);
 }
 
@@ -87,7 +111,6 @@ foreach my $position (sort {$a <=> $b} (keys(%all_data))){
 sub calc_stats{
 	my $ref = shift;
 	my $position = shift;
-	print "$position\n\n";
 	my $n = scalar(@{$$ref{$position}});
 	my $mean = sprintf("%.2f",sum(@{$$ref{$position}})/$n);
 	my $stdev = sprintf("%.2f",sqrt(sum(map {($_ - $mean) ** 2} @{$$ref{$position}}) / ($n-1)));
