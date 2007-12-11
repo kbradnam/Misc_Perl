@@ -55,7 +55,7 @@ sub read_results{
 		$player2stats{$p1}[1]++ if ($s1 > $s2);
 		$player2stats{$p2}[1]++ if ($s2 > $s1);
 		$player2stats{$p1}[2]++ if ($s1 == $s2);
-		$player2stats{$p1}[2]++ if ($s1 == $s2);
+		$player2stats{$p2}[2]++ if ($s1 == $s2);
 				
 		# increment goals scored and conceded
 		$player2stats{$p1}[3]+= $s1;
