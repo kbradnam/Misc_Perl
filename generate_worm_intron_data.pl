@@ -19,7 +19,7 @@ use FAlite;
 #############
 
 my @chromosomes = qw( I II III IV V X );                     
-@chromosomes = qw (chr1.gff);     
+#@chromosomes = qw (chr1.gff);     
 
 
 #####################################################################
@@ -42,8 +42,8 @@ foreach my $chromosome (@chromosomes) {
 	my %cds2stop;
 
 	
-#	open (GFF, "<CHROMOSOME_${chromosome}.gff") || die "Failed to open dna file\n\n";
-	open (GFF, "<$chromosome") || die "Failed to open GFF file\n\n";
+	open (GFF, "<CHROMOSOME_${chromosome}.gff") || die "Failed to open dna file\n\n";
+#	open (GFF, "<$chromosome") || die "Failed to open GFF file\n\n";
 
     while(my $tmp =<GFF>){
         
@@ -101,8 +101,8 @@ foreach my $chromosome (@chromosomes) {
   
 	# now do 2nd loop through each chromosome to just get intron details
     	
-#	open (GFF, "<CHROMOSOME_${chromosome}.gff") || die "Failed to open dna file\n\n";
-	open (GFF, "<$chromosome") || die "Failed to open GFF file\n\n";
+	open (GFF, "<CHROMOSOME_${chromosome}.gff") || die "Failed to open dna file\n\n";
+#	open (GFF, "<$chromosome") || die "Failed to open GFF file\n\n";
 
     while(my $tmp =<GFF>){
         
@@ -146,8 +146,8 @@ foreach my $chromosome (@chromosomes) {
   
 
 	# get chromosome sequence, load into $seq string
-#    open (DNA, "<CHROMOSOME_${chromosome}.dna") || die "Failed to open dna file\n\n";
-    open (DNA, "<chr1.dna") || die "Failed to open dna file\n\n";
+    open (DNA, "<CHROMOSOME_${chromosome}.dna") || die "Failed to open dna file\n\n";
+#    open (DNA, "<chr1.dna") || die "Failed to open dna file\n\n";
 	
     my $seq;
 
@@ -166,15 +166,11 @@ foreach my $chromosome (@chromosomes) {
 
 	foreach my $key (keys %transcript2introns){
 
-	#	print "${key}_\n";
-	#	print "Start: $transcript2start{$key} Strand: $transcript2strand{$key}\n";
-
 		# transcript ID will sometimes be longer than the CDS ID. E.g. Transcript=ZK270.2a.2 CDS=ZK270.2a
 		# so need to delete end of transcript ID for some lookups of CDS related data
 		my $id2 = $key;
 		($id2 =~ s/\.[0-9]+$//) if ($id2 =~ m/\..*\./);
-	#	print "CDS start: $cds2start{$id2} CDS stop: $cds2stop{$id2}\n";
-
+	
 		# sort introns into ascending (or descending) coordinates
 		my @introns = sort (@{$transcript2introns{$key}});
 		(@introns = reverse @introns) if ($transcript2strand{$key} eq "-");
@@ -215,7 +211,7 @@ foreach my $chromosome (@chromosomes) {
 			# format sequence for printing
 			my $output_seq = &tidy_seq($sequence);
 			
-			print ">${key}_i${counter}_${distance}_${status} $start-$stop\n";
+			print ">${key}_i${counter}_${distance}_${status} $start-$stop ($transcript2strand{$key})\n";
 			print "$output_seq\n";
 			$counter++;
 		}	
