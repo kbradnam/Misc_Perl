@@ -36,9 +36,12 @@ my %all_data;
 
 # loop through each sequence in target file
 while(my $entry = $fasta->nextEntry) {	
+	
 	# process header
 	my $header = $entry->def;
-   	my ($gene,$intron,$tss_distance,$type) = split(/_/,$header);
+	$header =~ s/ .*//;
+   	
+	my ($gene,$intron,$tss_distance,$type) = split(/_/,$header);
 	$gene =~ s/>//;
 	$intron =~ s/i//;
 	
@@ -113,6 +116,10 @@ sub calc_stats{
 	my $position = shift;
 	my $n = scalar(@{$$ref{$position}});
 	my $mean = sprintf("%.2f",sum(@{$$ref{$position}})/$n);
+
+	# need to bail out if $n = 1 because can't count stdev with sample size of 1
+	return($n,$mean,"0","0","0") if ($n == 1);
+ 	
 	my $stdev = sprintf("%.2f",sqrt(sum(map {($_ - $mean) ** 2} @{$$ref{$position}}) / ($n-1)));
 
 	# standard error
