@@ -33,8 +33,7 @@ my %protein2stop;
 my @chromosomes = qw (dmel_mitochondrion_genome 2RHet 2L X 3L XHet Uextra 4 YHet U 2LHet 2R 3LHet 3R 3RHet);
 
 foreach my $chr (@chromosomes){
-	print "Processing chromosome $chr\n";
-	
+
 	open (GFF, "<dmel-${chr}-r5.4.gff") || die "Failed to open $chr\n\n";
 
 	while(my $tmp =<GFF>){
@@ -104,14 +103,14 @@ foreach my $chr (@chromosomes){
 	
 }
 
-print "\n";
-
-
 
 # now do 2nd loop through file to just get intron details
 
 foreach my $chr (@chromosomes){
-	print "Processing $chr\n";
+		
+	# first empty hash
+	%transcript2introns = (); 
+	
 	open (GFF, "<dmel-${chr}-r5.4.gff") || die "Failed to open $chr file\n\n";
 
 	while(my $tmp =<GFF>){
