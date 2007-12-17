@@ -84,26 +84,26 @@ foreach my $di (@dinucs){
 
 foreach my $di (@dinucs){
 	# calculate (column total * row total) / $total
-	$file1_ex{$di} = (($file1_ob{$di}+$file2_ob{$di}) * $row1) / $total;
-	$file2_ex{$di} = (($file1_ob{$di}+$file2_ob{$di}) * $row2) / $total;	
+	$file1_ex{$di} = sprintf("%.2f",(($file1_ob{$di}+$file2_ob{$di}) * $row1) / $total);
+	$file2_ex{$di} = sprintf("%.2f",(($file1_ob{$di}+$file2_ob{$di}) * $row2) / $total);	
 }
 
 # now calculate chi-squared values
 my ($chi1,$chi2);
 my $chi_total;
-print "\tObs1 Exp2 Chi1\tObs2 Exp2 Chi2\n";
+print "\tObs1\tExp2\t\tChi1\tObs2\tExp2\t\tChi2\n";
 foreach my $di (@dinucs){
-	$chi1 = (($file1_ob{$di} - $file1_ex{$di})**2)/$file1_ex{$di};
-	$chi2 = (($file2_ob{$di} - $file2_ex{$di})**2)/$file2_ex{$di};	
-	print "$di\tO=$file1_ob{$di} E=$file1_ex{$di} $chi1\tO=$file2_ob{$di} E=$file2_ex{$di} $chi2\n";
+	$chi1 = sprintf("%.2f",(($file1_ob{$di} - $file1_ex{$di})**2)/$file1_ex{$di});
+	$chi2 = sprintf("%.2f",(($file2_ob{$di} - $file2_ex{$di})**2)/$file2_ex{$di});	
+	print "$di\t$file1_ob{$di}\t$file1_ex{$di}\t$chi1\t$file2_ob{$di}\t$file2_ex{$di}\t$chi2\n";
 
 	$chi_total += ($chi1+$chi2);
 }
 
 printf  "Chi squared value = %6.2f\n", $chi_total;
 				
-print "Significance level at 5% = 16.92\n";
-print "Significance level at 1% = 21.67\n";
+print "Significance level at 5% = 25.00\n";
+print "Significance level at 1% = 30.58\n";
 
 
 exit(0);
