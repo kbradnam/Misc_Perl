@@ -12,8 +12,8 @@
 use strict;
 
 # two main hashes for storing data, the stats hash will contain details of games played [0], 
-# games won [1] and games drawn [2]. The ratings hash will just contain the floating point rating of
-# each player
+# games won [1] and drawn [2], and total goals scored [3] and conceded [4]. 
+# The ratings hash will just contain the floating point rating of each player
 my %player2ratings;
 my %player2stats;
 
@@ -49,13 +49,16 @@ if(defined($ARGV[3])){
 my ($high,$low);
 
 foreach my $key (reverse sort {$player2ratings{$a} <=> $player2ratings{$b}} keys %player2ratings){
-	my $formatted =  sprintf("%.2f",$player2ratings{$key});
+	my $rating =  sprintf("%.2f",$player2ratings{$key});
+	
+	# what is the average difference in goals scored pergame
+	my $mean_gd = sprintf("%.1f",($player2stats{$key}[3] -$player2stats{$key}[4])/$player2stats{$key}[0]);
 
 	if($player2stats{$key}[0] >= 10){
-		$high .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$player2stats{$key}[2],$formatted\n";	
+		$high .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$player2stats{$key}[2],$mean_gd,$rating\n";	
 	}
 	else{
-		$low .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$player2stats{$key}[2],$formatted\n";	
+		$low .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$player2stats{$key}[2],$mean_gd,$rating\n";	
 	}
 }
 print "$high\n\n$low\n\n";
@@ -98,12 +101,16 @@ sub calculate_ratings{
 		$player2stats{$p1}[0] = 0;
 		$player2stats{$p1}[1] = 0;
 		$player2stats{$p1}[2] = 0;
+		$player2stats{$p1}[3] = 0;
+		$player2stats{$p1}[4] = 0;
 	}
 	if(!defined($player2ratings{$p2})){
 		$player2ratings{$p2} = 0;
 		$player2stats{$p2}[0] = 0;
 		$player2stats{$p2}[1] = 0;
 		$player2stats{$p2}[2] = 0;
+		$player2stats{$p2}[3] = 0;
+		$player2stats{$p2}[4] = 0;
 	}
 
 	# need to assign score of higher ranking player to $p1_score and lower ranking 
@@ -175,6 +182,12 @@ sub calculate_ratings{
 	# add game count to player2stats
 	$player2stats{$p1_name}[0]++;
 	$player2stats{$p2_name}[0]++;
+
+	# add goal counts to player2stats
+	$player2stats{$p1_name}[3] += $p1_score;
+	$player2stats{$p2_name}[3] += $p2_score;
+	$player2stats{$p1_name}[4] += $p2_score;
+	$player2stats{$p2_name}[4] += $p1_score;
 
 	
 	# calculate $k and $g
