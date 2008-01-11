@@ -62,16 +62,22 @@ foreach my $chromosome (@chromosomes) {
 			$comment =~ m/\"(.*)\"/;
 			my $id = $1;
 			
-			# skip alternative CDS isoforms of genes
+			# skip alternative CDS isoforms of genes, AH6.1b
 			next if ($id =~ m/[b-z]$/);
+			
+			# skip transcript variants of alternative isoforms, e.g. AH6.2c.1
 			next if ($id =~ m/[b-z]\.[0-9]*$/);
 
 	
-			# skip alternative transcript isoforms of genes
-			next if ($id =~ m/\.[0-9]\.[2-9]$/);
+			# skip alternative transcript isoforms of genes, e.g. AH6.1.2, AH6.4.11
+			next if ($id =~ m/\.[0-9]+\.[2-9]$/);
+			next if ($id =~ m/\.[0-9]+\.\d\d$/);
 
-			# finally, skip alternative transcript isoforms of a form of CDS variants
+			# finally, skip alternative transcript isoforms of the primary form of CDS variant
+			#, e.g. AH6.2a.2
 			next if ($id =~ m/a\.[2-9]$/);
+			next if ($id =~ m/a\.\d\d$/);
+
 			
 			# now add start coord and strand to hash
 			# use stop coordinate for reverse strand genes
