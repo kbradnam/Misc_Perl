@@ -19,16 +19,12 @@ use FAlite;
 #############
 
 my @chromosomes = qw( I II III IV V X );                     
-#@chromosomes = qw (chr1.gff);     
+#@chromosomes = qw (I);     
 
-
-#####################################################################
-# First loop through each chromosome to just get transcript details
-# and to find out confirmation status of CDS
-#####################################################################
+# Big loop is just through each chromosome
 
 foreach my $chromosome (@chromosomes) {
-    
+
 	
 	###################
 	# Misc. variables
@@ -41,6 +37,11 @@ foreach my $chromosome (@chromosomes) {
 	my %cds2start;		    # need start and stop coordinates of each CDS
 	my %cds2stop;
 
+	
+	#####################################################################
+	# First loop through each GFF file is to get transcript details
+	# and to find out confirmation status of CDS
+	#####################################################################
 	
 	open (GFF, "<CHROMOSOME_${chromosome}.gff") || die "Failed to open dna file\n\n";
 #	open (GFF, "<$chromosome") || die "Failed to open GFF file\n\n";
@@ -58,7 +59,7 @@ foreach my $chromosome (@chromosomes) {
         if ($feature eq "protein_coding_primary_transcript"){					
 			
 			# get transcript ID from $comment and skip if transcript is an alternative splice form
-			# i.e. keep *.a versions and *.n.1
+			# i.e. just want to keep transcripts with names that end: *.[0-9]a  or *.[0-9].1 
 			$comment =~ m/\"(.*)\"/;
 			my $id = $1;
 			
@@ -68,7 +69,6 @@ foreach my $chromosome (@chromosomes) {
 			# skip transcript variants of alternative isoforms, e.g. AH6.2c.1
 			next if ($id =~ m/[b-z]\.[0-9]*$/);
 
-	
 			# skip alternative transcript isoforms of genes, e.g. AH6.1.2, AH6.4.11
 			next if ($id =~ m/\.[0-9]+\.[2-9]$/);
 			next if ($id =~ m/\.[0-9]+\.\d\d$/);
@@ -77,38 +77,36 @@ foreach my $chromosome (@chromosomes) {
 			#, e.g. AH6.2a.2
 			next if ($id =~ m/a\.[2-9]$/);
 			next if ($id =~ m/a\.\d\d$/);
-
 			
 			# now add start coord and strand to hash
 			# use stop coordinate for reverse strand genes
 			($transcript2start{$id} = $start) if ($strand eq "+");
-			($transcript2start{$id} = $stop) if ($strand eq "-");
+			($transcript2start{$id} = $stop)  if ($strand eq "-");
 			
+			# need to also keep track of which strand transcript is on
 			$transcript2strand{$id} = $strand;
 		}
+		# now want to find lines which describe confirmation status of the CDS
 		elsif(($source eq "curated") && ($feature eq "CDS")){
 			# grab confirmation status
 			$comment =~ m/CDS \"(.*?)\".*Status \"(.*?)\"/;
 			$cds2status{$1} = $2;
 			
-			# add coords to hash but reverse for negative strand
+			# add coords to hash but reverse for negative strand transcripts
 			($cds2start{$1} = $start) if ($strand eq "+");
-			($cds2stop{$1} = $stop)   if ($strand eq "+");
+			($cds2stop{$1}  = $stop)  if ($strand eq "+");
 			($cds2start{$1} = $stop)  if ($strand eq "-");
-			($cds2stop{$1} = $start)  if ($strand eq "-");
-
-
+			($cds2stop{$1}  = $start) if ($strand eq "-");
 		}
 		else{
 			next;
 		}
     }
     close(GFF);
-  
-	# now do 2nd loop through each chromosome to just get intron details
-    	
+
+
+	# now do 2nd loop through each GFF file to get intron details
 	open (GFF, "<CHROMOSOME_${chromosome}.gff") || die "Failed to open dna file\n\n";
-#	open (GFF, "<$chromosome") || die "Failed to open GFF file\n\n";
 
     while(my $tmp =<GFF>){
         
@@ -119,22 +117,27 @@ foreach my $chromosome (@chromosomes) {
 		chomp($tmp);
 		my ($location,$source,$feature,$start,$stop,$score,$strand,$phase,$comment) = split (/\t/,$tmp);
         
-		# only want lines that contain protein_coding_primary_transcript_details
+		# only want lines that contain introns that are in (protein) coding transcripts
         next unless (($source eq "Coding_transcript") && ($feature eq "intron"));					
-		
+
 		# grab transcript ID
 		$comment =~ m/Transcript \"(.*?)\"/;
 		my $id = $1;
 			
 		# skip introns from alternative CDS isoforms of genes
 		next if ($id =~ m/[b-z]$/);
+
+		# skip transcript variants of alternative isoforms, e.g. AH6.2c.1
 		next if ($id =~ m/[b-z]\.[0-9]*$/);
 
-		# skip introns from alternative transcript isoforms of genes
-		next if ($id =~ m/\.[0-9]\.[2-9]$/);
+		# skip introns from alternative transcript isoforms of genes, e.g. AH6.1.2, AH6.4.11
+		next if ($id =~ m/\.[0-9]+\.[2-9]$/);
+		next if ($id =~ m/\.[0-9]+\.\d\d$/);
 
 		# finally, skip introns from alternative transcript isoforms of a form of CDS variants
-		next if ($id =~ m/a\.[2-9]$/);	
+		#, e.g. AH6.2a.2
+		next if ($id =~ m/a\.[2-9]$/);
+		next if ($id =~ m/a\.\d\d$/);		
 			
 		# transcript ID will sometimes be longer than the CDS ID. E.g. Transcript=ZK270.2a.2 CDS=ZK270.2a
 		# so need to delete end of transcript ID for some lookups of CDS related data
@@ -149,11 +152,9 @@ foreach my $chromosome (@chromosomes) {
 		
 	}
     close(GFF);
-  
 
 	# get chromosome sequence, load into $seq string
     open (DNA, "<CHROMOSOME_${chromosome}.dna") || die "Failed to open dna file\n\n";
-#    open (DNA, "<chr1.dna") || die "Failed to open dna file\n\n";
 	
     my $seq;
 
