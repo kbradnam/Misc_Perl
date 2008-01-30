@@ -54,7 +54,7 @@ foreach my $key (reverse sort {$player2ratings{$a} <=> $player2ratings{$b}} keys
 	# what is the average difference in goals scored pergame
 	my $mean_gd = sprintf("%.1f",($player2stats{$key}[3] -$player2stats{$key}[4])/$player2stats{$key}[0]);
 
-	if($player2stats{$key}[0] >= 10){
+	if($player2stats{$key}[0] >= 5){
 		$high .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$player2stats{$key}[2],$mean_gd,$rating\n";	
 	}
 	else{
