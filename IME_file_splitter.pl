@@ -47,7 +47,7 @@ $window = 250 if (!$window);
 $step = 100 if (!$step);
 
 # need to know end points of each window
-my ($start,$stop);
+my ($start,$end);
 
 # need to store merged sequences
 my $new_seq;
@@ -58,13 +58,13 @@ my $counter;
 for(my $start = $min;$start<$max; $start+= $step){
 	$new_seq = "";
 	$counter = 0;
-	$stop = $start + $window;
+	$end = $start + $window -1;
 	
 	
 	# only write output files if in split mode
 	if($split){
-		print "Processing $start - $stop\n";
-		open(OUT, ">${prefix}_${start}_${stop}.fa") || die "Couldn't create output file\n";
+		print "Processing $start - $end\n";
+		open(OUT, ">${prefix}_${start}_${end}.fa") || die "Couldn't create output file\n";
 	}
 	
 	open(FILE,"<$ARGV[0]") || die "Couldn't open $ARGV[0]\n";
@@ -79,7 +79,8 @@ for(my $start = $min;$start<$max; $start+= $step){
 	   	$header =~ m/_i\d+_(\d+)_/;
 		my $distance = $1;
 		
-		if(($distance >= $start) && ($distance <= $stop)){
+		# check whether candidate intron falls in size category
+		if(($distance >= $start) && ($distance <= $end)){
 			$counter++;
 			my $seq = $entry->seq;
 			if ($split){ 
@@ -89,10 +90,10 @@ for(my $start = $min;$start<$max; $start+= $step){
 			
 				my $length = length($seq);
 
-				# if sequence is longer than $stop, then just need part to extract
+				# if sequence is longer than $end, then just need part to extract
 				# part of it
-				if(($distance+$length) > $stop){
-					my $tmp = substr($seq,1,$stop-$distance);
+				if(($distance+$length) > $end){
+					my $tmp = substr($seq,1,$end-$distance);
 					$new_seq .= $tmp;
 				}
 				else{
@@ -104,7 +105,7 @@ for(my $start = $min;$start<$max; $start+= $step){
 	# can now calculate base composition
 	if($percent){
 		(my ($a,$c,$g,$t,$n,$o) = Keith::base_composition($new_seq,1));
-		print "$start,$stop,$counter,$a,$c,$g,$t,$n\n";
+		print "$start,$end,$counter,$a,$c,$g,$t,$n\n";
 	}
 	close(FILE);
 	close (OUT) if ($split);
