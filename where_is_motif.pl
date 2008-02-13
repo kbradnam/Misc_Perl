@@ -27,6 +27,7 @@ my $seqs;       # Show motif sequences in output (one sequence per motif in each
 my $species;    # code to determine which species to use expected frequencies from
 my $mdensity;	# count (and show) amount and percentage of motif in each sequence (one line per sequence)
 my $mseqs;		# just show sequences of each intron that have motifs above threshold (one sequence per intron)
+my $mask;		# show sequences of introns that have motifs and mask out motif with N's
 my $msummary;	# show motif count and percentage for all sequences combined
 
 my $stats;      # report stats on all log likelihood scores found
@@ -42,6 +43,7 @@ GetOptions ("motif=s"    => \$motif,
 		   "species=s"   => \$species,
 		   "mdensity"    => \$mdensity,  
 		   "mseqs"		 => \$mseqs,
+		   "mask"		 => \$mask,
 		   "msummary"    => \$msummary,
 		   "stats"       => \$stats,
 	       "min=f"       => \$min,
@@ -236,7 +238,16 @@ while(my $entry = $fasta->nextEntry) {
 	print "$header motif_density: $motif_count/$length $percent_motif%\n" if ($mdensity);
 	
 	# print out intron sequence if -mseqs specified and intron contains a motif above threshold
-	print "$header\n$seq\n" if ($mseqs && $above_threshold);
+	if ($mseqs && $above_threshold){
+		
+		# use masked sequence if -mask specified, else print normal sequence
+		if($mask){
+			print "$header\n$masked_seq\n" 		
+		}
+		else{
+			print "$header\n$seq\n" 		
+		}
+	}
 }
 
 close(TARGET) || die "Couldn't close $target\n";
@@ -360,5 +371,9 @@ sub pre_flight_checks{
 	# don't specify a threshold if using -stats
 	if($threshold && $stats){
 		die "Don't specify -threshold option when using -stats option\n";
+	}
+	# only specify -mask with -mseqs
+	if($mask && !$mseqs){
+		die "-mask option is only to be used with -mseqs option\n";
 	}
 }
