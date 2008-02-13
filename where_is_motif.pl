@@ -27,7 +27,7 @@ my $seqs;       # Show motif sequences in output (one sequence per motif in each
 my $species;    # code to determine which species to use expected frequencies from
 my $mdensity;	# count (and show) amount and percentage of motif in each sequence (one line per sequence)
 my $mseqs;		# just show sequences of each intron that have motifs above threshold (one sequence per intron)
-my $mask;		# show sequences of introns that have motifs and mask out motif with N's
+my $mask;		# show all intron sequences (regardless of whether they have motifs) and mask out motif with -'s
 my $msummary;	# show motif count and percentage for all sequences combined
 
 my $stats;      # report stats on all log likelihood scores found
@@ -237,16 +237,14 @@ while(my $entry = $fasta->nextEntry) {
 	my $percent_motif = sprintf("%.3f",($motif_count / $length) * 100);
 	print "$header motif_density: $motif_count/$length $percent_motif%\n" if ($mdensity);
 	
-	# print out intron sequence if -mseqs specified and intron contains a motif above threshold
-	if ($mseqs && $above_threshold){
-		
-		# use masked sequence if -mask specified, else print normal sequence
-		if($mask){
-			print "$header\n$masked_seq\n" 		
-		}
-		else{
-			print "$header\n$seq\n" 		
-		}
+	# print out intron sequence if -mseqs specified 
+	# if -mask is specified, will return all intron sequences, with just motifs masked out
+	if ($mseqs && $mask){
+		print "$header\n$masked_seq\n";
+	}
+	# if not in -mask mode, just show intron sequences that contain a motif above threshold
+	elsif ($mseqs && !$mask && $above_threshold){
+		print "$header\n$seq\n" 	
 	}
 }
 
