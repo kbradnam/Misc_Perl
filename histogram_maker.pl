@@ -17,17 +17,19 @@ use Getopt::Long;
 # Command line options
 ########################
 
-my $interval;      # what size bins to count things in?
-my $min;           # force a start point for counting
-my $max;           # force an end point for counting
+my $window;    # what size bins to count things in?
+my $step;	   # what step size to use
+my $min;       # force a start point for counting
+my $max;       # force an end point for counting
 
-GetOptions ("interval=f"      => \$interval,
+GetOptions ("window=f"      => \$window,
+			"step=f"		  => \$step,
 	    	"min=f"           => \$min,
 	    	"max=f"           => \$max);
 
-##################################################
+#################################################
 # Sanity check on specified command line options
-##################################################
+#################################################
 
 # min should be less than max
 if(($min && $max) && ($min > $max)){
@@ -52,10 +54,10 @@ close(IN) || die "Couldn't close input file\n";
 my @sorted = sort {$a <=> $b} @numbers;
 my $records = scalar(@sorted);
 
-# choose default interval,min, and max values if none specified 
-if(!defined($interval)){
-	# default to a fifth of the max size as interval
-	$interval = int($sorted[-1]/5);
+# choose default window, step, min, and max values if none specified 
+if(!defined($window)){
+	# default to a fifth of the max size as window
+	$window = int($sorted[-1]/5);
 } 
 
 if(!defined($min)){
@@ -66,7 +68,13 @@ if(!defined($max)){
 	$max = $sorted[-1];
 }
 
-print "Using interval size of $interval\n";
+# step size is equal to window size if not specified
+if(!defined($step)){
+	$step = $window;
+}
+
+print "Using window size of $window\n";
+print "Using step size of $step\n";
 print "Using minimum size of $min\n";
 print "Using maximum size of $max\n";
 print "\n";
@@ -82,7 +90,7 @@ my $rounded_bin_end;
 my $percent;
 my $bin_counter;
 
-BIN:for ($bin_start = $min; $bin_start < $max; $bin_start += $interval){
+BIN:for ($bin_start = $min; $bin_start < $max; $bin_start += $step){
 	# exit loop if we get here and there is no data left
 	last BIN if (@sorted == 0);
 	
@@ -91,8 +99,8 @@ BIN:for ($bin_start = $min; $bin_start < $max; $bin_start += $interval){
 
 	# set bin end, we go down to 10 decimal places which might not be sensitive enough
     # the rounded bin end figure is just for the final print out to look a bit neater
-	$bin_end = $bin_start+$interval-0.0000000001;
-	$rounded_bin_end = $bin_start+$interval-0.01;
+	$bin_end = $bin_start+$window-1.0000000001;
+	$rounded_bin_end = $bin_start+$window-1.01;
 	
 	#  if $min is greater than many records, we should first count everything less than $min
 	if($sorted[0] <$min){	
@@ -112,14 +120,28 @@ BIN:for ($bin_start = $min; $bin_start < $max; $bin_start += $interval){
 		print "\"${bin_start} - ${rounded_bin_end}\",$bin_counter,$percent\n";
 		next BIN;
 	}
-		
+
 	# if we are still here than the current record should be in this bin size and we can add 
 	# to current total
-#	print "# sorted[0] = *$sorted[0]*  bin_start = *$bin_start*\n";
-	while( (close_enough_or_bigger($sorted[0],$bin_start)) && (close_enough_or_smaller($sorted[0],$bin_end)) ){
+#		print "# sorted[0] = *$sorted[0]*  bin_start = *$bin_start* bin_end = $bin_end\n";
+
+	# might have to keep some values which overlap with next bin, so need a counter to increment
+	# through @sorted
+	my $i = 0;
+	while( (close_enough_or_bigger($sorted[$i],$bin_start)) && (close_enough_or_smaller($sorted[$i],$bin_end)) ){
+#		print "$bin_counter\n";
 		$bin_counter++;
-		shift(@sorted);
+
 		last if (@sorted == 0);
+
+		# only get rid of number from array if it can't possibly be in the next bin
+		if($sorted[$i] < ($bin_start + $step)){
+			shift(@sorted);
+		}
+		else{
+			$i++;
+		}
+
 	}
 	
 	$percent = sprintf("%.4f",($bin_counter/$records));
