@@ -14,8 +14,7 @@ my $images;     # ignore image files unless -images specified
 GetOptions ("local"  => \$local,
 			"images" => \$images);
 
-#open(LOG,"/var/log/apache2/access_log") || die "could not open log file\n";
-open(LOG,"$ARGV[0]") || die "could not open log file\n";
+open(LOG,"/var/log/apache2/access_log") || die "could not open log file\n";
 
 # hash to keep scores
 my %pages2hits;
