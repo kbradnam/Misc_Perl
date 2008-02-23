@@ -61,7 +61,8 @@ foreach my $key (reverse sort {$player2ratings{$a} <=> $player2ratings{$b}} keys
 		$low .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$player2stats{$key}[2],$mean_gd,$rating\n";	
 	}
 }
-print "$high\n\n$low\n\n";
+print "$high\n\n" if (defined($high));
+print "$low\n\n"  if (defined($low));
 
 print "Max score so far achieved is $max by $max_player\n";
 exit(0);
