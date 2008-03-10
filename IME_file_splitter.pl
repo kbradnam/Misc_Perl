@@ -83,8 +83,8 @@ for(my $start = $min;$start<$max; $start+= $step){
 			$header =~ m/_i\d+_(\d+)_/;
 			$distance = $1;
 		}
-	   	elsif($header =~ m/_e\d+_\d+_/){
-			$header =~ m/_e\d+_(\d+)_/;
+	   	elsif($header =~ m/_e\d+_\d+/){
+			$header =~ m/_e\d+_(\d+)/;
 			$distance = $1;
 		}
 		
