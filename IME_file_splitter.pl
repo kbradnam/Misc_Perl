@@ -68,15 +68,15 @@ for(my $start = $min;$start<$max; $start+= $step){
 	}
 	
 	open(FILE,"<$ARGV[0]") || die "Couldn't open $ARGV[0]\n";
-
+	
 	my $fasta = new FAlite(\*FILE);
 
 	# loop through each sequence in target file
-	while(my $entry = $fasta->nextEntry) {	
-
+	while(my $entry = $fasta->nextEntry) {
+	    
 		# process header
 		my $header = $entry->def;
-		
+
 		# check whether we are working with intron or exon data
 		my $distance;
 		if($header =~ m/_i\d+_\d+_/){
@@ -87,7 +87,6 @@ for(my $start = $min;$start<$max; $start+= $step){
 			$header =~ m/_e\d+_(\d+)/;
 			$distance = $1;
 		}
-		
 		# check whether candidate intron falls in size category
 		if(($distance >= $start) && ($distance <= $end)){
 			$counter++;
@@ -111,10 +110,17 @@ for(my $start = $min;$start<$max; $start+= $step){
 			}
 		}		
 	}
+	
 	# can now calculate base composition
 	if($percent){
-		(my ($a,$c,$g,$t,$n,$o) = Keith::base_composition($new_seq,1));
-		print "$start,$end,$counter,$a,$c,$g,$t,$n\n";
+		# only calculate if there is any sequence
+		if($new_seq){
+			(my ($a,$c,$g,$t,$n,$o) = Keith::base_composition($new_seq,1));
+			print "$start,$end,$counter,$a,$c,$g,$t,$n\n";
+		}
+		else{
+			print "$start,$end,$counter,0,0,0,0,0\n";			
+		}
 	}
 	close(FILE);
 	close (OUT) if ($split);
