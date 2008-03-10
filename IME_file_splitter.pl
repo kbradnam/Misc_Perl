@@ -78,13 +78,15 @@ for(my $start = $min;$start<$max; $start+= $step){
 		my $header = $entry->def;
 		
 		# check whether we are working with intron or exon data
+		my $distance;
 		if($header =~ m/_i\d+_\d+_/){
 			$header =~ m/_i\d+_(\d+)_/;
+			$distance = $1;
 		}
 	   	elsif($header =~ m/_e\d+_\d+_/){
 			$header =~ m/_e\d+_(\d+)_/;
+			$distance = $1;
 		}
-		my $distance = $1;
 		
 		# check whether candidate intron falls in size category
 		if(($distance >= $start) && ($distance <= $end)){
