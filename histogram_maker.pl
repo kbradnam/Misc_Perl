@@ -21,11 +21,15 @@ my $window;    # what size bins to count things in?
 my $step;	   # what step size to use
 my $min;       # force a start point for counting
 my $max;       # force an end point for counting
+my $integer;   # interger mode, easier to do the counting
+my $float;	   # floating point mode, not so easy to do the counting
 
 GetOptions ("window=f"      => \$window,
-			"step=f"		  => \$step,
-	    	"min=f"           => \$min,
-	    	"max=f"           => \$max);
+			"step=f"		=> \$step,
+	    	"min=f"         => \$min,
+	    	"max=f"         => \$max,
+			"integer"		=> \$integer,
+			"float"			=> \$float);
 
 #################################################
 # Sanity check on specified command line options
@@ -35,6 +39,11 @@ GetOptions ("window=f"      => \$window,
 if(($min && $max) && ($min > $max)){
    die "$min needs to be less than or equal to $max\n";
 }
+
+if(($float && $integer) || (!$float && !$integer)){
+   die "Please specify -integer if only dealing with interers, *or* -float if only dealing with floating-point numbers\n";
+}
+
 
 # array to store all numbers
 my @numbers;
@@ -90,6 +99,9 @@ my $rounded_bin_end;
 my $percent;
 my $bin_counter;
 
+# change $step size if dealing with floating point numbers
+$step-- if ($float);
+ 
 BIN:for ($bin_start = $min; $bin_start < $max; $bin_start += $step){
 	# exit loop if we get here and there is no data left
 	last BIN if (@sorted == 0);
@@ -97,12 +109,23 @@ BIN:for ($bin_start = $min; $bin_start < $max; $bin_start += $step){
 	# reset bin counter for each bin
 	$bin_counter = 0;
 
-	# set bin end, we go down to 10 decimal places which might not be sensitive enough
-    # the rounded bin end figure is just for the final print out to look a bit neater
-	$bin_end = $bin_start+$window-1.0000000001;
-	$rounded_bin_end = $bin_start+$window-1.01;
+	# are we only bothering to count integers?
+	if($integer){
+		$bin_end = $bin_start+$window-1;
+		$rounded_bin_end = $bin_start+$window-1;
+	}
+	# or do we have to deal with floating point numbers?
+	elsif($float){
+		# set bin end, we go down to 10 decimal places which might not be sensitive enough
+	    # the rounded bin end figure is just for the final print out to look a bit neater
+		$bin_end = $bin_start+$window-1.0000000001;
+		$rounded_bin_end = $bin_start+$window-1.01;		
+	}
 	
-	#  if $min is greater than many records, we should first count everything less than $min
+#	print "# sorted[0] = *$sorted[0]*  bin_start = *$bin_start* bin_end = $bin_end\n";
+	
+
+	# if $min is greater than many records, we should first count everything less than $min
 	if($sorted[0] <$min){	
 		while ($sorted[0] < $min){
 			$bin_counter++;
@@ -123,8 +146,6 @@ BIN:for ($bin_start = $min; $bin_start < $max; $bin_start += $step){
 
 	# if we are still here than the current record should be in this bin size and we can add 
 	# to current total
-#		print "# sorted[0] = *$sorted[0]*  bin_start = *$bin_start* bin_end = $bin_end\n";
-
 	# might have to keep some values which overlap with next bin, so need a counter to increment
 	# through @sorted
 	my $i = 0;
