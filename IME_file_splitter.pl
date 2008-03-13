@@ -2,25 +2,19 @@
 #
 # IME_file_splitter.pl
 #
-# A script to separate a FASTA file into separate files based on matching a pattern in the FASTA header
+# A script to separate a FASTA file into separate files based on coordinate information in the FASTA header
 #
 # Last updated by: $Author$
 # Last updated on: $Date$
 
 use strict;
 use warnings;
-use Keith;
 use FAlite;
 use Getopt::Long;
 
-# script can be run in two main modes 
-# i) SPLIT MODE - separate whole introns into separate files based on whether the *start* of the intron is within
-#    a required range from the start of transcription (can be biased if just 1st base pair of intron 
-#    is less than threshold)
-# ii) PERCENT MODE - Separate just the parts of introns that fall within in the specified size category...this might mean
-#     removing 5' and 3' ends. Can then calculate base composition on just those parts of an intron that are 
-#     a defined range from the TSS. Only show calculated percentages, don't output sequences
-
+# This script separates an intron or exon FASTA file into separate files based on whether the 
+# *start* of the intron is within a required range from the start of transcription (can be  
+# biased if just 1st base pairof intron is less than threshold)
 
 # command line options
 my $split; # see the two different descriptions above
@@ -30,15 +24,10 @@ my $max;    # how big to go up to
 my $step;   # for sliding windows
 my $prefix; # what prefix to give new file names (if using -split mode)
 
-GetOptions ("split"    => \$split,
-			"percent"  => \$percent,
-			"window=i" => \$window,
+GetOptions ("window=i" => \$window,
 			"max=i"    => \$max,
 			"step=i"   => \$step,
 			"prefix=s" => \$prefix);
-
-die "Specify -split or -percent\n" if ($split && $percent);
-die "Specify -split or -percent\n" if (!$split && !$percent);
 
 # set some defaults
 my $min = 1;
@@ -60,12 +49,8 @@ for(my $start = $min;$start<$max; $start+= $step){
 	$counter = 0;
 	$end = $start + $window -1;
 	
-	
-	# only write output files if in split mode
-	if($split){
-		print "Processing $start - $end\n";
-		open(OUT, ">${prefix}_${start}_${end}.fa") || die "Couldn't create output file\n";
-	}
+	print "Processing $start - $end\n";
+	open(OUT, ">${prefix}_${start}_${end}.fa") || die "Couldn't create output file\n";
 	
 	open(FILE,"<$ARGV[0]") || die "Couldn't open $ARGV[0]\n";
 	
@@ -87,7 +72,7 @@ for(my $start = $min;$start<$max; $start+= $step){
 			$header =~ m/_e\d+_(\d+)/;
 			$distance = $1;
 		}
-		# check whether candidate intron falls in size category
+		# check whether candidate intron/exon falls in size category
 		if(($distance >= $start) && ($distance <= $end)){
 			$counter++;
 			my $seq = $entry->seq;
@@ -111,17 +96,6 @@ for(my $start = $min;$start<$max; $start+= $step){
 		}		
 	}
 	
-	# can now calculate base composition
-	if($percent){
-		# only calculate if there is any sequence
-		if($new_seq){
-			(my ($a,$c,$g,$t,$n,$o) = Keith::base_composition($new_seq,1));
-			print "$start,$end,$counter,$a,$c,$g,$t,$n\n";
-		}
-		else{
-			print "$start,$end,$counter,0,0,0,0,0\n";			
-		}
-	}
 	close(FILE);
 	close (OUT) if ($split);
 }
