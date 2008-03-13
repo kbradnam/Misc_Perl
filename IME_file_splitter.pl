@@ -22,7 +22,7 @@ my $percent;
 my $window; # how big a size window
 my $max;    # how big to go up to
 my $step;   # for sliding windows
-my $prefix; # what prefix to give new file names (if using -split mode)
+my $prefix; # what prefix to give new file names
 
 GetOptions ("window=i" => \$window,
 			"max=i"    => \$max,
@@ -97,8 +97,7 @@ for(my $start = $min;$start<$max; $start+= $step){
 	}
 	
 	close(FILE);
-	close (OUT) if ($split);
+	close (OUT);
 }
-
 
 exit(0);
