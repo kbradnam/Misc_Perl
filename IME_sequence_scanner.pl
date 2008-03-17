@@ -33,7 +33,8 @@ GetOptions ("window=i"     => \$window,
 die "Please specify a valid NestedMica .xms motilf file\n" if (!$motif);
 
 # set some defaults
-$min = 0 if (!$min);
+$min = 1 if (!$min);
+$max = 10000000 if (!$max);
 $window = 400 if (!$window);
 $step = 200 if (!$step);
 
@@ -51,22 +52,58 @@ my $length = length($seq);
 
 close(IN);
 
-for(my $i = $min; $i < $length; $i+=$step){
-	my $end = $i+$window;
-    # get window of sequence
-    my $temp_seq = substr($seq,$i,$window);
-#	print "$temp_seq\n";
 
-	# write temp file with sequence
-    open(OUT,">/tmp/ime_seq") || die "Can't write to output file\n";
-	print OUT ">$i\n";
-	print OUT "$temp_seq\n";
-	close(OUT);
+# now loop through sequence grabbing the window of sequence
+
+for(my $i = $min; $i < $length; $i+=$step){
+	my $end = $i+$window-1;
+    # get window of sequence
+    my $temp_seq = substr($seq,$i-1,$window);
+
+	print "\n";
+
+	my ($start,$split,$split_seq);
+	$split = $window / 4;
+	$start = 1;
+
+	# now split big window into three equal sized regions and analyze those separately	
+	foreach my $j (1..4){
+		my $start2 = $start+$i;
+		my $end = $i+ $start + $split-1;
+		print "$start2 - $end : ";
+		
+		$split_seq = substr($temp_seq,$start-1,$split);
+
+		# write temp file with sequence
+	    open(OUT,">/tmp/ime_seq") || die "Can't write to output file\n";
+		print OUT ">tmp_seq\n";
+		print OUT "$split_seq\n";
+		close(OUT);
+		
+		# first motif test will use upstream motif frequencies, other tests will use transcript motif frequencies
+		my $script_output;
+		if($j == 1){
+			$script_output = `~keith/Work/bin/where_is_motif.pl -species atu -mdensity -target /tmp/ime_seq -motif $motif`;
+			$script_output =~ m/.*: (\d+)\/(\d+) (.*)/;
+			print "$1,$2,$3\n";
+
+		}
+		elsif($j > 2){
+			$script_output = `~keith/Work/bin/where_is_motif.pl -species att -mdensity -target /tmp/ime_seq -motif $motif`;
+			$script_output =~ m/.*: (\d+)\/(\d+) (.*)/;
+			print "$1,$2,$3\n";
+		}
+		else{
+			print "\n";
+		}
+		
+		$start += $split;
+	}
+
 	
-	# need to use upstream motif background frequencies and then transcript motif frequencies
-	my $data = `~keith/Work/bin/where_is_motif.pl -species atg -mdensity -target /tmp/ime_seq -motif $motif`;
-	$data =~ m/.*: (\d+)\/(\d+) (.*)/;
-	print "$i - $end: $1,$2,$3\n";
+
+	
+
 
 	last if ($i > $max);
 }
