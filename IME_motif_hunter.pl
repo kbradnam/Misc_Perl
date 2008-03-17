@@ -28,6 +28,7 @@ my $max;        # how big to go up to
 my $step;       # for sliding windows
 my $motif;	    # path to a valid NestedMICA XMS motif file
 my $intron;     # path to input file of intron sequences
+my $rev_intron; # will reverse complement intron sequences
 my $exon;       # path to input file of intron sequences
 my $upstream;   # path to input file up promoter regions of genes
 my $utr;	    # path to 5' UTR file
@@ -39,6 +40,7 @@ GetOptions ("window=i"     => \$window,
 			"step=i"       => \$step,
 			"motif=s"      => \$motif,
 			"intron=s"     => \$intron,
+			"rev_intron"   => \$rev_intron,
 			"exon=s"       => \$exon,
 			"upstream=s"   => \$upstream,
 			"utr=s"        => \$utr,
@@ -160,9 +162,22 @@ for(my $start = $min;$start<$max; $start+= $step){
 		print "$intron2count{$start},";
 		open(OUT,">/tmp/ime_seq") || die "Can't write to output file\n";
 		print OUT ">${start}_$end\n";
-		print OUT "$intron2seqs{$start}\n";
-		close(OUT);
-		$data = `~keith/Work/bin/where_is_motif.pl -species ati -mdensity -target /tmp/ime_seq -motif $motif`;
+	
+		# use different background frequencies if looking on reverse strand
+		if($rev_intron){
+			# reverse complement sequence
+			my $revcom = reverse $intron2seqs{$start};
+		    $revcom =~ tr/ACGTacgt/TGCAtgca/;
+			print OUT "$revcom\n";
+			close(OUT);
+			$data = `~keith/Work/bin/where_is_motif.pl -species atir -mdensity -target /tmp/ime_seq -motif $motif`;			
+		}
+		else{
+			print OUT "$intron2seqs{$start}\n";
+			close(OUT);
+			$data = `~keith/Work/bin/where_is_motif.pl -species ati -mdensity -target /tmp/ime_seq -motif $motif`;
+			print OUT "$intron2seqs{$start}\n";
+		}
 		$data =~ m/.*: (\d+)\/(\d+) (.*)/;
 		print "$1,$2,$3,";
 	}
@@ -176,7 +191,7 @@ for(my $start = $min;$start<$max; $start+= $step){
 		print OUT ">${start}_$end\n";
 		print OUT "$exon2seqs{$start}\n";
 		close(OUT);
-		$data = `~keith/Work/bin/where_is_motif.pl -species atc -mdensity -target /tmp/ime_seq -motif $motif`;
+		$data = `~keith/Work/bin/where_is_motif.pl -species atc -mdensity -target /tmp/ime_seq -motif $motif`;			
 		$data =~ m/.*: (\d+)\/(\d+) (.*)/;
 		print "$1,$2,$3,";
 	}
