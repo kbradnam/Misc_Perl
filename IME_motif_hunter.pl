@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 #
-# IME_file_splitter.pl
+# IME_motif_hunter.pl
 #
-# A script to separate a FASTA file into separate files based on matching a pattern in the FASTA header
+# A script to study motif densities across a set of transcripts by using a windowing approach
 #
 # Last updated by: $Author$
 # Last updated on: $Date$
@@ -13,35 +13,47 @@ use Keith;
 use FAlite;
 use Getopt::Long;
 
-# script can be run in two main modes 
-# i) SPLIT MODE - separate whole introns into separate files based on whether the *start* of the intron is within
-#    a required range from the start of transcription (can be biased if just 1st base pair of intron 
-#    is less than threshold)
-# ii) PERCENT MODE - Separate just the parts of introns that fall within in the specified size category...this might mean
-#     removing 5' and 3' ends. Can then calculate base composition on just those parts of an intron that are 
-#     a defined range from the TSS. Only show calculated percentages, don't output sequences
+
+# This script separates just the parts of sequences that fall within a specified size category...this might mean
+# removing 5' and 3' ends. Script then take only those sequences that are a defined range from the TSS in order to
+# calculate motif density (using a NestedMICA motif)
+
+# Can currently deal with introns, exons, 5' UTRs, upstream regions of transcripts, and whole transcripts
 
 
 # command line options
-my $split; # see the two different descriptions above
-my $percent; 
-my $window; # how big a size window
-my $max;    # how big to go up to
-my $step;   # for sliding windows
-my $prefix; # what prefix to give new file names (if using -split mode)
+my $window;     # how big a size window
+my $min;	    # alternative start point
+my $max;        # how big to go up to
+my $step;       # for sliding windows
+my $motif;	    # path to a valid NestedMICA XMS motif file
+my $intron;     # path to input file of intron sequences
+my $exon;       # path to input file of intron sequences
+my $upstream;   # path to input file up promoter regions of genes
+my $utr;	    # path to 5' UTR file
+my $transcript; # path to a file of protein-coding transcripts
 
-GetOptions ("split"    => \$split,
-			"percent"  => \$percent,
-			"window=i" => \$window,
-			"max=i"    => \$max,
-			"step=i"   => \$step,
-			"prefix=s" => \$prefix);
+GetOptions ("window=i"     => \$window,
+			"min=i"		   => \$min,
+			"max=i"        => \$max,
+			"step=i"       => \$step,
+			"motif=s"      => \$motif,
+			"intron=s"     => \$intron,
+			"exon=s"       => \$exon,
+			"upstream=s"   => \$upstream,
+			"utr=s"        => \$utr,
+			"transcript=s" => \$transcript);
 
-die "Specify -split or -percent\n" if ($split && $percent);
-die "Specify -split or -percent\n" if (!$split && !$percent);
+
+# check command line options 
+if (!$intron && !$exon && !$utr && !$upstream && !$transcript){
+	die "Please specify at least one of -intron, -exon, -utr, -upstream, or -transcript\n" 	
+}
+
+die "Please specify a valid NestedMica motif file with the -motif option\n" if (!$motif);
 
 # set some defaults
-my $min = 1;
+$min = 1 if (!$min);
 $max = 5000 if (!$max);
 $window = 250 if (!$window);
 $step = 100 if (!$step);
@@ -49,82 +61,268 @@ $step = 100 if (!$step);
 # need to know end points of each window
 my ($start,$end);
 
-# need to store merged sequences
-my $new_seq;
+# hashes to store all sequences that fall in size range
+# key to hash are start coordinates, value is sequence
+my %intron2seqs;
+my %exon2seqs;
+my %upstream2seqs;
+my %utr2seqs;
+my %transcript2seqs;
 
-# count how many sequences in each bin
-my $counter;
+# hashes to count how many introns and exons fall in each size category
+my %intron2count;
+my %exon2count;
+my %upstream2count;
+my %utr2count;
+my %transcript2count;
 
 for(my $start = $min;$start<$max; $start+= $step){
-	$new_seq = "";
-	$counter = 0;
 	$end = $start + $window -1;
+	#print "$start - $end\n";
+	my $type;
 	
-	
-	# only write output files if in split mode
-	if($split){
-		print "Processing $start - $end\n";
-		open(OUT, ">${prefix}_${start}_${end}.fa") || die "Couldn't create output file\n";
+	# is there an intron file to process?
+	if($intron){
+		$type = "intron";
+		($intron2seqs{"$start"}, $intron2count{"$start"}) = &process_sequence($intron,$type,$start,$end,$window);
+	}
+	if($exon){
+		$type = "exon";
+		($exon2seqs{"$start"}, $exon2count{"$start"}) = &process_sequence($exon,$type,$start,$end,$window);
+	}
+	# only have 3000 bp of upstream sequence to work with
+	if($upstream && ($end <= 3000)){
+		$type = "upstream";
+		($upstream2seqs{"$start"}, $upstream2count{"$start"}) = &process_sequence($upstream,$type,$start,$end,$window)
+	}
+	if($utr){
+		$type = "utr";
+		($utr2seqs{"$start"}, $utr2count{"$start"}) = &process_sequence($utr,$type,$start,$end,$window);
+	}
+	if($transcript){
+		$type = "transcript";
+		($transcript2seqs{"$start"}, $transcript2count{"$start"}) = &process_sequence($transcript,$type,$start,$end,$window);
+	}
+}
+
+##################################################################
+#
+# MAIN OUTPUT
+#
+##################################################################
+
+print "Start,End,";
+print "Upstream_count,Upstream_bases_in_motif,Total_upstream_bases,%motif_in_upstream_region,";
+print "5UTR_count,UTR_bases_in_motif,Total_UTR_bases,%motif_in_UTR_region,";
+print "Intron_count,Intron_bases_in_motif,Total_intron_bases,%motif_in_intron,";
+print "Exon_count,Exon_bases_in_motif,Total_Exon_bases,%motif_in_exon,";
+print "Transcript_count,Transcript_bases_in_motif,Total_Transcript_bases,%motif_in_transcript\n";
+
+# First deal with upstream sequence output (if present)
+if($upstream){
+	foreach my $key (sort {$a <=> $b}(keys %upstream2seqs)){
+		$start = $key-3001;
+		$end = $start + $window -1;
+		print "$start,$end,$upstream2count{$key},";
+		open(OUT,">/tmp/ime_seq") || die "Can't write to output file\n";
+		print OUT ">${start}_$end\n";
+		print OUT "$upstream2seqs{$key}\n";
+		close(OUT);
+		my $data = `~keith/Work/bin/where_is_motif.pl -species atu -mdensity -target /tmp/ime_seq -motif $motif`;
+		$data =~ m/.*: (\d+)\/(\d+) (.*)/;
+		print "$1,$2,$3,\n";
+	}
+}
+
+# One big loop to treat either 5' UTR, intron, exon, or transcript sequences
+for(my $start = $min;$start<$max; $start+= $step){
+	$end = $start + $window -1;
+
+	my $data;
+	print "$start,$end,0,0,0,0,";
+
+	if($utr2seqs{$start}){
+		print "$utr2count{$start},";
+		open(OUT,">/tmp/ime_seq") || die "Can't write to output file\n";
+		print OUT ">${start}_$end\n";
+		print OUT "$utr2seqs{$start}\n";
+		close(OUT);
+		my $data = `~keith/Work/bin/where_is_motif.pl -species at5u -mdensity -target /tmp/ime_seq -motif $motif`;
+		$data =~ m/.*: (\d+)\/(\d+) (.*)/;
+		print "$1,$2,$3,";
+	}
+	else{
+		print "0,0,0,0,";
+	}
+
+
+	if($intron2seqs{$start}){
+		print "$intron2count{$start},";
+		open(OUT,">/tmp/ime_seq") || die "Can't write to output file\n";
+		print OUT ">${start}_$end\n";
+		print OUT "$intron2seqs{$start}\n";
+		close(OUT);
+		$data = `~keith/Work/bin/where_is_motif.pl -species ati -mdensity -target /tmp/ime_seq -motif $motif`;
+		$data =~ m/.*: (\d+)\/(\d+) (.*)/;
+		print "$1,$2,$3,";
+	}
+	else{
+		print "0,0,0,0,";
 	}
 	
-	open(FILE,"<$ARGV[0]") || die "Couldn't open $ARGV[0]\n";
+	if($exon2seqs{$start}){
+		print "$exon2count{$start},";
+		open(OUT,">/tmp/ime_seq") || die "Can't write to output file\n";
+		print OUT ">${start}_$end\n";
+		print OUT "$exon2seqs{$start}\n";
+		close(OUT);
+		$data = `~keith/Work/bin/where_is_motif.pl -species atc -mdensity -target /tmp/ime_seq -motif $motif`;
+		$data =~ m/.*: (\d+)\/(\d+) (.*)/;
+		print "$1,$2,$3,";
+	}
+	else{
+		print "0,0,0,0,";
+	}
 	
+	if($transcript2seqs{$start}){
+		print "$transcript2count{$start},";
+		open(OUT,">/tmp/ime_seq") || die "Can't write to output file\n";
+		print OUT ">${start}_$end\n";
+		print OUT "$transcript2seqs{$start}\n";
+		close(OUT);
+		$data = `~keith/Work/bin/where_is_motif.pl -species att -mdensity -target /tmp/ime_seq -motif $motif`;
+		$data =~ m/.*: (\d+)\/(\d+) (.*)/;
+		print "$1,$2,$3,";
+	}
+	else{
+		print "0,0,0,0,";
+	}
+	
+	
+	print "\n";
+}
+
+
+
+
+# main subroutinee to loop through file of sequences and extract only sequence in certain range
+
+sub process_sequence{
+
+	my $file = shift;
+	my $type = shift;
+	my $win_start = shift;
+	my $win_end = shift;
+	my $window = shift;
+	
+	# count how many sequences fall into each bin
+	my $counter = 0;
+	
+	# store all sequences in range in one variable
+	my $new_seq = "";
+	
+	open(FILE,"<$file") || die "Couldn't open $file\n";		
+
 	my $fasta = new FAlite(\*FILE);
 
 	# loop through each sequence in target file
 	while(my $entry = $fasta->nextEntry) {
 	    
-		# process header
+		# grab basic details
+		my $seq = $entry->seq;
+		my $length = length($seq);
 		my $header = $entry->def;
-
-		# check whether we are working with intron or exon data
-		my $distance;
-		if($header =~ m/_i\d+_\d+_/){
-			$header =~ m/_i\d+_(\d+)_/;
-			$distance = $1;
-		}
-	   	elsif($header =~ m/_e\d+_\d+/){
-			$header =~ m/_e\d+_(\d+)/;
-			$distance = $1;
-		}
-		# check whether candidate intron falls in size category
-		if(($distance >= $start) && ($distance <= $end)){
+		
+		# will treat upstream regions completely differently, for simplicity just deal
+		# with upstream regions of forward strand genes		
+		if(($type eq "upstream") && ($header =~ m/FORWARD/)){
 			$counter++;
-			my $seq = $entry->seq;
-			if ($split){ 
-				print OUT "$header\n$seq\n" 			
+			my $tmp = substr($seq,$win_start-1,$window);
+			$new_seq .= "$tmp";
+		}
+		
+		# will treat transcript regions sort of like upstream (without the forward strand requirement)
+		elsif($type eq "transcript"){
+			# Can either have part of a transcript in a window
+			if(($length >= $win_start) && ($length < $win_end)){
+				$counter++;
+				my $tmp = substr($seq,$win_start-1,$length-$win_start+1);
+				$new_seq .= "$tmp";	
 			}
-			else{
+			# or it should all be in the window, in which case we just take the entire window of sequence
+			elsif($length >= $win_start){
+				$counter++;
+				my $tmp = substr($seq,$win_start-1,$window);
+				$new_seq .= "$tmp";				
+			}			
+		}
+		
+		
+		# Can deal with exons, introns, and 5' UTRs and transcripts in similar ways as these all have similar 
+		# format FASTA headers which give the distance to the TSS (except transcripts where to the distance
+		# to the TSS is alwasy the same as $win_start)
+		elsif($type eq "intron" || $type eq "exon" || $type eq "utr"){
 			
-				my $length = length($seq);
+			# grab distance to TSS differently depending on what type of sequences we are dealing with
+			my $distance;
 
-				# if sequence is longer than $end, then just need part to extract
-				# part of it
-				if(($distance+$length) > $end){
-					my $tmp = substr($seq,1,$end-$distance);
-					$new_seq .= $tmp;
-				}
-				else{
-					$new_seq .= $seq;
-				}
+			if($type eq "intron"){
+				$header =~ m/_i\d+_(\d+)_/;
+				$distance = $1;
 			}
-		}		
-	}
-	
-	# can now calculate base composition
-	if($percent){
-		# only calculate if there is any sequence
-		if($new_seq){
-			(my ($a,$c,$g,$t,$n,$o) = Keith::base_composition($new_seq,1));
-			print "$start,$end,$counter,$a,$c,$g,$t,$n\n";
+		   	elsif($type eq "exon"){
+				$header =~ m/_e\d+_(\d+)/;
+				$distance = $1;
+			}
+			elsif($type eq "utr"){
+				$header =~ m/_5utr\d+_(\d+)/;
+				$distance = $1;
+			}
+		
+
+			# calculate end coordinate of sequence
+			my $end_coord = $distance + $length -1;
+
+			###################################################################
+			# check whether candidate sequence falls in various size categories
+			###################################################################
+
+			# CASE 1: intron/exon/utr/transcript sequence is wholly contained within window
+			if(($distance >= $win_start) && ($end_coord <= $win_end)){
+				$counter++;
+				my $tmp = substr($seq,0,$end_coord-$distance+1);
+				$new_seq .= "$tmp";
+			}
+
+			# CASE 2: sequence is larger than  window
+			elsif(($distance < $win_start) && ($end_coord > $win_end)){
+				$counter++;
+				my $tmp = substr($seq,$win_start-$distance,$window);
+				$new_seq .= "$tmp";
+			}
+
+			# CASE 3: sequence overlaps 5' edge of window
+			elsif(($distance < $win_start) && ($end_coord >= $win_start)){
+				$counter++;
+				my $tmp = substr($seq,$win_start - $distance,$end_coord - $win_start + 1);
+				$new_seq .= "$tmp";
+			}
+
+			# CASE 4: sequence overlaps 3' edge of window
+			elsif(($distance <= $win_end) && ($end_coord > $win_end)){
+				$counter++;
+				my $tmp = substr($seq,0,$win_end - $distance + 1);
+				$new_seq .= "$tmp";
+			}		
 		}
-		else{
-			print "$start,$end,$counter,0,0,0,0,0\n";			
-		}
+				
 	}
-	close(FILE);
-	close (OUT) if ($split);
+	close(FILE) || die "Can't close file\n";
+
+	return($new_seq,$counter);
 }
+
+
 
 
 exit(0);
