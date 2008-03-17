@@ -112,7 +112,7 @@ elsif($species =~ m/atc/i){
 	%expected = ("a" => "0.2868","c" => "0.2031", "g" => "0.2387","t" => "0.2713");
 }
 elsif($species =~ m/att/i){
-	%expected = ("a" => "0.2863","c" => "0.1997", "g" => "0.2254","t" => "0.2887");
+	%expected = ("a" => "0.2986","c" => "0.2013", "g" => "0.2015","t" => "0.2986");
 }
 elsif($species =~ m/atu/i){
 	%expected = ("a" => "0.3342","c" => "0.1685", "g" => "0.1651","t" => "0.3321");
@@ -349,7 +349,7 @@ sub pre_flight_checks{
 		print "AtIG - Arabidopsis thaliana intergenic\n";
 		print "At5U - Arabidopsis thaliana 5' UTR (exons)\n";
 		print "At3U - Arabidopsis thaliana 3' UTR (exons)\n";
-		print "AtT - Arabidopsis thaliana transcripts\n"; 
+		print "AtT - Arabidopsis thaliana primary transcripts (unspliced)\n"; 
 		print "AtU  - Arabidopsis thaliana upstream region of genes (1000 bp 5' to transcript)\n";
 		print "AtD  - Arabidopsis thaliana downstream region of genes (1000 bp 3' to transcript)\n";
 		print "CeI - Caenorhabditis elegans introns\n";
