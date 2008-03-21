@@ -53,7 +53,7 @@ my $fasta = new FAlite(\*FILE);
 # loop through each sequence in target file
 while(my $entry = $fasta->nextEntry) {	
 	$n++;
-	my $seq = $entry->seq;
+	my $seq = uc($entry->seq);
 
 	# count mononucleotide frequencies
 	$mono{"A"} += ($seq =~ tr/A/A/); 
