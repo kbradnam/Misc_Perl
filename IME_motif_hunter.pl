@@ -186,7 +186,6 @@ for(my $start = $min;$start<$max; $start+= $step){
 			print OUT "$intron2seqs{$start}\n";
 			close(OUT);
 			$data = `~keith/Work/bin/where_is_motif.pl -species ati -mdensity -target /tmp/ime_seq -motif $motif`;
-			print OUT "$intron2seqs{$start}\n";
 		}
 		$data =~ m/.*: (\d+)\/(\d+) (.*)/;
 		print "$1,$2,$3,";
