@@ -171,23 +171,23 @@ elsif($species =~ m/^pti$/i){
 	# from 26,415 high confidence introns (v1.1 annotations)
 	%expected = ("a" => "0.2788","c" => "0.1582", "g" => "0.1791","t" => "0.35384025");
 }
-elsif($species =~ m/os5u/i){
+elsif($species =~ m/pt5u/i){
 	# from 26,415 high confidence UTRs (v1.1 annotations)
 	%expected = ("a" => "0.3004","c" => "0.2249", "g" => "0.1792","t" => "0.2954");
 }
-elsif($species =~ m/os3u/i){
+elsif($species =~ m/pt3u/i){
 	# from 7,841 high confidence UTRs (v1.1 annotations)
 	%expected = ("a" => "0.2754","c" => "0.1658", "g" => "0.1974","t" => "0.3614");
 }
-elsif($species =~ m/osg/i){
+elsif($species =~ m/ptg/i){
 	# from 22,012  genome sequences (v1.0)
 	%expected = ("a" => "0.3316","c" => "0.1687", "g" => "0.1685","t" => "0.3311");
 }
-elsif($species =~ m/osc/i){
+elsif($species =~ m/ptc/i){
 	# from 31,232 high confidence poplar CDS exons (v1.1 annotations)
 	%expected = ("a" => "0.2816","c" => "0.2039", "g" => "0.2437","t" => "0.2708");
 }
-elsif($species =~ m/ost/i){
+elsif($species =~ m/ptt/i){
 	# from 7,089 high confidence poplar transcrips (v1.1 annotations)
 	%expected = ("a" => "0.2803","c" => "0.1754", "g" => "0.1996","t" => "0.3447");
 }
