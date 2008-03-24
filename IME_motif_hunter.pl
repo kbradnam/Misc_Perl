@@ -34,6 +34,8 @@ my $upstream;   # path to input file up promoter regions of genes
 my $five_utr;	# path to 5' UTR file
 my $three_utr;	# path to 3' UTR file
 my $transcript; # path to a file of protein-coding transcripts
+my $threshold;  # log-odds threshold value to use when scoring motifs
+my $species;    # two-letter species abbreviation
 
 GetOptions ("window=i"     => \$window,
 			"min=i"		   => \$min,
@@ -46,7 +48,9 @@ GetOptions ("window=i"     => \$window,
 			"upstream=s"   => \$upstream,
 			"five_utr=s"   => \$five_utr,
 			"three_utr=s"  => \$three_utr,
-			"transcript=s" => \$transcript);
+			"transcript=s" => \$transcript,
+			"threshold=i"  => \$threshold,
+			"species=s"    => \$species);
 
 
 # check command line options 
@@ -56,11 +60,13 @@ if (!$intron && !$cds && !$five_utr && !$three_utr && !$upstream && !$transcript
 
 die "Please specify a valid NestedMica motif file with the -motif option\n" if (!$motif);
 
+die "Please specify a valid species code, e.g. At, Os, Pp\n" if (!$species);
 # set some defaults
 $min = 1 if (!$min);
 $max = 5000 if (!$max);
 $window = 250 if (!$window);
 $step = 100 if (!$step);
+$threshold = 0 if (!$threshold);
 
 # need to know end points of each window
 my ($start,$end);
@@ -140,7 +146,7 @@ if($upstream){
 		print OUT ">${start}_$end\n";
 		print OUT "$upstream2seqs{$key}\n";
 		close(OUT);
-		my $data = `~keith/Work/bin/where_is_motif.pl -species atu -mdensity -target /tmp/ime_seq -motif $motif`;
+		my $data = `~keith/Work/bin/where_is_motif.pl -species ${species}u -mdensity -threshold $threshold -target /tmp/ime_seq -motif $motif`;
 		$data =~ m/.*: (\d+)\/(\d+) (.*)/;
 		print "$1,$2,$3,\n";
 	}
@@ -159,7 +165,7 @@ for(my $start = $min;$start<$max; $start+= $step){
 		print OUT ">${start}_$end\n";
 		print OUT "$five_utr2seqs{$start}\n";
 		close(OUT);
-		my $data = `~keith/Work/bin/where_is_motif.pl -species at5u -mdensity -target /tmp/ime_seq -motif $motif`;
+		my $data = `~keith/Work/bin/where_is_motif.pl -species ${species}5u -mdensity -threshold $threshold -target /tmp/ime_seq -motif $motif`;
 		$data =~ m/.*: (\d+)\/(\d+) (.*)/;
 		print "$1,$2,$3,";
 	}
@@ -180,12 +186,12 @@ for(my $start = $min;$start<$max; $start+= $step){
 		    $revcom =~ tr/ACGTacgt/TGCAtgca/;
 			print OUT "$revcom\n";
 			close(OUT);
-			$data = `~keith/Work/bin/where_is_motif.pl -species atir -mdensity -target /tmp/ime_seq -motif $motif`;			
+			$data = `~keith/Work/bin/where_is_motif.pl -species ${species}ir -mdensity -threshold $threshold -target /tmp/ime_seq -motif $motif`;			
 		}
 		else{
 			print OUT "$intron2seqs{$start}\n";
 			close(OUT);
-			$data = `~keith/Work/bin/where_is_motif.pl -species ati -mdensity -target /tmp/ime_seq -motif $motif`;
+			$data = `~keith/Work/bin/where_is_motif.pl -species ${species}i -mdensity -threshold $threshold -target /tmp/ime_seq -motif $motif`;
 		}
 		$data =~ m/.*: (\d+)\/(\d+) (.*)/;
 		print "$1,$2,$3,";
@@ -200,7 +206,7 @@ for(my $start = $min;$start<$max; $start+= $step){
 		print OUT ">${start}_$end\n";
 		print OUT "$cds2seqs{$start}\n";
 		close(OUT);
-		$data = `~keith/Work/bin/where_is_motif.pl -species atc -mdensity -target /tmp/ime_seq -motif $motif`;			
+		$data = `~keith/Work/bin/where_is_motif.pl -species ${species}c -mdensity -threshold $threshold -target /tmp/ime_seq -motif $motif`;			
 		$data =~ m/.*: (\d+)\/(\d+) (.*)/;
 		print "$1,$2,$3,";
 	}
@@ -214,7 +220,7 @@ for(my $start = $min;$start<$max; $start+= $step){
 		print OUT ">${start}_$end\n";
 		print OUT "$transcript2seqs{$start}\n";
 		close(OUT);
-		$data = `~keith/Work/bin/where_is_motif.pl -species att -mdensity -target /tmp/ime_seq -motif $motif`;
+		$data = `~keith/Work/bin/where_is_motif.pl -species ${species}t -mdensity -threshold $threshold -target /tmp/ime_seq -motif $motif`;
 		$data =~ m/.*: (\d+)\/(\d+) (.*)/;
 		print "$1,$2,$3,";
 	}
@@ -228,7 +234,7 @@ for(my $start = $min;$start<$max; $start+= $step){
 		print OUT ">${start}_$end\n";
 		print OUT "$three_utr2seqs{$start}\n";
 		close(OUT);
-		my $data = `~keith/Work/bin/where_is_motif.pl -species at3u -mdensity -target /tmp/ime_seq -motif $motif`;
+		my $data = `~keith/Work/bin/where_is_motif.pl -species ${species}3u -mdensity -threshold $threshold -target /tmp/ime_seq -motif $motif`;
 		$data =~ m/.*: (\d+)\/(\d+) (.*)/;
 		print "$1,$2,$3,";
 	}
@@ -305,7 +311,7 @@ sub process_sequence{
 			my $distance;
 
 			if($type eq "intron"){
-				$header =~ m/_i\d+_(\d+)_/;
+				$header =~ m/_i\d+_(\d+)/;
 				$distance = $1;
 			}
 		   	elsif($type eq "cds"){
