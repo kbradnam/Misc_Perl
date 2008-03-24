@@ -144,7 +144,9 @@ print "3UTR count,3UTR bases in motif,Total 3UTR bases,%motif in 3UTR region\n";
 # First deal with upstream sequence output (if present)
 if($upstream){
 	foreach my $key (sort {$a <=> $b}(keys %upstream2seqs)){
-		$start = $key-3001;
+		# different start points depending on species
+		($start = $key-3001) if ($species =~ m/at/i);
+		($start = $key-1001) if ($species =~ m/os/i);
 		$end = $start + $window -1;
 		print "$start,$end,$upstream2count{$key},";
 		open(OUT,">/tmp/ime_seq") || die "Can't write to output file\n";
@@ -291,6 +293,8 @@ sub process_sequence{
 		}
 		# also have to capture rice upstream regions
 		elsif(($type eq "upstream") && ($species =~ m/os/i)){
+			# skip the one pesky rice sequence which is not 1,000 bp
+			next if ($length < 1000);
 			$counter++;
 			my $tmp = substr($seq,$win_start-1,$window);
 			$new_seq .= "$tmp";
