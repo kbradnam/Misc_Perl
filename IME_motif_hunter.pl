@@ -102,8 +102,13 @@ for(my $start = $min;$start<$max; $start+= $step){
 		$type = "cds";
 		($cds2seqs{"$start"}, $cds2count{"$start"}) = &process_sequence($cds,$type,$start,$end,$window);
 	}
-	# only have 3000 bp of upstream sequence to work with
-	if($upstream && ($end <= 3000)){
+	# only have 3000 bp of upstream sequence to work with in Arabidopsis
+	if(($upstream) && ($species =~ m/at/i) && ($end <= 3000)){
+		$type = "upstream";
+		($upstream2seqs{"$start"}, $upstream2count{"$start"}) = &process_sequence($upstream,$type,$start,$end,$window)
+	}
+	# only have 1000 bp of upstream sequence to work with in rice
+	if(($upstream) && ($species =~ m/os/i) && ($end <= 1000)){
 		$type = "upstream";
 		($upstream2seqs{"$start"}, $upstream2count{"$start"}) = &process_sequence($upstream,$type,$start,$end,$window)
 	}
@@ -278,13 +283,19 @@ sub process_sequence{
 		my $header = $entry->def;
 		
 		# will treat upstream regions completely differently, for simplicity just deal
-		# with upstream regions of forward strand genes		
-		if(($type eq "upstream") && ($header =~ m/FORWARD/)){
+		# with upstream regions of forward strand genes	(in Arabidopsis)	
+		if(($type eq "upstream") && ($species =~ m/at/i) && ($header =~ m/FORWARD/)){
 			$counter++;
 			my $tmp = substr($seq,$win_start-1,$window);
 			$new_seq .= "$tmp";
 		}
-		
+		# also have to capture rice upstream regions
+		elsif(($type eq "upstream") && ($species =~ m/os/i)){
+			$counter++;
+			my $tmp = substr($seq,$win_start-1,$window);
+			$new_seq .= "$tmp";
+		}
+
 		# will treat transcript regions sort of like upstream (without the forward strand requirement)
 		elsif($type eq "transcript"){
 			# Can either have part of a transcript in a window
