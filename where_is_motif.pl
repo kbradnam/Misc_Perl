@@ -81,47 +81,115 @@ my $motif_length;
 # Need sets of expected nucleotide frequencies to compute log likelihood scores
 # set of frequencies chosen by -species option
 # following may have to be tidied up if I need to add more species
-# Frequencies were calculated from chromosomes or various TAIR 7 downloads (apart from Introns which were from Tali)
+
 my %expected;
 
 if($species =~ m/cei/i){
-	%expected = ("a" => "0.33339","c" => "0.16194", "g" => "0.16021","t" => "0.34446");
+	# from 31,044 WS180 confirmed introns
+	%expected = ("a" => "0.3333","c" => "0.1621", "g" => "0.1597","t" => "0.3449");
 }
 elsif($species =~ m/ceg/i){
+	# from WS180 chromosomes
 	%expected = ("a" => "0.32280","c" => "0.17733","g" => "0.17709","t" => "0.32279");
 }
 elsif($species =~ m/^ati$/i){
-	%expected = ("a" => "0.2769","c" => "0.1575", "g" => "0.1587","t" => "0.4069");
+	# from 59,260 high confidence TAIR7 introns
+	%expected = ("a" => "0.2713","c" => "0.1534", "g" => "0.1701","t" => "0.4051");
 }
 elsif($species =~ m/^atir$/i){
-	%expected = ("a" => "0.4069","c" => "0.1587", "g" => "0.1575","t" => "0.2769");
+	# from 59,260 high confidence TAIR7 introns
+	%expected = ("a" => "0.4051","c" => "0.1701", "g" => "0.1534","t" => "0.2713");
 }
 elsif($species =~ m/atg/i){
-	%expected = ("a" => "0.3195","c" => "0.1800", "g" => "0.1798","t" => "0.3192");
+	# from August 2006 TAIR set of chromosomes
+	%expected = ("a" => "0.3200","c" => "0.1802", "g" => "0.1801","t" => "0.3197");
 }
 elsif($species =~ m/at5u/i){
-	%expected = ("a" => "0.3016","c" => "0.2181", "g" => "0.1594","t" => "0.3210");
+	# from 14,862 high confidence TAIR7 5' UTRs
+	%expected = ("a" => "0.3017","c" => "0.2180", "g" => "0.1593","t" => "0.3210");
 }
 elsif($species =~ m/at3u/i){
-	%expected = ("a" => "0.2960","c" => "0.1473", "g" => "0.1732","t" => "0.3835");
+	# from 13,459 high confidence TAIR7 3' UTRs
+	%expected = ("a" => "0.2960","c" => "0.1473", "g" => "0.1731","t" => "0.3835");
 }
 elsif($species =~ m/atig/i){
+	# from 30,4113 TAIR7 intergenic annotations
 	%expected = ("a" => "0.3437","c" => "0.1568", "g" => "0.1562","t" => "0.3433");
 }
 elsif($species =~ m/atc/i){
-	%expected = ("a" => "0.2868","c" => "0.2031", "g" => "0.2387","t" => "0.2713");
+	# from 70,370 high confidence TAIR7 CDS exons
+	%expected = ("a" => "0.2831","c" => "0.2067", "g" => "0.2408","t" => "0.2694");
 }
 elsif($species =~ m/att/i){
-	%expected = ("a" => "0.2986","c" => "0.2013", "g" => "0.2015","t" => "0.2986");
+	# from 13,163 high confidence TAIR7 transcripts
+	%expected = ("a" => "0.2815","c" => "0.1849", "g" => "0.2078","t" => "0.3258");
 }
 elsif($species =~ m/atu/i){
+	# from 32,041 TAIR7 1,000 bp upstream sequences
 	%expected = ("a" => "0.3342","c" => "0.1685", "g" => "0.1651","t" => "0.3321");
 }
 elsif($species =~ m/atd/i){
+	# from 32,041 TAIR7 1,000 bp downstream sequences
 	%expected = ("a" => "0.3211","c" => "0.1787", "g" => "0.1724","t" => "0.3278");
 }
-elsif($species =~ m/dmi/i){
+elsif($species =~ m/^dmi$/i){
 	%expected = ("a" => "0.2942","c" => "0.2040", "g" => "0.1979","t" => "0.3040");
+}
+elsif($species =~ m/^osi$/i){
+	# from 72,066 high confidence japonica introns (TIGR 5.0 annotations)
+	%expected = ("a" => "0.2769","c" => "0.1831", "g" => "0.1875","t" => "0.3525");
+}
+elsif($species =~ m/os5u/i){
+	# from 16,267 high confidence japonica sequences (TIGR 5.0 annotations)
+	%expected = ("a" => "0.2083","c" => "0.3191", "g" => "0.2491","t" => "0.2234");
+}
+elsif($species =~ m/os3u/i){
+	# from 14,798 high confidence japonica sequences (TIGR 5.0 annotations)
+	%expected = ("a" => "0.2715","c" => "0.1874", "g" => "0.2133","t" => "0.3278");
+}
+elsif($species =~ m/osg/i){
+	# from 12 japonica genome sequences (TIGR 5.0 version)
+	%expected = ("a" => "0.2822","c" => "0.2178", "g" => "0.2178","t" => "0.2822");
+}
+elsif($species =~ m/osc/i){
+	# from 80,515 high confidence japonica CDS exons (TIGR 5.0 annotations)
+	%expected = ("a" => "0.2421","c" => "0.2559", "g" => "0.2774","t" => "0.2245");
+}
+elsif($species =~ m/ost/i){
+	# from 13,201 high confidence japonica transcrips (TIGR 5.0 annotations)
+	%expected = ("a" => "0.2624","c" => "0.2125", "g" => "0.2208","t" => "0.3043");
+}
+elsif($species =~ m/osig/i){
+	# from 56,208 japonica sequences (TIGR 5.0 annotations)
+	%expected = ("a" => "0.2927","c" => "0.2073", "g" => "0.2074","t" => "0.2926");
+}
+elsif($species =~ m/osu/i){
+	# from 66,710 japonica 1 kbp upstream regions - includes 5' UTR (TIGR 5.0 annotations)
+	%expected = ("a" => "0.2746","c" => "0.2268", "g" => "0.2179","t" => "0.2807");
+}
+elsif($species =~ m/^pti$/i){
+	# from 26,415 high confidence introns (v1.1 annotations)
+	%expected = ("a" => "0.2788","c" => "0.1582", "g" => "0.1791","t" => "0.35384025");
+}
+elsif($species =~ m/os5u/i){
+	# from 26,415 high confidence UTRs (v1.1 annotations)
+	%expected = ("a" => "0.3004","c" => "0.2249", "g" => "0.1792","t" => "0.2954");
+}
+elsif($species =~ m/os3u/i){
+	# from 7,841 high confidence UTRs (v1.1 annotations)
+	%expected = ("a" => "0.2754","c" => "0.1658", "g" => "0.1974","t" => "0.3614");
+}
+elsif($species =~ m/osg/i){
+	# from 22,012  genome sequences (v1.0)
+	%expected = ("a" => "0.3316","c" => "0.1687", "g" => "0.1685","t" => "0.3311");
+}
+elsif($species =~ m/osc/i){
+	# from 31,232 high confidence poplar CDS exons (v1.1 annotations)
+	%expected = ("a" => "0.2816","c" => "0.2039", "g" => "0.2437","t" => "0.2708");
+}
+elsif($species =~ m/ost/i){
+	# from 7,089 high confidence poplar transcrips (v1.1 annotations)
+	%expected = ("a" => "0.2803","c" => "0.1754", "g" => "0.1996","t" => "0.3447");
 }
 else{
 	die "\'$species\' is not a valid species code.\n";
@@ -345,7 +413,7 @@ sub pre_flight_checks{
 		print "AtI  - Arabidopsis thaliana introns\n";
 		print "AtIR - Arabidopsis thaliana introns (reverse complemented)\n";
 		print "AtG  - Arabidopsis thaliana genomic\n";
-		print "AtC  - Arabidopsis thaliana CDS\n";
+		print "AtC  - Arabidopsis thaliana CDSs\n";
 		print "AtIG - Arabidopsis thaliana intergenic\n";
 		print "At5U - Arabidopsis thaliana 5' UTR (exons)\n";
 		print "At3U - Arabidopsis thaliana 3' UTR (exons)\n";
@@ -354,6 +422,20 @@ sub pre_flight_checks{
 		print "AtD  - Arabidopsis thaliana downstream region of genes (1000 bp 3' to transcript)\n";
 		print "CeI - Caenorhabditis elegans introns\n";
 		print "CeG - Caenorhabditis elegans genomic\n";
+		print "OsI  - Oryza sativa (japonica) introns\n";
+		print "OsG  - Oryza sativa (japonica) genomic\n";
+		print "OsC  - Oryza sativa (japonica) CDSs\n";
+		print "OsIG - Oryza sativa (japonica) intergenic\n";
+		print "Os5U - Oryza sativa (japonica) 5' UTR (exons)\n";
+		print "Os3U - Oryza sativa (japonica) 3' UTR (exons)\n";
+		print "OsT - Oryza sativa (japonica) primary transcripts (unspliced)\n";
+		print "OsT - Oryza sativa (japonica) upstream regions (1 kbp including 5'UTR)\n";
+		print "PtI  - Populus trichocarpa introns (v1.1 annotations)\n";
+		print "PtG  - Populus trichocarpa genomic (v1.0 sequence)\n";
+		print "PtC  - Populus trichocarpa CDSs\n";
+		print "Pt5U - Populus trichocarpa 5' UTR (exons)\n";
+		print "Pt3U - Populus trichocarpa 3' UTR (exons)\n";
+		print "PtT - Populus trichocarpa primary transcripts (unspliced)\n";
 		print "DmI - Drosophila melanogaster introns\n\n";
 		die "Choose one option only.\n\n";
 	}
