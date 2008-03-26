@@ -30,6 +30,7 @@ my $five_utr;	# path to 5' UTR file
 my $threshold;  # log-odds threshold value to use when scoring motifs
 my $species;    # two-letter species abbreviation
 my $seqdump;	# print sequences to a file, don't calculate density
+my $seqlength;	# threshold for dumping sequences to file (don't want short sequences)
 
 GetOptions ("window=i"     => \$window,
 			"min=i"		   => \$min,
@@ -40,7 +41,8 @@ GetOptions ("window=i"     => \$window,
 			"five_utr=s"   => \$five_utr,
 			"threshold=i"  => \$threshold,
 			"species=s"    => \$species,
-			"seqdump"      => \$seqdump);
+			"seqdump"      => \$seqdump,
+			"seqlength=i"  => \$seqlength);
 
 
 # check command line options 
@@ -61,6 +63,7 @@ $max = 5000 if (!$max);
 $window = 250 if (!$window);
 $step = 100 if (!$step);
 $threshold = 0 if (!$threshold);
+$seqlength = 25 if (!$seqlength);
 
 # need to know end points of each window
 my ($start,$end);
@@ -246,7 +249,7 @@ sub process_sequence{
 			$new_seq .= "$tmp";
 			
 			# dump sequence if using -seqdump and there is at least 10 nt
-			print SEQ "$header $length nt\n$tmp\n" if (($seqdump) && (length($tmp) >= 10) && ($dump eq "yes"));
+			print SEQ "$header $length nt\n$tmp\n" if (($seqdump) && (length($tmp) >= $seqlength) && ($dump eq "yes"));
 		}
 
 		# CASE 2: sequence is larger than  window
@@ -256,7 +259,7 @@ sub process_sequence{
 			$new_seq .= "$tmp";
 			
 			# dump sequence if using -seqdump and there is at least 10 nt
-			print SEQ "$header $length nt\n$tmp\n" if (($seqdump) && (length($tmp) >= 10) && ($dump eq "yes"));
+			print SEQ "$header $length nt\n$tmp\n" if (($seqdump) && (length($tmp) >= $seqlength) && ($dump eq "yes"));
 		}
 
 		# CASE 3: sequence overlaps 5' edge of window
@@ -266,7 +269,7 @@ sub process_sequence{
 			$new_seq .= "$tmp";
 			
 			# dump sequence if using -seqdump and there is at least 10 nt
-			print SEQ "$header $length nt\n$tmp\n" if (($seqdump) && (length($tmp) >= 10) && ($dump eq "yes"));
+			print SEQ "$header $length nt\n$tmp\n" if (($seqdump) && (length($tmp) >= $seqlength) && ($dump eq "yes"));
 		}
 
 		# CASE 4: sequence overlaps 3' edge of window
@@ -276,7 +279,7 @@ sub process_sequence{
 			$new_seq .= "$tmp";
 			
 			# dump sequence if using -seqdump and there is at least 10 nt
-			print SEQ "$header $length nt\n$tmp\n" if (($seqdump) && (length($tmp) >= 10) && ($dump eq "yes"));
+			print SEQ "$header $length nt\n$tmp\n" if (($seqdump) && (length($tmp) >= $seqlength) && ($dump eq "yes"));
 		}		
 				
 	}
