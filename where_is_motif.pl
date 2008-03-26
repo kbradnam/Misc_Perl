@@ -191,6 +191,30 @@ elsif($species =~ m/ptt/i){
 	# from 7,089 high confidence poplar transcrips (v1.1 annotations)
 	%expected = ("a" => "0.2803","c" => "0.1754", "g" => "0.1996","t" => "0.3447");
 }
+elsif($species =~ m/^vvi$/i){
+	# from 23,091 high confidence introns
+	%expected = ("a" => "0.2963","c" => "0.1657", "g" => "0.1822","t" => "0.3558");
+}
+elsif($species =~ m/vv5u/i){
+	# from 5,483 high confidence 5' UTRs 
+	%expected = ("a" => "0.2673","c" => "0.1987", "g" => "0.1980","t" => "0.3360");
+}
+elsif($species =~ m/vv3u/i){
+	# from 5,232 high confidence 3' UTRs 
+	%expected = ("a" => "0.2823","c" => "0.1670", "g" => "0.1937","t" => "0.3570");
+}
+elsif($species =~ m/vvg/i){
+	# from 35 genome sequences 
+	%expected = ("a" => "0.3274","c" => "0.1727", "g" => "0.1728","t" => "0.3272");
+}
+elsif($species =~ m/vvc/i){
+	# from 27,598 high confidence poplar CDS exons 
+	%expected = ("a" => "0.2754","c" => "0.2098", "g" => "0.2484","t" => "0.2464");
+}
+elsif($species =~ m/vvt/i){
+	# from 5,077 high confidence poplar transcrips 
+	%expected = ("a" => "0.2910","c" => "0.1740", "g" => "0.1935","t" => "0.3416");
+}
 else{
 	die "\'$species\' is not a valid species code.\n";
 }
@@ -436,6 +460,12 @@ sub pre_flight_checks{
 		print "Pt5U - Populus trichocarpa 5' UTR (exons)\n";
 		print "Pt3U - Populus trichocarpa 3' UTR (exons)\n";
 		print "PtT - Populus trichocarpa primary transcripts (unspliced)\n";
+		print "VvI  - Vitis vinifera introns\n";
+		print "VvG  - Vitis vinifera genomic\n";
+		print "VvC  - Vitis vinifera CDSs\n";
+		print "Vv5U - Vitis vinifera 5' UTR (exons)\n";
+		print "Vv3U - Vitis vinifera 3' UTR (exons)\n";
+		print "VvT - Vitis vinifera primary transcripts (unspliced)\n";
 		print "DmI - Drosophila melanogaster introns\n\n";
 		die "Choose one option only.\n\n";
 	}
