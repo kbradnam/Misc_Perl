@@ -24,6 +24,7 @@ my $verbose;    # show details for motif count/density in each sequence
 my $t_min;		# minimum threshold value to use
 my $t_max;		# maximum threshold value to use
 my $t_step;		# threshold step value to use
+my $limit;		# only show matches with r2 values above a certain limit
 
 GetOptions ("target=s"     => \$target,
 			"verbose"      => \$verbose,
@@ -31,6 +32,7 @@ GetOptions ("target=s"     => \$target,
 			"t_min=i"      => \$t_min,
 			"t_max=i"      => \$t_max,
 			"t_step=f"     => \$t_step,
+			"limit=f"	   => \$limit,
 );
 
 # are we using correct command-line options?
@@ -86,10 +88,17 @@ foreach my $motif (@files){
 				# now score motif against set of verified experimental sequences to get two r2 values
 				my ($count_r2, $density_r2) = &process_sequence($j);
 
-				# don't print out results which can't be measured because of divide by zero values
+				# don't print out results that are below $limit or which can't be measured because of divide by zero values
 				print "\n" if ($verbose);
-				print "$count_r2\t$motif\tm${i}\t$threshold\t${j}_nt\tmotif_count\n"     unless ($count_r2   eq "NA");
-				print "$density_r2\t$motif\tm${i}\t$threshold\t${j}_nt\tmotif_density\n" unless ($density_r2 eq "NA");
+				next if ($count_r2 eq "NA");
+				next if ($density_r2 eq "NA");
+
+				if($count_r2 > $limit){
+					print "$count_r2\t$motif\tm${i}\t$threshold\t${j}_nt\tmotif_count\n";					
+				}
+				if($density_r2 > $limit){
+					print "$density_r2\t$motif\tm${i}\t$threshold\t${j}_nt\tmotif_density\n";
+				}
 				print "\n\n" if ($verbose);
 				
 			}
@@ -119,9 +128,10 @@ sub pre_flight_checks{
 	die "$target does not seem to exist\n" if (! -e $target);
 
 	# set threshold values if none specified
-	$t_min = 0  if (!$t_min);
-	$t_max = 8  if (!$t_max);
-	$t_step = 1 if (!$t_step);
+	$t_min = 0   if (!$t_min);
+	$t_max = 6   if (!$t_max);
+	$t_step = 1  if (!$t_step);
+	$limit = 0.5 if (!$limit);
 }
 
 
