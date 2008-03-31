@@ -64,11 +64,10 @@ my $threshold;
 opendir(DIR, "$motif_dir") || die "Can't read directory: $motif_dir\n";
 my @files= readdir(DIR);
 
-
 foreach my $motif (@files){
-	
-	next unless ($motif =~ m/\.xms$/);
 
+	next unless ($motif =~ m/\.xms$/);
+	
 	# first count how many motifs in the file
 	my $num_motifs = &count_motifs($motif);
 
@@ -83,26 +82,26 @@ foreach my $motif (@files){
 
 			# final loop which will use different lengths of sequence in the target set
 			# check motif in first 100 bp only, first 200 bp, first 300 bp or all.
-			foreach my $j (50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 10000){
+			foreach my $j (100, 200, 300, 400, 1000){
 				
 				# now score motif against set of verified experimental sequences to get two r2 values
-				my ($count_r2, $density_r2) = &process_sequence($j);
+				my ($count_r2, $density_r2) = &process_sequence($j, $motif);
 
 				# don't print out results that are below $limit or which can't be measured because of divide by zero values
 				print "\n" if ($verbose);
 				next if ($count_r2 eq "NA");
 				next if ($density_r2 eq "NA");
 
-				if($count_r2 > $limit){
+				if($count_r2 > $limit || $verbose){
 					print "$count_r2\t$motif\tm${i}\t$threshold\t${j}_nt\tmotif_count\n";					
 				}
-				if($density_r2 > $limit){
+				if($density_r2 > $limit ||$verbose){
 					print "$density_r2\t$motif\tm${i}\t$threshold\t${j}_nt\tmotif_density\n";
 				}
-				print "\n\n" if ($verbose);
+				print "\n" if ($verbose);
 				
 			}
-
+			
 		}		
 	}
 }
@@ -146,7 +145,9 @@ sub pre_flight_checks{
 sub parse_motif{
 	
 	my $motif = shift;
-	my $count = shift;
+	my $target_count = shift;
+	
+	my $count = 0;
 	
 	# Need sets of expected nucleotide frequencies to compute log likelihood scores
 	my %expected = ("a" => "0.2713","c" => "0.1534", "g" => "0.1701","t" => "0.4051");
@@ -162,7 +163,8 @@ sub parse_motif{
 
 	# skip to correct motif in file
 	while(<MOTIF>){
-		last if (m/<name>motif${count}<\/name>/);		
+		($count++) if (m/<name>motif\d+<\/name>/);		
+		last if ($count == $target_count);
 	} 
 
 
@@ -199,12 +201,16 @@ sub parse_motif{
 sub process_sequence{
 	
 	my $limit = shift;
+	my $motif = shift;
 	
 	# will need to track quite a few stats for each sequence
 	# values for increase in expression, counts of motif, motif density
 	my @expression;
 	my @counts;
 	my @density;
+
+	print "\n$motif T = $threshold, Limit = $limit\n\n" if ($verbose);
+
 
 	open(TARGET,"<$target") || die "Couldn't open $target file\n";
 
@@ -235,12 +241,12 @@ sub process_sequence{
 
 			# exit loop if we are past length limit
 			last if ($i > $limit);
-			
 			# extract a window of sequence, split it, and place in array	
 			my @sequence = split(//,substr($seq, $i, $motif_length));
 
 			# Calculate motif score: only A,T,C,G bases counts towards score 
 			my $score = 0;
+
 			for(my $j = 0; $j<@sequence;$j++){
 				($score += $motif[$j]{$sequence[$j]}) if ($sequence[$j] =~ m/[atcg]/);
 			}
@@ -250,7 +256,6 @@ sub process_sequence{
 			if($score > $threshold){
 				# count motif
 				$motif_count++;
-
 				# and mask the motif out of $masked_seq
 				substr($masked_seq,$i,$motif_length) = ("-" x $motif_length);
 			}
@@ -261,7 +266,7 @@ sub process_sequence{
 
 		# if we are not scanning the entire sequence. then we need to change $length before calculating
 		# motif density. Set length to be whatever the limit is
-		if($limit != 10000){
+		if($limit != 1000){
 			$length = $limit;
 		}
 		my $percent_motif = sprintf("%.3f",($motif_base_count / $length) * 100);
@@ -325,18 +330,16 @@ sub r2{
 
 sub count_motifs{
 	my $motif = shift;
-	my $count;
+	my $count = 0;
 	
 	# open motif file and read in one motif
 	open(MOTIF,"<$motif_dir/$motif") || die "Could not open $motif file\n";
 
 	while(<MOTIF>){
-		($count = $1) if (m/<name>motif(\d+)<\/name>/);		
+		($count++) if (m/<name>motif(\d+)<\/name>/);		
 	}
 	close(MOTIF) || die "Couldn't close $motif\n";	
 	
-	# add 1 to get to human count rather than array count
-	$count++;
 	return($count);
 	
 }
