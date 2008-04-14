@@ -241,6 +241,9 @@ while(<MOTIF>){
 		my $base = lc($1);
 		my $freq = $2;
 	
+		# if frequency is zero, set to be a very small positive value else can't take log
+		($freq = 0.000001) if ($freq < 0.000001);
+			
 		# take logarithm of observed over expected frequency and add to @motifs
 		$motif[$pos]{$base} = log($freq/$expected{$base});
     }
