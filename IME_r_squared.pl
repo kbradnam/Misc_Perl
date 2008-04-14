@@ -206,7 +206,7 @@ sub parse_motif{
 	    }
 
 	    # get nucleotide frequencies from input file
-	    if(m/weight symbol=\"([a-z])[a-z]+\">(0\.\d+)<\/weight/){
+	    if(m/weight symbol=\"([a-z])[a-z]+\">(\-*0\.\d+)<\/weight/){
 			my $base = lc($1);
 			my $freq = $2;
 
