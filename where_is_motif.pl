@@ -237,12 +237,12 @@ while(<MOTIF>){
     }
 
     # get nucleotide frequencies from input file
-    if(m/weight symbol=\"([a-z])[a-z]+\">(0\.\d+)<\/weight/){
+    if(m/weight symbol=\"([a-z])[a-z]+\">(\-*0\.\d+)<\/weight/){
 		my $base = lc($1);
 		my $freq = $2;
 	
 		# if frequency is zero, set to be a very small positive value else can't take log
-		($freq = 0.000001) if ($freq < 0.000001);
+		($freq = 0.00001) if ($freq < 0.00001);
 			
 		# take logarithm of observed over expected frequency and add to @motifs
 		$motif[$pos]{$base} = log($freq/$expected{$base});
