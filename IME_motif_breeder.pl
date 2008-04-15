@@ -11,39 +11,71 @@
 use strict;
 use warnings;
 use Getopt::Long;
+use FAlite;
 use List::Util qw(sum);
 
 ########################
 # Command line options
 ########################
 
-my $target;     # file with sequences in which to find motif
 my $verbose;    # show details for motif count/density in each sequence
+my $cycles;		# how many cycles to run for
+my $n;			# how many motifs
+my $mortality;  # what fraction of motifs will die each cycle
+my $limit;      # what threshold do we start outputting successful motifs (in NestedMica format)
+my $ime_data;   # file with experimental intron data in
+my $threshold;  # choose a different threshold to count motifs
+my $min;		# minimum size to generate motifs
+my $max;		# maximum size to generate motifs
 
-
-GetOptions ("target=s"     => \$target,
-			"verbose"      => \$verbose,
+GetOptions ("verbose"     => \$verbose,
+			"cycles=i"    => \$cycles,
+			"n=i"         => \$n,
+			"mortality=f" => \$mortality,
+			"limit=f"     => \$limit,
+			"ime_data=s"  => \$ime_data,
+			"threshold=f" => \$threshold,
+			"min=i"		  => \$min,
+			"max=i"		  => \$max
 );
 
-# are we using correct command-line options?
-&pre_flight_checks;
+# set some defaults
+$cycles = 100 if (!$cycles);
+$n = 100 if (!$n);
+$mortality = 0.9 if (!$mortality);
+$limit = 0.8 if (!$limit);
+$threshold = 3 if (!$threshold);
+$min = 4 if (!$min);
+$max = 15 if (!$max);
+
+die "Please specify a file with IME intron sequences in with -ime_data option\n" if (!$ime_data);
 
 
+#############################
 # global variables
+#############################
 
 # motifs will be stored in an array of array of hashes
 # 1st array is motif number, 2nd array is position within motif
 # final hash has keys which are A,C,G, or T, and values which are nucleotide frequencies
 my @motifs;
 
-# how many cycles to go through
-my $cycles = 1000;
-
 # how many motifs to generate
-my $num_motifs = 100;
+my $num_motifs = $n;
+
+# keep track of best score
+my $r2_max = 0;
+
+# Need sets of expected nucleotide frequencies to compute log likelihood scores
+my %expected = ("A" => "0.2713","C" => "0.1534", "G" => "0.1701","T" => "0.4051");
 
 # key is motif number, value is r2 score of motif
 my %motif2score;
+
+# keep track of motifs that survive each generation, these will be spared from mutation
+# motif index is key, value is 1 (true)
+my %survivors;
+
 
 ##############################################################
 ##############################################################
@@ -58,19 +90,26 @@ my @expression_scores;
 
 &read_sequences;
 
+print "-- Generating $num_motifs Motifs --\n" if ($verbose);
 &generate_motifs;
 
-for(my $i = 0;$i<$cycles;$i++){
-	
-	&score_motifs;
-	&cull_motifs;
-	&reproduce;
+for(my $i = 0; $i < $cycles; $i++){
+	print "\n=== Cycle $i ===\n";
+	print "-- Scoring Motifs --\n" if ($verbose);
+	&score_motifs($i);
+	print "-- Killing Motifs --\n" if ($verbose);
+	&death;
+	print "-- Mutating Motifs --\n" if ($verbose);
 	&mutate;
-	&grow;
-	&shrink;
+	print "-- Growing & Shrinking Motifs --\n" if ($verbose);
+	&grow_and_shrink;
+	print "-- Recombining Motifs --\n" if ($verbose);
 	&recombine;
 	
 }
+
+# when finished, need one more run at scoring motifs
+&score_motifs($cycles);
 
 exit(0);
 
@@ -84,275 +123,32 @@ exit(0);
 ##############################################
 
 
-sub pre_flight_checks{
-	# check that both command line options are specified
-	die "Need to specify -target options\n" if(!$target);
-
-	# check files exist
-	die "$target does not seem to exist\n" if (! -e $target);
-}
-
-
 
 # simple routine to generate a small number of motifs
-# default length is 6 nt, all base frequencies chosen randomly
+# dall base frequencies chosen randomly
 
 sub generate_motifs{
 
 	for(my $i = 0; $i < $num_motifs; $i++){
 
-		# assume all motifs are 6 nt to start with
-		for (my $j = 0; $j < 6; $j++){
+		# motifs will be random length between 3 and 20 nt
+		my $rand = int(rand($max-$min))+$min;
+
+		for (my $j = 0; $j < $rand; $j++){
 
 			# set random frequencies for each base (they must sum to 1.0)
 			my $a = rand(1);
 			my $c = rand(1) * (1 - $a);
 			my $g = rand(1) * (1 - $a - $c);
 			my $t = 1 - $a - $c -$g;
-			
+
 			$motifs[$i][$j]{"A"} = $a;
 			$motifs[$i][$j]{"C"} = $c;
 			$motifs[$i][$j]{"G"} = $g;
 			$motifs[$i][$j]{"T"} = $t;
 		}
-	}
+	}	
 }
-
-
-# calculate r2 score for all motifs
-sub score_motifs{
-
-	# Need sets of expected nucleotide frequencies to compute log likelihood scores
-	my %expected = ("a" => "0.2713","c" => "0.1534", "g" => "0.1701","t" => "0.4051");
-
-	# will need to track quite a few stats for each sequence
-	# values for increase in expression, counts of motif, motif density
-	my @expression;
-	my @counts;
-
-
-	for(my $i = 0; $i < $num_motifs; $i++){
-
-		# get motif length
-		my $motif_length = @{$motifs[$i]};
-		print "Length is $motif_length\n";
-				
-		my $motif_score;
-		
-		# loop through each of the 12 experimental introns, scoring them for motif		
-		for (my $intron = 0; $intron < 12; $intron++){
-			
-			
-		}
-		
-
-
-			    my $length = length($seq);
-
-				# will count total amount of motif in each sequence (motifs may overlap so need to be sure we are not double counting)
-				# to help this we will temporarily store a copy of $seq to mask out where any motifs are with a '-' character then
-				# we can just count the dashes to know how many bases of a sequence are motif
-				my $masked_seq = $seq;
-
-				# will count how many motifs appear in each sequence	
-				my $motif_count = 0;
-
-			    # loop through sequence in windows equal to motif size
-			    for (my $i = 0; $i < length($seq)-6; $i++) {
-
-					# exit loop if we are past length limit
-					last if ($i > $limit);
-
-					# extract a window of sequence, split it, and place in array	
-					my @sequence = split(//,substr($seq, $i, 6));
-
-					# Calculate motif score: only A,T,C,G bases counts towards score 
-					my $score = 0;
-					for(my $j = 0; $j<@sequence;$j++){
-		#				($score += $motif[$j]{$sequence[$j]}) if ($sequence[$j] =~ m/[atcg]/);
-					}
-					$score = sprintf("%.2f",$score);	
-
-					# if we've found some sequence that is above the threshold...
-					if($score > 3){
-						# count motif
-						$motif_count++;
-
-						# and mask the motif out of $masked_seq
-						substr($masked_seq,$i,6) = ("-" x 6);
-					}
-				}
-
-				# count motif in sequence, add to running total
-				my $motif_base_count = ($masked_seq =~ tr /-/-/);
-
-				# if we are not scanning the entire sequence. then we need to change $length before calculating
-				# motif density. Set length to be whatever the limit is
-				if($limit != 10000){
-					$length = $limit;
-				}
-				my $percent_motif = sprintf("%.3f",($motif_base_count / $length) * 100);
-				print "$header\t${length}_nt\tExpression\t$expression\tmotif_count\t$motif_count\tmotif_density\t$percent_motif\n" if ($verbose);
-
-				# add these values to array for later stats analysis
-				push(@expression,$expression);
-				push(@counts,$motif_count);
-				push(@density,$percent_motif);
-
-			}
-
-			close(TARGET) || die "Couldn't close $target\n";
-
-			# can always calculate two r2 values, one for regression of expression against motif counts
-			# and one for regression of expression against motif density
-
-			my $count_r2 = &r2(\@expression,\@counts);
-			my $density_r2 = &r2(\@expression,\@density);
-
-			return($count_r2,$density_r2);
-	
-	}
-
-}
-
-
-##############################################################
-#
-# Extract data from Nested MICA output file
-#
-##############################################################
-
-sub parse_motif{
-	
-	my $motif = shift;
-	my $count = shift;
-	
-	# Need sets of expected nucleotide frequencies to compute log likelihood scores
-	my %expected = ("a" => "0.2713","c" => "0.1534", "g" => "0.1701","t" => "0.4051");
-
-	# track base position in motif
-	my $pos = 0;
-	my $max_pos = 0;
-
-	my $motif_length = 0;
-
-
-		
-	# keep track of motif position, need to stop if we get to the second motif
-    if (m/<column pos=\"(\d+)\"/){
-		$pos = $1;	
-		($max_pos = $pos) if ($pos > $max_pos);
-		last if ($pos < $max_pos);
-		$motif_length++;
-    }
-
-    # get nucleotide frequencies from input file
-    if(m/weight symbol=\"([a-z])[a-z]+\">(0\.\d+)<\/weight/){
-		my $base = lc($1);
-		my $freq = $2;
-
-		# take logarithm of observed over expected frequency and add to @motifs
-#		$motif[$pos]{$base} = log($freq/$expected{$base});
-    }
-	
-}
-
-
-##############################################################
-#
-# Find and score motifs in target sequence
-#
-##############################################################
-
-sub process_sequence{
-	
-	my $limit = shift;
-	
-	# will need to track quite a few stats for each sequence
-	# values for increase in expression, counts of motif, motif density
-	my @expression;
-	my @counts;
-	my @density;
-
-	open(TARGET,"<$target") || die "Couldn't open $target file\n";
-
-	my $fasta = new FAlite(\*TARGET);
-
-	# loop through each sequence in target file
-	while(my $entry = $fasta->nextEntry) {
-
-		# get and trim header
-		my $header = $entry->def;
-		$header =~ m/.* ([\d\.]+) /;
-		my $expression = $1;
-		$header =~ s/ .*//;
-
-	    my $seq = lc($entry->seq);
-	    my $length = length($seq);
-
-		# will count total amount of motif in each sequence (motifs may overlap so need to be sure we are not double counting)
-		# to help this we will temporarily store a copy of $seq to mask out where any motifs are with a '-' character then
-		# we can just count the dashes to know how many bases of a sequence are motif
-		my $masked_seq = $seq;
-
-		# will count how many motifs appear in each sequence	
-		my $motif_count = 0;
-
-	    # loop through sequence in windows equal to motif size
-	    for (my $i = 0; $i < length($seq)-6; $i++) {
-
-			# exit loop if we are past length limit
-			last if ($i > $limit);
-			
-			# extract a window of sequence, split it, and place in array	
-			my @sequence = split(//,substr($seq, $i, 6));
-
-			# Calculate motif score: only A,T,C,G bases counts towards score 
-			my $score = 0;
-			for(my $j = 0; $j<@sequence;$j++){
-#				($score += $motif[$j]{$sequence[$j]}) if ($sequence[$j] =~ m/[atcg]/);
-			}
-			$score = sprintf("%.2f",$score);	
-
-			# if we've found some sequence that is above the threshold...
-			if($score > 3){
-				# count motif
-				$motif_count++;
-
-				# and mask the motif out of $masked_seq
-				substr($masked_seq,$i,6) = ("-" x 6);
-			}
-		}
-
-		# count motif in sequence, add to running total
-		my $motif_base_count = ($masked_seq =~ tr /-/-/);
-
-		# if we are not scanning the entire sequence. then we need to change $length before calculating
-		# motif density. Set length to be whatever the limit is
-		if($limit != 10000){
-			$length = $limit;
-		}
-		my $percent_motif = sprintf("%.3f",($motif_base_count / $length) * 100);
-		print "$header\t${length}_nt\tExpression\t$expression\tmotif_count\t$motif_count\tmotif_density\t$percent_motif\n" if ($verbose);
-
-		# add these values to array for later stats analysis
-		push(@expression,$expression);
-		push(@counts,$motif_count);
-		push(@density,$percent_motif);
-
-	}
-
-	close(TARGET) || die "Couldn't close $target\n";
-
-	# can always calculate two r2 values, one for regression of expression against motif counts
-	# and one for regression of expression against motif density
-
-	my $count_r2 = &r2(\@expression,\@counts);
-	my $density_r2 = &r2(\@expression,\@density);
-
-	return($count_r2,$density_r2);
-}
-
 
 
 #######################################################
@@ -374,78 +170,501 @@ sub r2{
 	my $sum_x2  = sum(map {${$x}[$_]**2} (0..$n-1));
 	my $sum_y2  = sum(map {${$y}[$_]**2} (0..$n-1));
 
-	# can't calculate r2 if sum_x or sum_y = 0; so return NA instead
+	# calculate r and return r2
+	# can't calculate r2 if sum_x or sum_y = 0; so return a token low value instead
 	if($sum_x == 0 || $sum_y == 0){
-		return("NA");
+		return("0.0666");
 	}
 	else{
 		my $r = (($n * $sum_xy) - ($sum_x * $sum_y))/sqrt( (($n * $sum_x2) - $sum_x**2) * (($n * $sum_y2) - $sum_y**2)); 	
-		return(sprintf("%.4f",$r**2));			
+		return(sprintf("%.5f",$r**2));
 	}
-	# calculate r and return r2
 }
 
 
-
+########################################################################
+#
+#          L o a d   I n t r o n   d a t a   f r o m    f i l e 
+#
+#########################################################################
 sub read_sequences{
-	@expression_scores = qw (12.3 12.3 6.9 4.3 4.1 4.0 1.9 1.8 1.4 1.2 1.1 0.6);
-
-	$seqs[0] = "GTAAATTTCTGTGTTCCTTATTCTCTCAAAATCTTCGATTTTGTTTTCGTTCGATCCCAATTTCGTATATGTTCTT
-	TGGTTTAGATTCTGTTAATCTTAGATCGAAGACGATTTTCTGGGTTTGATCGTTAGATATCATCTTAATTCTCGATTAGGGTTTCATA
-	GATATCATCCGATTTGTTCAAATAATTTGAGTTTTGTCGAATAATTACTCTTCGATTTGTGATTTCTATCTAGATCTGGTGTTAGTTT
-	CTAGTTTGTGCGATCGAATTTGTCGATTAATCTGAGTTTTTCTGATCTGCAG";
-
-	$seqs[1] = "GTAATCAATTCTCCCTCTCTATCTATGTTTGTTTGAATTCTCTCTCGCATAGTTAAGATTCCTTTTTTCGTATTCT
-	AGATCCATAGAATTTATCCAAAATTCATGAATTGTTTCTAAGACACGAAACGGTTTAAGTTCAGGTCATAGTTTTT
-	CTGTAGATCTCGATTTACGTGAAAGTTTACTTACCAATAGATCTGAATTATCGAAATTGCAGTTCCTTTTCCTCGA
-	GTGTCTCGTTCGGCTTCATGTCCTGTGGAATTTTTAATCTTTGTCCGATTCTGAATCCGGAAATTGTTAGGGATTT
-	GGGTTTTATTCAAGATTTGTCATCGCTGTGAAAGTTTTCCCTTTTTTTATGTGGGTTCGAAGTTTTCTGAAAATCT
-	CAATTAGTAAAAGGATCACTGGACTTGCTTATATTAATTCTACACCGTCTCTTCATAGATTTGGTCAATCCTGTAT
-	CTCAGATCTTATTTGTTCATGTGATAGCCTTTAAATGTGTGAACTTTTCATGTACCTGCAG";
-
-	$seqs[2] = "GTAAGTCTCGATGTGAATTATGCGATTGACTATCGATTTAGGGGATCCTCATGATCTAATTAGGTCGTACGGATTG
-	ACTTAGAATTGGGAAATTTTGAATCTAGTTTTGGTAGATTATAGAATTTGTGACCTAGCTAGAACATAACAGAGGA
-	TTATTCAAGAACCGCTTAGGAAAGTATCTCATAATGAACATCTTTAGATTGGTCTGAGATCTAAAATTGATTCATT
-	TGCTCTTTTCTTGGTTGCTGCAG";
-
-	$seqs[3] = "GTAAAGCCTCGATTTTTGGGTTTAGGTGTCTGCTTATTAGAGTAAAAACACATCCTTTGAAATTGTTTGTGGTCAT
-	TTGATTGTGCTCTTGATCCATTGAATTGCTGCAG";
-
-	$seqs[4] = "GTAAGATTATCTCTTCCCAAAATTGATTACTTTTATTATTGAACAATTATTAACCAATCATGGCTTAACGAACTGC
-	AG";
-
-	$seqs[5] = "GTTACTTTCACTCTGTCTCATCTCTGTGTTTGATTTGCTGATACTTCCTATTGCTTGTTTAAGCGTTTTATATAAT
-	CTATACAACCAGAATTTGATCCTTGAAGTGTTTTGCGTGCTTTGTGTGGTAATTGATTGGAACAGAAGATCCAGTG
-	AGATTTGAAAAAAAATTGAGACTTAAGTTGGCTTTAGCTAGTTTTGAAGTTTGAACTTGTGTGGTTTGTCTGCAG";
-
-	$seqs[6] = "GTAAGTCTACATTCTTTCTTCTTTTAGTATCTTGCCTCATAAGTAAGGATCTTAGCAGGCAATGTTTATGGTATAC
-	TATATTAGTATAGATTTTAGTGGAAATATGTTTGTTTTGAACTTATTTTATGATCATATTTGACTATTATCAAAGA
-	TAAAGATTCATATACCGTACATTATATATCTCTATTTTTCTAGTTTACATGTATAGCTCTAAGTTTATTTGATGAT
-	TCTGTTGACTACTTTTGGATATGTGTTTTGAAACCTTTGATAAATACTAAAATAAATTTTAATTTGAAAATGCTGC
-	AG";
-
-	$seqs[7] = "GTAAGTCATGCATCCACGGAGAAACTTTCTTTTATATATGTTTATATTTTTCATGTTTAATTTGTTTTAGCACACC
-	CGTTTTTAACAATGATTTTAAGATGGAATGATAAGAGCTTTCATTCAAAAAAAAAAAATGAAAATGAAAACTTTAA
-	CATGTAATTTATTAATGTCTTTCCAACTGTTTAGTAGAATTTTGTACCTTCCATGAATCATAAATTAATTATTTAT
-	ATCTTTCTTGATCTTTCCTGCAG";
-
-	$seqs[8] = "GTATGGTTCATCAACTCTTTCCATTTAATCGTAATGTTGGATCATGATCATCTTCAAAGCAATGAAATGACTAACA
-	CAAGTCCTTGATTACTTTCTGCAG";
-
-	$seqs[9] = "GTAATCTCTCTCTGTGTTGCACGTACATGGCTCCTTTGATATTATACGGAAAATCATATATAGCCTAAAGATATAT
-	CTACAGCTGAAACCCAATATAGGTTCTCAAGAATCTCAACCAGTGGTAGATTCATTAATAACCATATAAAAATATT
-	TTAATCATATAATCGAGTCTGATTGAGTAATTTCTGTTACAAGTTAAATATTAAAGTTTTATCTCACAGATAGTAA
-	TGTAACAAATTATATCATTCAAAACTCAAAACCCTTAATTTGTATTATTTTTCTGCAG";
-
-	$seqs[10] = "GTAATTTCACTTCAATATTATATTAGAAGTCACATATTTCCATATAGAAATGTGCAATCATATTCAAATCATAGTG
-	GTGATTATATAAAAGATCTATGATGAACTAATAACGTTTAATTAATAAAACTAATACACATTTAAGGCTAGTACAA
-	AATAAATACATGTAAATTAGTCCATGCAATGATGTTCTTGACTGTGGATCTCTAATTAACAAATATATACTGCAG";
-
-	$seqs[11] = "GTTAGTTTCAATATCTCTAGTTTTCTTGAGAAACATATCTTTCTATAGAGCCATATCTTATATTAACTGGCTTGTA
-	TAGTGTAACGTGCTAAACAAGTTAGGTTTAGCCGTCTCTCTTTTAGAGAGCATATTCCATATTAGTACACTTTTCG
-	ATTTTAAATTTGCTTTAATTAGGAGTGTAAAACATAACACATTCAATGTTTTCGATTTTTCTGATAATCTATATCA
-	TTGCCTCTTTGGTTCGGTTCATTGTGGTTTTGTGATTATGGTTTTTGTTGTTCTGCAG";
 	
+	open(DATA,"<$ime_data") || die "Couldn't open $ime_data file\n";
+
+	my $fasta = new FAlite(\*DATA);
+
+	# loop through each sequence in target file
+	while(my $entry = $fasta->nextEntry) {
+
+		# get and trim header
+		my $header = $entry->def;
+		$header =~ m/.* ([\d\.]+) /;
+		my $expression = $1;
+		$header =~ s/ .*//;
+	    my $seq = uc($entry->seq);
+	
+		# add intron sequences expression values to arrays
+		push(@seqs,$seq);
+		push(@expression_scores,$expression);
+	}
+	close(DATA);	
+}
+
+##############################################################################################
+#
+# calculate r2 score for all motifs
+#
+##############################################################################################
+
+sub score_motifs{
+
+	# will need to know what cycle we are in if a high scoring motif is found
+	my $cycles = shift;
+	
+	# first loop over all potential motifs
+	for(my $i = 0; $i < $num_motifs; $i++){
+
+
+		# for each motif we evaluate, we will track of motif count in each of the 12 introns
+		my @counts;
+		
+		# get motif length
+		my $motif_length = @{$motifs[$i]};
+		
+		# will track final r2 score for each motif
+		my $motif_r2;
+						
+		# loop through each of the 12 experimental introns, scoring them for motif		
+		for (my $j = 0; $j < @seqs; $j++){
+			# tidy up intron sequence to remove spaces
+			my $intron = $seqs[$j];
+			$intron =~ s/\s+//g;
+			my $intron_length = length($intron);
+			
+			# will count motifs above threshold
+			my $motif_count = 0;
+
+
+		    # loop through intron sequence in windows equal to motif size
+		    for (my $k = 0; $k < $intron_length-$motif_length + 1; $k++) {
+
+				# extract a window of sequence, split it, and place in array	
+				my @window = split(//,substr($intron, $k, $motif_length));
+
+				# Calculate motif score for current window of sequence by looping over each base in window
+				my $score = 0;
+				for(my $l = 0; $l < @window; $l++){
+					
+					my $base = $window[$l];
+					
+					my $motif_base_frequency = $motifs[$i][$l]{$base};
+					my $expected_base_frequency = $expected{$base};
+					
+					# should observed frequencies go below 0 or above 1 then we cheat
+					($motif_base_frequency = 0.00001)  if ($motif_base_frequency <= 0);
+					($motif_base_frequency = 1)        if ($motif_base_frequency >1);
+
+					my $log = log($motif_base_frequency/$expected_base_frequency);
+					$score += $log;
+
+				}
+				# add to motif count if we've found some sequence that is above the threshold...
+				if ($score > $threshold){
+					$motif_count++;
+				}
+
+			}
+
+			# add these values to array for later stats analysis
+			push(@counts,$motif_count);
+		}
+		my $count_r2 = &r2(\@expression_scores,\@counts);
+		if($count_r2 > $r2_max){
+			$r2_max = $count_r2;
+			print "\n* New r2 max: motif $i = $r2_max, length $motif_length\n";
+			
+			# print out motif if score is above $limit
+			if($r2_max > $limit){
+				&print_motif($cycles,$i,$r2_max,$motif_length);
+			}
+
+		}		
+		# add r2 to %motif2score, this should replace existing value if one is there
+		$motif2score{$i} = $count_r2;
+	}
 }
 
 
+##############################################################################################
+#
+# kill weak motifs, clone good motifs to fill remaining spots
+#
+##############################################################################################
+
+sub death{
+	
+	# first clear suvivors hash from last generation
+	%survivors = ();
+	
+	# sort the r2 values and take the best proportion (as defined by using the $mortality factor)
+	# first calculate the max number of motifs to keep.
+	my $dead = $num_motifs * $mortality;
+	my $alive = $num_motifs - $dead;
+	print "Mortality factor = $mortality, so $dead motifs must die and $alive will live!\n" if ($verbose);
+
+	my @sorted = (reverse sort {$motif2score{$a} <=> $motif2score{$b}} (keys(%motif2score)));
+		
+	# now work through list of motifs replacing those that will die because of low scores with 
+	# replacement motifs with high scores 
+	my $count = 0;
+	foreach my $i (@sorted){
+		if ($count < $alive){
+			my $motif_length = @{$motifs[$sorted[$count]]};
+			print "$count) $i - $motif2score{$i} - length $motif_length\n" if ($count<10);
+			print "...\n" if ($count == 10);
+			print "$count) $i - $motif2score{$i} - length $motif_length\n" if ($count>$alive-10);
+
+			# add to survivors hash
+			$survivors{$sorted[$count]} = 1;
+		}
+		else{
+			#print "$count) $i - $motif2score{$i} - DIES\n" if ($verbose);
+			# now need to swap this replace this array element with one that lives			
+			#first randomly choose one of the surviving motif numbers 
+			# the index number of @sorted for these will be between 0 and $alive
+			my $rand = int(rand($alive));
+			
+			# now replace @motifs element $i with $sorted[$rand]
+			&clone($i,$sorted[$rand])
+		}
+		$count++;
+	}
+	print "\n" if ($verbose);
+
+}
+
+
+##############################################################################################
+#
+# mutate motif base frequencies
+#
+##############################################################################################
+
+sub mutate{
+	
+	for(my $i = 0; $i < $num_motifs; $i++){
+		next if ($survivors{$i});
+		
+		my $motif_length = @{$motifs[$i]};
+ 		my $rand = rand(1);
+		
+		# 50% motifs (not including survivors) acquire small mutations (0.005% change in nt frequencies)
+		# loop through each position in motif
+		if($rand <=0.5){
+				for (my $j = 0; $j < $motif_length; $j++){
+				# send base frequencies to change_bases subroutine. The first value will specify what the extent
+				# of any mutation will be
+				my @new_base_freqs = &change_bases('0.00005',$motifs[$i][$j]{"A"},$motifs[$i][$j]{"C"},$motifs[$i][$j]{"G"},$motifs[$i][$j]{"T"});
+				$motifs[$i][$j]{"A"} = $new_base_freqs[0];
+				$motifs[$i][$j]{"C"} = $new_base_freqs[1];
+				$motifs[$i][$j]{"G"} = $new_base_freqs[2];
+				$motifs[$i][$j]{"T"} = $new_base_freqs[3];
+			}
+		}		
+		# 25% of motifs acquire additional medium mutations (0.5% change in nt frequencies)
+		elsif($rand <=0.75){
+			# loop through each position in motif
+			for (my $j = 0; $j < $motif_length; $j++){
+				# send base frequencies to change_bases subroutine. The first value will specify what the extent
+				# of any mutation will be
+				my @new_base_freqs = &change_bases('0.005',$motifs[$i][$j]{"A"},$motifs[$i][$j]{"C"},$motifs[$i][$j]{"G"},$motifs[$i][$j]{"T"});
+				$motifs[$i][$j]{"A"} = $new_base_freqs[0];
+				$motifs[$i][$j]{"C"} = $new_base_freqs[1];
+				$motifs[$i][$j]{"G"} = $new_base_freqs[2];
+				$motifs[$i][$j]{"T"} = $new_base_freqs[3];
+			}
+		}
+		# 10% of motifs acquire major mutations (5% change in nt frequencies)
+		elsif($rand <=0.85){			
+			# loop through each position in motif
+			for (my $j = 0; $j < $motif_length; $j++){
+				# send base frequencies to change_bases subroutine. The first value will specify what the extent
+				# of any mutation will be
+
+				my @new_base_freqs = &change_bases('0.05',$motifs[$i][$j]{"A"},$motifs[$i][$j]{"C"},$motifs[$i][$j]{"G"},$motifs[$i][$j]{"T"});		
+				$motifs[$i][$j]{"A"} = $new_base_freqs[0];	
+				$motifs[$i][$j]{"C"} = $new_base_freqs[1];
+				$motifs[$i][$j]{"G"} = $new_base_freqs[2];
+				$motifs[$i][$j]{"T"} = $new_base_freqs[3];
+			}
+		}
+	}	
+}
+##############################################################################################
+#
+# change base frequencies up or down
+#
+##############################################################################################
+
+sub change_bases{
+	my $mutagenicity = shift;
+	my %bases;
+	$bases{'A'} = shift;
+	$bases{'C'} = shift;
+	$bases{'G'} = shift;
+	$bases{'T'} = shift;
+	my %old;
+	$old{'A'} = $bases{'A'};
+	$old{'C'} = $bases{'C'};
+	$old{'G'} = $bases{'G'};
+	$old{'T'} = $bases{'T'};
+	
+	my $sum = $bases{'A'} + $bases{'C'} +  $bases{'G'} + $bases{'T'};
+	my $oldsum = $old{'A'} + $old{'C'} +  $old{'G'} + $old{'T'};
+	
+	my $base_count = 0;
+	my $running_total = 0;
+	
+	# shuffle order of bases
+	my @bases = qw (A C G T);
+	for (my $i = @bases; --$i; ) {
+	 	my $j = int rand ($i+1);
+	    next if $i == $j;
+	    @bases[$i,$j] = @bases[$j,$i];
+	 }
+	
+	# keep track of which way the mutations go (useful for debugging)
+	my %mutations;
+	
+	# loop through each base
+	foreach my $key (@bases){
+		$base_count++;
+#		print "$base_count) $key - SUM: A - $bases{'A'}\tC - $bases{'C'}\tG - $bases{'G'}\tT - $bases{'T'}\t$sum\n";
+
+		# if this is 4th base then frequency is already decided (all bases must sum to 1)
+		if($base_count == 4){
+			($bases{$key} = 1 - $bases{'C'} - $bases{'G'} - $bases{'T'}) if ($key eq 'A');
+			($bases{$key} = 1 - $bases{'A'} - $bases{'G'} - $bases{'T'}) if ($key eq 'C');
+			($bases{$key} = 1 - $bases{'A'} - $bases{'C'} - $bases{'T'}) if ($key eq 'G');
+			($bases{$key} = 1 - $bases{'A'} - $bases{'C'} - $bases{'G'}) if ($key eq 'T');
+			# now exit the loop, can't risk mutating the last base now
+			last;
+		}
+		
+		# randomly decide whether base will mutate upwards or downwards in frequency or stay the same
+		my $rand = rand(1);
+		my $direction = "plus";
+		$direction = "same"  if ($rand <0.666);
+		$direction = "minus" if ($rand <0.333);
+
+		# can't mutate to above 1 or below 0
+		if($direction eq "plus"){
+			$mutations{$key} = "+";
+			if (($bases{$key} + $mutagenicity + $running_total) >1){
+				$bases{$key} = 1 - $running_total;
+			}
+			else{
+				$bases{$key} += $mutagenicity;				
+			}
+			$running_total += $bases{$key};
+		}
+		elsif($direction eq "minus"){
+			$mutations{$key} = "-";
+			if (($bases{$key} - $mutagenicity) <0){
+				$bases{$key} = 0;
+			}
+			else{
+				$bases{$key} -= $mutagenicity;				
+			}
+		}	
+		else{
+			$mutations{$key} = "=";
+			$running_total += $bases{$key};
+		}
+	}
+	
+#	$sum = $bases{'A'} + $bases{'C'} +  $bases{'G'} + $bases{'T'};
+#	print "\nOLD: @bases\t$mutagenicity\tA $old{'A'} $mutations{'A'}\tC $old{'C'} $mutations{'C'}\tG $old{'G'} $mutations{'G'}\tT $old{'T'} $mutations{'T'}\t$sum\n" if ($sum > 1 || $sum < 0);
+#	print "NEW: @bases\t$mutagenicity\tA $bases{'A'} $mutations{'A'}\tC $bases{'C'} $mutations{'C'}\tG $bases{'G'} $mutations{'G'}\tT $bases{'T'} $mutations{'T'}\t$sum\n" if ($sum > 1 || $sum < 0);
+	return($bases{'A'},$bases{'C'},$bases{'G'},$bases{'T'});
+}
+
+
+# simple subroutine to replace one element of @motifs with another
+sub clone{
+	my $replace = shift;
+	my $keep = shift;
+	
+	my $motif_length = @{$motifs[$keep]};
+	
+	# wipe the array element that we are going to replace
+	$motifs[$replace] = ();
+	
+	for(my $j=0;$j<$motif_length;$j++){
+		foreach my $base qw(A C G T){
+			$motifs[$replace][$j]{$base} = $motifs[$keep][$j]{$base};
+		}
+	}	
+}
+
+
+##############################################################################################
+#
+# grow and shrink motifs
+#
+##############################################################################################
+
+sub grow_and_shrink{
+	
+	for(my $i = 0; $i < $num_motifs; $i++){
+		next if ($survivors{$i});
+		
+		my $motif_length = @{$motifs[$i]};
+ 		my $rand = rand(1);
+
+		# 15% of motifs gain a base
+		if($rand <=0.15){
+			# choose random position to add base at
+			$rand = int(rand($motif_length));
+			# copy bases after this position along one
+			for(my $j = $motif_length;$j>$rand;$j--){
+				$motifs[$i][$j]{"A"} = $motifs[$i][$j-1]{"A"};
+				$motifs[$i][$j]{"C"} = $motifs[$i][$j-1]{"C"};
+				$motifs[$i][$j]{"G"} = $motifs[$i][$j-1]{"G"};
+				$motifs[$i][$j]{"T"} = $motifs[$i][$j-1]{"T"};
+			}
+			
+			# Now set random frequencies for new base (they must sum to 1.0) at position $rand
+			my $a = rand(1);
+			my $c = rand(1) * (1 - $a);
+			my $g = rand(1) * (1 - $a - $c);
+			my $t = 1 - $a - $c -$g;
+
+			$motifs[$i][$rand]{"A"} = $a;
+			$motifs[$i][$rand]{"C"} = $c;
+			$motifs[$i][$rand]{"G"} = $g;
+			$motifs[$i][$rand]{"T"} = $t;					
+		}
+		# A different 15% of motifs will lose a base
+		elsif($rand <=0.3){
+			
+			# choose random position to remove
+			$rand = int(rand($motif_length));
+			splice(@{$motifs[$i]},$rand,1);
+			$motif_length = @{$motifs[$i]};		
+		}
+	}
+}
+
+
+##############################################################################################
+#
+# recombine motifs
+#
+##############################################################################################
+
+sub recombine{
+	
+	for(my $i = 0; $i < $num_motifs; $i++){
+		next if ($survivors{$i});
+		
+		my $motif_length = @{$motifs[$i]};
+ 		my $rand = rand(1);
+
+		# 10% of motifs swap a position with another motif
+		if($rand <=0.1){
+			
+			# choose motif to swap with, can't be self or survivor
+			my $partner = 0;
+			while($partner == 0){
+				$partner = int(rand($num_motifs));
+				$partner = 0 if ($partner == $i);
+				$partner = 0 if ($survivors{$partner});
+			}
+			
+			# choose random positions to swap base in donor and partner motif
+			my $motif1_pos = int(rand($motif_length));
+			my $partner_motif_length = @{$motifs[$partner]};
+			my $motif2_pos = int(rand($partner_motif_length));
+			
+			# need to store partner base frequencies in tmp variables before overwriting
+			my ($a,$c,$g,$t);
+			$a = $motifs[$partner][$motif2_pos]{'A'};
+			$c = $motifs[$partner][$motif2_pos]{'C'};
+			$g = $motifs[$partner][$motif2_pos]{'G'};			
+			$t = $motifs[$partner][$motif2_pos]{'T'};
+
+			# now overwrite partner motif with position from current motif (motif $i)
+			$motifs[$partner][$motif2_pos]{'A'} = $motifs[$i][$motif1_pos]{'A'};
+			$motifs[$partner][$motif2_pos]{'C'} = $motifs[$i][$motif1_pos]{'C'};
+			$motifs[$partner][$motif2_pos]{'G'} = $motifs[$i][$motif1_pos]{'G'};
+			$motifs[$partner][$motif2_pos]{'T'} = $motifs[$i][$motif1_pos]{'T'};
+			
+			# now replace current motif from tmp frequencies
+			$motifs[$i][$motif1_pos]{'A'} = $a;
+			$motifs[$i][$motif1_pos]{'C'} = $c;
+			$motifs[$i][$motif1_pos]{'G'} = $g;
+			$motifs[$i][$motif1_pos]{'T'} = $t;
+		}
+	}
+}
+
+##############################################################################################
+#
+# print motif - write to a NestedMica XMS file
+#
+##############################################################################################
+
+sub print_motif{
+	my $cycle = shift;
+	my $i = shift;
+	my $r2 = shift;
+	my $length = shift;
+	my $date = `date`;
+	
+	my $seqs = @seqs;
+	
+	open(OUT,">c${cycle}_l${length}_r2_${r2}_${seqs}_seqs.xms") || die "Couldn't create output file\n";
+	print OUT "<motifset xmlns=\"http://biotiffin.org/XMS/\">\n";
+	print OUT "  <prop>\n";
+	print OUT "    <key>creator.name</key>\n";
+	print OUT "    <value>nminfer</value>\n";
+	print OUT "  </prop>\n";
+	print OUT "  <prop>\n";
+	print OUT "    <key>creator.version</key>\n";
+	print OUT "    <value>0.8.0</value>\n";
+	print OUT "  </prop>\n";
+	print OUT "  <prop>\n";
+	print OUT "    <key>input</key>\n";
+	print OUT "    <value>IME_motif_breeder.pl</value>\n";
+	print OUT "  </prop>\n";
+	print OUT "  <prop>\n";
+	print OUT "    <key>date</key>\n";
+	print OUT "    <value>$date</value>\n";
+	print OUT "  </prop>\n";
+	print OUT "  <motif>\n";
+	print OUT "    <name>motif0</name>\n";
+	print OUT "    <weightmatrix alphabet=\"DNA\" columns=\"$length\">\n";
+	
+	for (my $k =0; $k<$length;$k++){
+		my $a = sprintf("%.6f",$motifs[$i][$k]{'A'});
+		my $c = sprintf("%.6f",$motifs[$i][$k]{'C'});
+		my $g = sprintf("%.6f",$motifs[$i][$k]{'G'});
+		my $t = sprintf("%.6f",$motifs[$i][$k]{'T'});
+		print OUT "      <column pos=\"$k\">\n";
+		print OUT "        <weight symbol=\"adenine\">$a</weight>\n";
+		print OUT "        <weight symbol=\"cytosine\">$c</weight>\n";
+		print OUT "        <weight symbol=\"guanine\">$g</weight>\n";
+		print OUT "        <weight symbol=\"thymine\">$t</weight>\n";
+		print OUT "      </column>\n";
+	}
+	print OUT "    </weightmatrix>\n";
+	print OUT "    <threshold>0.0</threshold>\n";
+	print OUT "    <prop>\n";
+	print OUT "      <key>nmica.history_thread</key>\n";
+	print OUT "      <value>412</value>\n";
+	print OUT "    </prop>\n";
+	print OUT "  </motif>\n";
+	print OUT "</motifset>\n";
+	close(OUT);
+}
