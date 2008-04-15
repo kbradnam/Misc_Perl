@@ -52,7 +52,9 @@ $max = 15 if (!$max);
 
 # in -moredeath mode, mortality starts v. low but increases by 1% per generation
 if($moredeath){
-	$n = 100;
+	print "Using -moredeath, mortality rate will autoincrement each generation\n";
+	$cycles = 100;
+	$n = 1000;
 	$mortality = 0;
 }
 
@@ -316,6 +318,7 @@ sub death{
 	
 	# mortality rate must increase if using -moredeath mode
 	$mortality += 0.01 if ($moredeath);
+	print "\nMortality rate = $mortality\n\n" if ($moredeath);
 	# but set an upper limit
 	$mortality = 0.95 if ($mortality > 0.95);
 	
