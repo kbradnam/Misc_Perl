@@ -27,6 +27,7 @@ my $ime_data;   # file with experimental intron data in
 my $threshold;  # choose a different threshold to count motifs
 my $min;		# minimum size to generate motifs
 my $max;		# maximum size to generate motifs
+my $moredeath;  # mortality rate autoincrements
 
 GetOptions ("verbose"     => \$verbose,
 			"cycles=i"    => \$cycles,
@@ -36,7 +37,8 @@ GetOptions ("verbose"     => \$verbose,
 			"ime_data=s"  => \$ime_data,
 			"threshold=f" => \$threshold,
 			"min=i"		  => \$min,
-			"max=i"		  => \$max
+			"max=i"		  => \$max,
+			"moredeath"   => \$moredeath
 );
 
 # set some defaults
@@ -47,6 +49,12 @@ $limit = 0.8 if (!$limit);
 $threshold = 3 if (!$threshold);
 $min = 4 if (!$min);
 $max = 15 if (!$max);
+
+# in -moredeath mode, mortality starts v. low but increases by 1% per generation
+if($moredeath){
+	$n = 100;
+	$mortality = 0;
+}
 
 die "Please specify a file with IME intron sequences in with -ime_data option\n" if (!$ime_data);
 
@@ -305,6 +313,11 @@ sub death{
 	
 	# first clear suvivors hash from last generation
 	%survivors = ();
+	
+	# mortality rate must increase if using -moredeath mode
+	$mortality += 0.01 if ($moredeath);
+	# but set an upper limit
+	$mortality = 0.95 if ($mortality > 0.95);
 	
 	# sort the r2 values and take the best proportion (as defined by using the $mortality factor)
 	# first calculate the max number of motifs to keep.
