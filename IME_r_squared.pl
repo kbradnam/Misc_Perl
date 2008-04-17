@@ -170,7 +170,6 @@ sub pre_flight_checks{
 ##############################################################
 
 sub parse_motif{
-	
 	my $motif = shift;
 	my $target_count = shift;
 	
@@ -190,13 +189,12 @@ sub parse_motif{
 
 	# skip to correct motif in file
 	while(<MOTIF>){
-		($motif_count++) if (m/<name>motif\d+<\/name>/);		
+		($motif_count++) if (m/<name>.*<\/name>/);		
 		last if ($motif_count == $target_count);
 	} 
 
 
 	while(<MOTIF>){
-		
 		# keep track of motif position, need to stop if we get to the second motif
 	    if (m/<column pos=\"(\d+)\"/){
 			$pos = $1;	
@@ -397,7 +395,7 @@ sub count_motifs{
 	open(MOTIF,"<$motif_dir/$motif") || die "Could not open $motif file\n";
 
 	while(<MOTIF>){
-		($motif_count++) if (m/<name>motif(\d+)<\/name>/);		
+		($motif_count++) if (m/<name>.*<\/name>/);		
 	}
 	close(MOTIF) || die "Couldn't close $motif\n";	
 	
