@@ -57,7 +57,7 @@ $print_count = 0 if (!$print_count);
 if($moredeath){
 	print "Using -moredeath, mortality rate will autoincrement each generation\n";
 	$cycles = 100;
-	$mortality = 0;
+	$mortality = 0.25;
 }
 
 die "Please specify a file with IME intron sequences in with -ime_data option\n" if (!$ime_data);
@@ -118,6 +118,9 @@ for(my $i = 0; $i < $cycles; $i++){
 	&recombine;	
 }
 
+# Final scoring cycle
+print "-- Scoring Motifs --\n" if ($verbose);
+&score_motifs($cycles);
 exit(0);
 
 
@@ -145,10 +148,10 @@ sub generate_motifs{
 
 			# set random frequencies for each base (they must sum to 1.0)
 			# all frequencies calculated to 5 dp
-			my $a = sprintf("%.5f",rand(1));
-			my $c = sprintf("%.5f",rand(1) * (1 - $a));
-			my $g = sprintf("%.5f",rand(1) * (1 - $a - $c));
-			my $t = sprintf("%.5f",1 - $a - $c -$g);
+			my $a = sprintf("%.4f",rand(1));
+			my $c = sprintf("%.4f",rand(1) * (1 - $a));
+			my $g = sprintf("%.4f",rand(1) * (1 - $a - $c));
+			my $t = sprintf("%.4f",1 - $a - $c -$g);
 
 			# Remove minus signs should they appear (-0.0000 will sometimes appear)
 			($a =~ s/-//) if ($a =~ m/-/);
@@ -275,7 +278,7 @@ sub score_motifs{
 					my $expected_base_frequency = $expected{$base};
 					
 					# should observed frequencies go below 0 or above 1 then we cheat
-					($motif_base_frequency = 0.00001)  if ($motif_base_frequency <= 0);
+					($motif_base_frequency = 0.0001)   if ($motif_base_frequency <= 0);
 					($motif_base_frequency = 1)        if ($motif_base_frequency >1);
 
 					my $log = log($motif_base_frequency/$expected_base_frequency);
@@ -295,7 +298,7 @@ sub score_motifs{
 		my $count_r2 = &r2(\@expression_scores,\@counts);
 		if($count_r2 > $r2_max){
 			$r2_max = $count_r2;
-			print "\n* New r2 max: motif $i = $r2_max, length $motif_length\n";
+			print "\n* New r2 max: motif $print_count = $r2_max, length $motif_length\n";
 			
 			# print out motif if score is above $limit
 			if($r2_max > $limit){
@@ -321,9 +324,10 @@ sub death{
 	%survivors = ();
 	
 	# mortality rate must increase if using -moredeath mode
-	# but make sure that it stops at 0.99
-	$mortality += 0.01 if ($moredeath && $mortality != 0.99);
-	print "\nMortality rate = $mortality\n\n" if ($moredeath);
+	# but make sure that it stops at 0.95
+	$mortality += 0.01 if ($moredeath && ($mortality != 0.95));
+	my $formatted = sprintf("%.2f",$mortality);
+	print "\nMortality rate = $formatted\n\n" if ($moredeath);
 	
 	# sort the r2 values and take the best proportion (as defined by using the $mortality factor)
 	# first calculate the max number of motifs to keep.
@@ -379,22 +383,8 @@ sub mutate{
 		
 		# 20% motifs (not including survivors) acquire very small mutations (0.0001% change in nt frequencies)
 		# loop through each position in motif
-
+		
 		if($rand <=0.20){
-				for (my $j = 0; $j < $motif_length; $j++){
-				# send base frequencies to change_bases subroutine. The first value will specify what the extent
-				# of any mutation will be
-				my @new_base_freqs = &change_bases('0.00001',$motifs[$i][$j]{"A"},$motifs[$i][$j]{"C"},$motifs[$i][$j]{"G"},$motifs[$i][$j]{"T"});
-				$motifs[$i][$j]{"A"} = $new_base_freqs[0];
-				$motifs[$i][$j]{"C"} = $new_base_freqs[1];
-				$motifs[$i][$j]{"G"} = $new_base_freqs[2];
-				$motifs[$i][$j]{"T"} = $new_base_freqs[3];
-			}
-		}
-		# Another 20% motifs (not including survivors) acquire small mutations (0.0001% change in nt frequencies)
-		# loop through each position in motif
-
-		elsif($rand <=0.4){
 				for (my $j = 0; $j < $motif_length; $j++){
 				# send base frequencies to change_bases subroutine. The first value will specify what the extent
 				# of any mutation will be
@@ -406,7 +396,7 @@ sub mutate{
 			}
 		}		
 		# Another 20% of motifs acquire additional medium mutations (0.001% change in nt frequencies)
-		elsif($rand <=0.6){
+		elsif($rand <=0.4){
 			# loop through each position in motif
 			for (my $j = 0; $j < $motif_length; $j++){
 				# send base frequencies to change_bases subroutine. The first value will specify what the extent
@@ -419,7 +409,7 @@ sub mutate{
 			}
 		}
 		# Another 20% of motifs acquire major mutations (0.01% change in nt frequencies)
-		elsif($rand <=0.8){			
+		elsif($rand <=0.6){			
 			# loop through each position in motif
 			for (my $j = 0; $j < $motif_length; $j++){
 				# send base frequencies to change_bases subroutine. The first value will specify what the extent
@@ -432,8 +422,8 @@ sub mutate{
 				$motifs[$i][$j]{"T"} = $new_base_freqs[3];
 			}
 		}
-		# Another 10% of motifs acquire very major mutations (0.1% change in nt frequencies)
-		elsif($rand <=0.9){			
+		# Another 20% of motifs acquire very major mutations (0.1% change in nt frequencies)
+		elsif($rand <=0.8){			
 			# loop through each position in motif
 			for (my $j = 0; $j < $motif_length; $j++){
 				# send base frequencies to change_bases subroutine. The first value will specify what the extent
@@ -446,7 +436,7 @@ sub mutate{
 				$motifs[$i][$j]{"T"} = $new_base_freqs[3];
 			}
 		}
-		# This means 10% of motifs shouldn't have mutations, but these still have a chance to grow, shrink or recombine
+		# This means 20% of motifs shouldn't have mutations, but these still have a chance to grow, shrink or recombine
 	}	
 }
 ##############################################################################################
@@ -489,13 +479,13 @@ sub change_bases{
 
 		# if this is 4th base then frequency is already decided (all bases must sum to 1)
 		if($base_count == 4){
-			($bases{$key} = sprintf("%.5f",1 - $bases{'C'} - $bases{'G'} - $bases{'T'})) if ($key eq 'A');
-			($bases{$key} = sprintf("%.5f",1 - $bases{'A'} - $bases{'G'} - $bases{'T'})) if ($key eq 'C');
-			($bases{$key} = sprintf("%.5f",1 - $bases{'A'} - $bases{'C'} - $bases{'T'})) if ($key eq 'G');
-			($bases{$key} = sprintf("%.5f",1 - $bases{'A'} - $bases{'C'} - $bases{'G'})) if ($key eq 'T');
+			($bases{$key} = sprintf("%.4f",1 - $bases{'C'} - $bases{'G'} - $bases{'T'})) if ($key eq 'A');
+			($bases{$key} = sprintf("%.4f",1 - $bases{'A'} - $bases{'G'} - $bases{'T'})) if ($key eq 'C');
+			($bases{$key} = sprintf("%.4f",1 - $bases{'A'} - $bases{'C'} - $bases{'T'})) if ($key eq 'G');
+			($bases{$key} = sprintf("%.4f",1 - $bases{'A'} - $bases{'C'} - $bases{'G'})) if ($key eq 'T');
 
 			# occasionally need to remove the negative sign for -0.00000 values
-			($bases{$key} = "0.00000") if ($bases{$key} eq "-0.00000");
+			($bases{$key} = "0.0000") if ($bases{$key} eq "-0.0000");
 		#	$sum = $bases{'A'} + $bases{'C'} +  $bases{'G'} + $bases{'T'};
 		#	print "$base_count) $key   A = $bases{'A'}\tC = $bases{'C'}\tG = $bases{'G'}\tT = $bases{'T'}\tSUM = $sum\n\n";
 
@@ -514,10 +504,10 @@ sub change_bases{
 		if($direction eq "plus"){
 			$mutations{$key} = "+";
 			if (($bases{$key} + $mutagenicity + $running_total) >1){
-				$bases{$key} = sprintf("%.5f",1 - $running_total);
+				$bases{$key} = sprintf("%.4f",1 - $running_total);
 			}
 			else{
-				$bases{$key} = sprintf("%.5f",$bases{$key} + $mutagenicity)	;				
+				$bases{$key} = sprintf("%.4f",$bases{$key} + $mutagenicity)	;				
 			}
 			$running_total += $bases{$key};
 		}
@@ -527,9 +517,9 @@ sub change_bases{
 				$bases{$key} = 0;
 			}
 			else{
-				$bases{$key} = sprintf("%.5f",$bases{$key} - $mutagenicity);				
+				$bases{$key} = sprintf("%.4f",$bases{$key} - $mutagenicity);				
 				# have to scale back if we have exceeded 1
-				($bases{$key} = sprintf("%.5f",1 - $running_total)) if ($bases{$key} + $running_total > 1);
+				($bases{$key} = sprintf("%.4f",1 - $running_total)) if ($bases{$key} + $running_total > 1);
 			}
 			$running_total += $bases{$key};
 			
@@ -537,7 +527,7 @@ sub change_bases{
 		else{
 			$mutations{$key} = "=";
 			# have to scale back if we have exceeded 1
-			($bases{$key} = sprintf("%.5f",1 - $running_total)) if ($bases{$key} + $running_total > 1);
+			($bases{$key} = sprintf("%.4f",1 - $running_total)) if ($bases{$key} + $running_total > 1);
 			$running_total += $bases{$key};
 		}
 		
@@ -601,10 +591,10 @@ sub grow_and_shrink{
 			}
 			
 			# Now set random frequencies for new base (they must sum to 1.0) at position $rand
-			my $a = sprintf("%.5f",rand(1));
-			my $c = sprintf("%.5f",rand(1) * (1 - $a));
-			my $g = sprintf("%.5f",rand(1) * (1 - $a - $c));
-			my $t = sprintf("%.5f",1 - $a - $c -$g);
+			my $a = sprintf("%.4f",rand(1));
+			my $c = sprintf("%.4f",rand(1) * (1 - $a));
+			my $g = sprintf("%.4f",rand(1) * (1 - $a - $c));
+			my $t = sprintf("%.4f",1 - $a - $c -$g);
 
 			$motifs[$i][$rand]{"A"} = $a;
 			$motifs[$i][$rand]{"C"} = $c;
@@ -612,7 +602,7 @@ sub grow_and_shrink{
 			$motifs[$i][$rand]{"T"} = $t;					
 		}
 		# A different 15% of motifs will lose a base
-		elsif($rand <=0.3){
+		elsif($rand <=0.3 && $motif_length >1){
 			
 			# choose random position to remove
 			$rand = int(rand($motif_length));
@@ -713,10 +703,10 @@ sub print_motif{
 	print OUT "    <weightmatrix alphabet=\"DNA\" columns=\"$length\">\n";
 	
 	for (my $k =0; $k<$length;$k++){
-		my $a = sprintf("%.6f",$motifs[$i][$k]{'A'});
-		my $c = sprintf("%.6f",$motifs[$i][$k]{'C'});
-		my $g = sprintf("%.6f",$motifs[$i][$k]{'G'});
-		my $t = sprintf("%.6f",$motifs[$i][$k]{'T'});
+		my $a = sprintf("%.5f",$motifs[$i][$k]{'A'});
+		my $c = sprintf("%.5f",$motifs[$i][$k]{'C'});
+		my $g = sprintf("%.5f",$motifs[$i][$k]{'G'});
+		my $t = sprintf("%.5f",$motifs[$i][$k]{'T'});
 	
 		print OUT "      <column pos=\"$k\">\n";
 		print OUT "        <weight symbol=\"adenine\">$a</weight>\n";
