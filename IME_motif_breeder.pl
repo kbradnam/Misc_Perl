@@ -699,7 +699,7 @@ sub print_motif{
 	print OUT "    <value>$date</value>\n";
 	print OUT "  </prop>\n";
 	print OUT "  <motif>\n";
-	print OUT "    <name>IME Breeder $print_count</name>\n";
+	print OUT "    <name>IME_Breeder_${print_count}</name>\n";
 	print OUT "    <weightmatrix alphabet=\"DNA\" columns=\"$length\">\n";
 	
 	for (my $k =0; $k<$length;$k++){
