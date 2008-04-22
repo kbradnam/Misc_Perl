@@ -188,7 +188,7 @@ elsif($species =~ m/ptc/i){
 	%expected = ("a" => "0.2816","c" => "0.2039", "g" => "0.2437","t" => "0.2708");
 }
 elsif($species =~ m/ptt/i){
-	# from 7,089 high confidence poplar transcrips (v1.1 annotations)
+	# from 7,089 high confidence poplar transcripts (v1.1 annotations)
 	%expected = ("a" => "0.2803","c" => "0.1754", "g" => "0.1996","t" => "0.3447");
 }
 elsif($species =~ m/^vvi$/i){
@@ -212,8 +212,32 @@ elsif($species =~ m/vvc/i){
 	%expected = ("a" => "0.2754","c" => "0.2098", "g" => "0.2484","t" => "0.2464");
 }
 elsif($species =~ m/vvt/i){
-	# from 5,077 high confidence poplar transcrips 
+	# from 5,077 high confidence poplar transcripts 
 	%expected = ("a" => "0.2910","c" => "0.1740", "g" => "0.1935","t" => "0.3416");
+}	
+elsif($species =~ m/^cri$/i){
+	# from 21,979 high confidence introns
+	%expected = ("a" => "0.1774","c" => "0.2968", "g" => "0.3261","t" => "0.1997");
+}
+elsif($species =~ m/cr5u/i){
+	# from 4,636 high confidence 5' UTRs 
+	%expected = ("a" => "0.2288","c" => "0.2869", "g" => "0.2591","t" => "0.2252");
+}
+elsif($species =~ m/cr3u/i){
+	# from 4,430 high confidence 3' UTRs 
+	%expected = ("a" => "0.1979","c" => "0.2393", "g" => "0.3451","t" => "0.2178");
+}
+elsif($species =~ m/crg/i){
+	# from 1,266 genome sequences 
+	%expected = ("a" => "0.1802","c" => "0.3198", "g" => "0.3198","t" => "0.1802");
+}
+elsif($species =~ m/crc/i){
+	# from 25,286 high confidence CDS exons 
+	%expected = ("a" => "0.1812","c" => "0.3212", "g" => "0.3361","t" => "0.1615");
+}
+elsif($species =~ m/crt/i){
+	# from 4,131 high confidence poplar transcripts 
+	%expected = ("a" => "0.1878","c" => "0.2982", "g" => "0.3211","t" => "0.1929");
 }
 else{
 	die "\'$species\' is not a valid species code.\n";
@@ -469,6 +493,12 @@ sub pre_flight_checks{
 		print "Vv5U - Vitis vinifera 5' UTR (exons)\n";
 		print "Vv3U - Vitis vinifera 3' UTR (exons)\n";
 		print "VvT - Vitis vinifera primary transcripts (unspliced)\n";
+		print "CrI  - Chlamydomonas reinhardtii introns\n";
+		print "CrG  - Chlamydomonas reinhardtii genomic\n";
+		print "CrC  - Chlamydomonas reinhardtii CDSs\n";
+		print "Cr5U - Chlamydomonas reinhardtii 5' UTR (exons)\n";
+		print "Cr3U - Chlamydomonas reinhardtii 3' UTR (exons)\n";
+		print "CrT - Chlamydomonas reinhardtii primary transcripts (unspliced)\n";
 		print "DmI - Drosophila melanogaster introns\n\n";
 		die "Choose one option only.\n\n";
 	}
