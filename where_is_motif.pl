@@ -156,7 +156,7 @@ elsif($species =~ m/osc/i){
 	%expected = ("a" => "0.2421","c" => "0.2559", "g" => "0.2774","t" => "0.2245");
 }
 elsif($species =~ m/ost/i){
-	# from 13,201 high confidence japonica transcrips (TIGR 5.0 annotations)
+	# from 13,201 high confidence japonica transcripts (TIGR 5.0 annotations)
 	%expected = ("a" => "0.2624","c" => "0.2125", "g" => "0.2208","t" => "0.3043");
 }
 elsif($species =~ m/osig/i){
@@ -164,8 +164,8 @@ elsif($species =~ m/osig/i){
 	%expected = ("a" => "0.2927","c" => "0.2073", "g" => "0.2074","t" => "0.2926");
 }
 elsif($species =~ m/osu/i){
-	# from 66,710 japonica 1 kbp upstream regions - includes 5' UTR (TIGR 5.0 annotations)
-	%expected = ("a" => "0.2746","c" => "0.2268", "g" => "0.2179","t" => "0.2807");
+	# from 13,201 japonica 1 kbp upstream regions
+	%expected = ("a" => "0.2960","c" => "0.2159", "g" => "0.2020","t" => "0.2861");
 }
 elsif($species =~ m/^pti$/i){
 	# from 26,415 high confidence introns (v1.1 annotations)
@@ -180,7 +180,7 @@ elsif($species =~ m/pt3u/i){
 	%expected = ("a" => "0.2754","c" => "0.1658", "g" => "0.1974","t" => "0.3614");
 }
 elsif($species =~ m/ptg/i){
-	# from 22,012  genome sequences (v1.0)
+	# from 22,012 genome sequences (v1.0)
 	%expected = ("a" => "0.3316","c" => "0.1687", "g" => "0.1685","t" => "0.3311");
 }
 elsif($species =~ m/ptc/i){
@@ -190,6 +190,10 @@ elsif($species =~ m/ptc/i){
 elsif($species =~ m/ptt/i){
 	# from 7,089 high confidence poplar transcripts (v1.1 annotations)
 	%expected = ("a" => "0.2803","c" => "0.1754", "g" => "0.1996","t" => "0.3447");
+}
+elsif($species =~ m/ptu/i){
+	# from 7,089 1 kbp upstream sequences
+	%expected = ("a" => "0.3473","c" => "0.1590", "g" => "0.1480","t" => "0.3456");
 }
 elsif($species =~ m/^vvi$/i){
 	# from 23,091 high confidence introns
@@ -215,12 +219,16 @@ elsif($species =~ m/vvt/i){
 	# from 5,077 high confidence poplar transcripts 
 	%expected = ("a" => "0.2910","c" => "0.1740", "g" => "0.1935","t" => "0.3416");
 }	
+elsif($species =~ m/vvu/i){
+	# from 5,0877 1 kbp upstream sequences
+	%expected = ("a" => "0.3488","c" => "0.1513", "g" => "0.1506","t" => "0.3492");
+}
 elsif($species =~ m/^cri$/i){
 	# from 21,979 high confidence introns
 	%expected = ("a" => "0.1774","c" => "0.2968", "g" => "0.3261","t" => "0.1997");
 }
 elsif($species =~ m/cru/i){
-	# from 4,131,000 bp upstream sequences
+	# from 4,131 1 kbp upstream sequences
 	%expected = ("a" => "0.1948","c" => "0.2934", "g" => "0.3142","t" => "0.1976");
 }
 elsif($species =~ m/cr5u/i){
@@ -484,25 +492,28 @@ sub pre_flight_checks{
 		print "Os5U - Oryza sativa (japonica) 5' UTR (exons)\n";
 		print "Os3U - Oryza sativa (japonica) 3' UTR (exons)\n";
 		print "OsT - Oryza sativa (japonica) primary transcripts (unspliced)\n";
-		print "OsT - Oryza sativa (japonica) upstream regions (1 kbp including 5'UTR)\n";
+		print "OsU - Oryza sativa (japonica) upstream regions (1 kbp)\n";
 		print "PtI  - Populus trichocarpa introns (v1.1 annotations)\n";
 		print "PtG  - Populus trichocarpa genomic (v1.0 sequence)\n";
 		print "PtC  - Populus trichocarpa CDSs\n";
 		print "Pt5U - Populus trichocarpa 5' UTR (exons)\n";
 		print "Pt3U - Populus trichocarpa 3' UTR (exons)\n";
 		print "PtT - Populus trichocarpa primary transcripts (unspliced)\n";
+		print "PtU - Populus trichocarpa upstream regions (1 kbp)\n";
 		print "VvI  - Vitis vinifera introns\n";
 		print "VvG  - Vitis vinifera genomic\n";
 		print "VvC  - Vitis vinifera CDSs\n";
 		print "Vv5U - Vitis vinifera 5' UTR (exons)\n";
 		print "Vv3U - Vitis vinifera 3' UTR (exons)\n";
 		print "VvT - Vitis vinifera primary transcripts (unspliced)\n";
+		print "VvU - Vitis vinifera upstream regions (1 kbp)\n";
 		print "CrI  - Chlamydomonas reinhardtii introns\n";
 		print "CrG  - Chlamydomonas reinhardtii genomic\n";
 		print "CrC  - Chlamydomonas reinhardtii CDSs\n";
 		print "Cr5U - Chlamydomonas reinhardtii 5' UTR (exons)\n";
 		print "Cr3U - Chlamydomonas reinhardtii 3' UTR (exons)\n";
 		print "CrT - Chlamydomonas reinhardtii primary transcripts (unspliced)\n";
+		print "CrU - Chlamydomonas reinhardtii upstream regions (1 kbp)\n";
 		print "DmI - Drosophila melanogaster introns\n\n";
 		die "Choose one option only.\n\n";
 	}
