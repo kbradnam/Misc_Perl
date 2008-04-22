@@ -139,9 +139,8 @@ print "3UTR count,3UTR bases in motif,Total 3UTR bases,%motif in 3UTR region\n";
 # First deal with upstream sequence output (if present)
 if($upstream){
 	foreach my $key (sort {$a <=> $b}(keys %upstream2seqs)){
-		# different start points depending on species
-		($start = $key-3001) if ($species =~ m/at/i);
-		($start = $key-1001) if ($species =~ m/os/i);
+
+		($start = $key-1001);
 		$end = $start + $window -1;
 		print "$start,$end,$upstream2count{$key},";
 		open(OUT,">/tmp/ime_seq") || die "Can't write to output file\n";
