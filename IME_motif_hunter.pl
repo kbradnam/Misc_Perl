@@ -279,17 +279,8 @@ sub process_sequence{
 		my $length = length($seq);
 		my $header = $entry->def;
 		
-		# will treat upstream regions completely differently, for simplicity just deal
-		# with upstream regions of forward strand genes	(in Arabidopsis)	
-		if(($type eq "upstream") && ($species =~ m/at/i) && ($header =~ m/FORWARD/)){
-			$counter++;
-			my $tmp = substr($seq,$win_start-1,$window);
-			$new_seq .= "$tmp";
-		}
-		# also have to capture rice upstream regions
-		elsif(($type eq "upstream") && ($species =~ m/os/i)){
-			# skip the one pesky rice sequence which is not 1,000 bp
-			next if ($length < 1000);
+		# will treat upstream regions somewhat differently to other types of region
+		if($type eq "upstream"){
 			$counter++;
 			my $tmp = substr($seq,$win_start-1,$window);
 			$new_seq .= "$tmp";
