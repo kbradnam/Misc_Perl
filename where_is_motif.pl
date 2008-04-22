@@ -219,6 +219,10 @@ elsif($species =~ m/^cri$/i){
 	# from 21,979 high confidence introns
 	%expected = ("a" => "0.1774","c" => "0.2968", "g" => "0.3261","t" => "0.1997");
 }
+elsif($species =~ m/cru/i){
+	# from 4,131,000 bp upstream sequences
+	%expected = ("a" => "0.1948","c" => "0.2934", "g" => "0.3142","t" => "0.1976");
+}
 elsif($species =~ m/cr5u/i){
 	# from 4,636 high confidence 5' UTRs 
 	%expected = ("a" => "0.2288","c" => "0.2869", "g" => "0.2591","t" => "0.2252");
