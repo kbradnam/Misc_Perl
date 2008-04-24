@@ -29,6 +29,7 @@ my $mdensity;	# count (and show) amount and percentage of motif in each sequence
 my $mseqs;		# just show sequences of each intron that have motifs above threshold (one sequence per intron)
 my $mask;		# show all intron sequences (regardless of whether they have motifs) and mask out motif with -'s
 my $msummary;	# show motif count and percentage for all sequences combined
+my $mcount;     # just show count of motifs above threshold in each sequence
 
 my $stats;      # report stats on all log likelihood scores found
 my $min;        # Set minimum cut off for use with -stats option
@@ -45,6 +46,7 @@ GetOptions ("motif=s"    => \$motif,
 		   "mseqs"		 => \$mseqs,
 		   "mask"		 => \$mask,
 		   "msummary"    => \$msummary,
+		   "mcount"		 => \$mcount,
 		   "stats"       => \$stats,
 	       "min=f"       => \$min,
 	       "max=f"       => \$max,
@@ -299,14 +301,19 @@ open(TARGET,"<$target") || die "Couldn't open $target file\n";
 
 my $fasta = new FAlite(\*TARGET);
 
-# keep track of total length of sequence in each file and total length of motif, 
-# total number of motifs and total number of sequences
-my ($total_seq_length,$total_motif_length,$seq_count,$total_motif_count);
+# keep track of:
+# 1) total length of sequence in each file 
+# 2) total length of motifs in each sequence 
+# 3) number of sequences in input file
+# 4) count of motifs in each sequence
+# 5) total number of motifs in all sequences
+
+my ($total_seq_length,$total_motif_length,$seq_count,$seq_motif_count,$total_motif_count);
 
 # loop through each sequence in target file
 while(my $entry = $fasta->nextEntry) {
 	$seq_count++;
-	
+	$seq_motif_count = 0;
 	# get and trim header
 	my $header = $entry->def;
     $header =~ s/ .*//;
@@ -345,8 +352,9 @@ while(my $entry = $fasta->nextEntry) {
 			# note that we are above the threshold
 			$above_threshold = 1;
 			
-			# count motif
+			# count motifs
 			$total_motif_count++;
+			$seq_motif_count++;
 			
 			# and mask the motif out of $masked_seq
 			substr($masked_seq,$i,$motif_length) = ("-" x $motif_length);
@@ -370,6 +378,7 @@ while(my $entry = $fasta->nextEntry) {
 	$total_motif_length += $motif_count;
 	my $percent_motif = sprintf("%.3f",($motif_count / $length) * 100);
 	print "$header motif_density: $motif_count/$length $percent_motif%\n" if ($mdensity);
+	print "$header motif_count: $seq_motif_count\n" if ($mcount);
 	
 	# print out intron sequence if -mseqs specified 
 	# if -mask is specified, will return all intron sequences, with just motifs masked out
@@ -519,16 +528,20 @@ sub pre_flight_checks{
 	}
 
 	# have we chosen an option to print some output?
-	if (!$seqs && !$stats && !$scores && !$mdensity && !$msummary && !$mseqs){
-		die "You have to choose at least one of the following options:\n-stats, -seqs, -scores, -mdensity, -msummary, -mseqs\n";	
+	if (!$seqs && !$stats && !$scores && !$mdensity && !$msummary && !$mseqs && !$mcount){
+		die "You have to choose at least one of the following options:\n-stats, -seqs, -scores, -mdensity, -msummary, -mseqs, -mcount\n";	
 	}
-	# can't choose mdensity with other options
+	# can't choose mdensity with certain other options
 	if($mdensity && ($seqs || $stats || $mseqs)){
 		die "Don't choose -mdensity with -seqs or -scores or -mseqs\n";	
 	}  
+	# can't choose mdensity with certain other options
+	if($mcount && ($seqs || $stats || $mseqs)){
+		die "Don't choose -mcount with -seqs or -scores or -mseqs\n";	
+	}
 	# can't choose mseqs with other options
-	if($mseqs && ($seqs || $stats || $mdensity)){
-		die "Don't choose -mseqs with -seqs or -scores or -mdensity\n";	
+	if($mseqs && ($seqs || $stats || $mdensity || $mcount)){
+		die "Don't choose -mseqs with -seqs or -scores or -mdensity or -mcount\n";	
 	}  	
 	# don't specify a threshold if using -stats
 	if($threshold && $stats){
