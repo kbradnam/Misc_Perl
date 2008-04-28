@@ -8,11 +8,13 @@ use Getopt::Long;
 # Command line options
 ########################
 
-my $local;      # ignore hits from local network (128.120.136.* unless -local specified)
-my $images;     # ignore image files unless -images specified
+my $local;      # option to *NOT* ignore hits from local network (128.120.136.* unless -local specified)
+my $images;     # option to *NOT* ignore image files unless -images specified
+my $forums;     # ignore to *NOT* hits to the discussion forums
 
 GetOptions ("local"  => \$local,
-			"images" => \$images);
+			"images" => \$images,
+			"forums" => \$forums);
 
 open(LOG,"/var/log/apache2/access_log") || die "could not open log file\n";
 
@@ -32,13 +34,23 @@ while(my $temp=<LOG>){
 	# ignore hits from server console
 	next if ($temp =~ m/^::1/);
 
+	# ignore favicons
+	next if ($temp =~ m/favicon\.ico /);
+	
+	# ignore style sheets
+	next if ($temp =~ m/\.css /);
+
 	# ignore hits from genome center network
 	unless($local){
 		next if ($temp =~/128\.120\.136/);
 	}
 	
 	unless($images){
-		next if ($temp =~ m/(\.gif|\.jpg|\.jpeg)/i);
+		next if ($temp =~ m/(\.gif|\.jpg|\.jpeg|\.png)/i);
+	}
+
+	unless($forums){
+		next if ($temp =~ m/\/Forums\//i);
 	}
 
 	# tidy up some URLs
