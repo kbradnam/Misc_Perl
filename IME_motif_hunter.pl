@@ -49,7 +49,7 @@ GetOptions ("window=i"     => \$window,
 			"five_utr=s"   => \$five_utr,
 			"three_utr=s"  => \$three_utr,
 			"transcript=s" => \$transcript,
-			"threshold=i"  => \$threshold,
+			"threshold=f"  => \$threshold,
 			"species=s"    => \$species);
 
 
