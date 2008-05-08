@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 #
 # genbank_info_dump.pl
 #
@@ -16,6 +16,7 @@
 
 
 use strict;
+use warnings;
 use Cwd;
 use Getopt::Long;
 use List::Util qw(sum);
@@ -25,8 +26,11 @@ use List::Util qw(sum);
 ########################
 my $release;   	# which release of genbank to query against?  Specify an integer
 my $test; 		# simple test mode which just uses files in current working directory
-GetOptions("release=i"=> \$release,
-			"test"    => \$test);
+my $zip;		# for when working with compressed files
+
+GetOptions("release=i" => \$release,
+			"test"     => \$test,
+			"zip"      => \$zip);
 
 die "Must use -release option to specify a GenBank release number to query against\n" if (!defined($release) && !$test);
 
@@ -42,17 +46,30 @@ $path = getcwd if ($test);
 die "$path directory does not exist.\n" if (! -e "$path");
 
 # have list of all GenBank files that we will be interested in (invertebrates, mammals, plants,
-# primates, rodents, and vertebrates
-my @inv = glob("$path/gbinv*.seq");
-my @mam = glob("$path/gbmam*.seq");
-my @pln = glob("$path/gbpln*.seq");
-my @pri = glob("$path/gbpri*.seq");
-my @rod = glob("$path/gbrod*.seq");
-my @vrt = glob("$path/gbvrt*.seq");
-my @htg = glob("$path/gbhtg*.seq");
+# primates, rodents, and vertebrates, plus Whole Genome Shotgun files)
+my (@inv,@mam,@pln,@pri,@rod,@vrt,@htg,@wgs);
 
-# get list of wgs files not kept in standard division files
-my @wgs = glob("${path}/wgs/wgs.*.gbff");
+# actual file name will depend on whether we are working with zipped files or not
+if($zip){
+	@inv = glob("$path/gbinv*.seq.gz");
+	@mam = glob("$path/gbmam*.seq.gz");
+	@pln = glob("$path/gbpln*.seq.gz");
+	@pri = glob("$path/gbpri*.seq.gz");
+	@rod = glob("$path/gbrod*.seq.gz");
+	@vrt = glob("$path/gbvrt*.seq.gz");
+	@htg = glob("$path/gbhtg*.seq.gz");
+	@wgs = glob("${path}/wgs/wgs.*.gbff.gz");
+}
+else{
+	@inv = glob("$path/gbinv*.seq");
+	@mam = glob("$path/gbmam*.seq");
+	@pln = glob("$path/gbpln*.seq");
+	@pri = glob("$path/gbpri*.seq");
+	@rod = glob("$path/gbrod*.seq");
+	@vrt = glob("$path/gbvrt*.seq");
+	@htg = glob("$path/gbhtg*.seq");	
+	@wgs = glob("${path}/wgs/wgs.*.gbff");
+}
 
 # combine everything together
 my @files = (@inv,@mam,@pln,@pri,@rod,@vrt,@htg,@wgs);
@@ -106,8 +123,13 @@ $/ = "\n//\n";
 while (my $file = shift(@files)){
 
     print "Processing $file\n";
-    open (FILE,"<$file") || die "Can't open $file\n"; 
-    
+	if($zip){
+		open(FILE, "gunzip -c $file |") || die "Can't open $file\n";
+	}
+	else{
+		open(FILE,"<$file") || die "Can't open $file\n"; 	
+	} 
+	    
     ENTRY: while (<FILE>) {
 	
 		# count entry & reset CDS counter
