@@ -25,25 +25,21 @@ use List::Util qw(sum);
 # Command line options
 ########################
 my $release;   	# which release of genbank to query against?  Specify an integer
-my $test; 		# simple test mode which just uses files in current working directory
 my $zip;		# for when working with compressed files
+my $dir;		# path to genbank directory
 
 GetOptions("release=i" => \$release,
-			"test"     => \$test,
-			"zip"      => \$zip);
+			"zip"      => \$zip,
+			"dir"      => \$dir);
 
-die "Must use -release option to specify a GenBank release number to query against\n" if (!defined($release) && !$test);
+die "Must use -release option to specify a GenBank release number to query against\n" if (!defined($release));
+die "Must use -dir option to specify a path to a valid genbank directory\n" if (!defined($dir));
 
 ################
 # Paths etc.
 ################
 
-# specify path (which changes if in test mode)
-my $path;
-$path = "/Volumes/genbank/${release}" if ($release);
-$path = getcwd if ($test);
-
-die "$path directory does not exist.\n" if (! -e "$path");
+die "$dir directory does not exist.\n" if (! -e "$dir");
 
 # have list of all GenBank files that we will be interested in (invertebrates, mammals, plants,
 # primates, rodents, and vertebrates, plus Whole Genome Shotgun files)
@@ -51,30 +47,30 @@ my (@inv,@mam,@pln,@pri,@rod,@vrt,@htg,@wgs);
 
 # actual file name will depend on whether we are working with zipped files or not
 if($zip){
-	@inv = glob("$path/gbinv*.seq.gz");
-	@mam = glob("$path/gbmam*.seq.gz");
-	@pln = glob("$path/gbpln*.seq.gz");
-	@pri = glob("$path/gbpri*.seq.gz");
-	@rod = glob("$path/gbrod*.seq.gz");
-	@vrt = glob("$path/gbvrt*.seq.gz");
-	@htg = glob("$path/gbhtg*.seq.gz");
-	@wgs = glob("${path}/wgs/wgs.*.gbff.gz");
+	@inv = glob("$dir/gbinv*.seq.gz");
+	@mam = glob("$dir/gbmam*.seq.gz");
+	@pln = glob("$dir/gbpln*.seq.gz");
+	@pri = glob("$dir/gbpri*.seq.gz");
+	@rod = glob("$dir/gbrod*.seq.gz");
+	@vrt = glob("$dir/gbvrt*.seq.gz");
+	@htg = glob("$dir/gbhtg*.seq.gz");
+	@wgs = glob("${dir}/wgs/wgs.*.gbff.gz");
 }
 else{
-	@inv = glob("$path/gbinv*.seq");
-	@mam = glob("$path/gbmam*.seq");
-	@pln = glob("$path/gbpln*.seq");
-	@pri = glob("$path/gbpri*.seq");
-	@rod = glob("$path/gbrod*.seq");
-	@vrt = glob("$path/gbvrt*.seq");
-	@htg = glob("$path/gbhtg*.seq");	
-	@wgs = glob("${path}/wgs/wgs.*.gbff");
+	@inv = glob("$dir/gbinv*.seq");
+	@mam = glob("$dir/gbmam*.seq");
+	@pln = glob("$dir/gbpln*.seq");
+	@pri = glob("$dir/gbpri*.seq");
+	@rod = glob("$dir/gbrod*.seq");
+	@vrt = glob("$dir/gbvrt*.seq");
+	@htg = glob("$dir/gbhtg*.seq");	
+	@wgs = glob("${dir}/wgs/wgs.*.gbff");
 }
 
 # combine everything together
 my @files = (@inv,@mam,@pln,@pri,@rod,@vrt,@htg,@wgs);
 	 
-die "No *.seq files found in $path\n" if (@files == 0);    
+die "No *.seq files found in $dir\n" if (@files == 0);    
 	
 ########################
 # misc variables
@@ -124,10 +120,10 @@ while (my $file = shift(@files)){
 
     print "Processing $file\n";
 	if($zip){
-		open(FILE, "gunzip -c $file |") || die "Can't open $file\n";
+		open(FILE, "gunzip -c ${dir}/${file} |") || die "Can't open $file\n";
 	}
 	else{
-		open(FILE,"<$file") || die "Can't open $file\n"; 	
+		open(FILE,"<${dir}/${file}") || die "Can't open $file\n"; 	
 	} 
 	    
     ENTRY: while (<FILE>) {
