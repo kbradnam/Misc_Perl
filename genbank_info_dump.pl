@@ -120,10 +120,10 @@ while (my $file = shift(@files)){
 
     print "Processing $file\n";
 	if($zip){
-		open(FILE, "gunzip -c ${dir}/${file} |") || die "Can't open $file\n";
+		open(FILE, "gunzip -c $file |") || die "Can't open $file\n";
 	}
 	else{
-		open(FILE,"<${dir}/${file}") || die "Can't open $file\n"; 	
+		open(FILE,"<$file") || die "Can't open $file\n"; 	
 	} 
 	    
     ENTRY: while (<FILE>) {
