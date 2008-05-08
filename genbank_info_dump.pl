@@ -30,7 +30,7 @@ my $dir;		# path to genbank directory
 
 GetOptions("release=i" => \$release,
 			"zip"      => \$zip,
-			"dir"      => \$dir);
+			"dir=s"    => \$dir);
 
 die "Must use -release option to specify a GenBank release number to query against\n" if (!defined($release));
 die "Must use -dir option to specify a path to a valid genbank directory\n" if (!defined($dir));
