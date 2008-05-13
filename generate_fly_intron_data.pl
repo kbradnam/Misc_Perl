@@ -12,14 +12,24 @@
 use strict;
 use warnings;
 use FAlite;
-
+use Getopt::Long;
 
 ###################
 # Misc. variables
 ###################
  
-# store path to Drosophila chromosome files
-my $dir = "/Korflab/Genomes/Sequences/Drosophila_melanogaster/r5.4";
+# need to specify a path to Drosophila chromosome files plus a release number
+my $dna;
+my $gff;
+my $release;
+
+GetOptions ("dna=s"     => \$dna,
+			"gff=s"     => \$gff,
+			"release=f" => \$release);
+
+die "Use -dna option to specify data where Drosophila chromosome files are\n" if (!$dna);
+die "Use -gff option to specify data where Drosophila chromosome gff files are\n" if (!$gff);
+die "Use -release option to specify release number of Drosophila data, e.g. 5.7\n" if (!$release);
 
 my %transcript2start;   # transcript ID is key, transcript start coord is value
 my %transcript2strand;  # transcript ID is key, strand is the value 
@@ -34,7 +44,7 @@ my @chromosomes = qw (dmel_mitochondrion_genome 2RHet 2L X 3L XHet Uextra 4 YHet
 
 foreach my $chr (@chromosomes){
 
-	open (GFF, "<dmel-${chr}-r5.4.gff") || die "Failed to open $chr\n\n";
+	open (GFF, "<$gff/dmel-${chr}-r${release}.gff") || die "Failed to open $chr\n\n";
 
 	while(my $tmp =<GFF>){
 
@@ -111,7 +121,7 @@ foreach my $chr (@chromosomes){
 	# first empty hash
 	%transcript2introns = (); 
 	
-	open (GFF, "<dmel-${chr}-r5.4.gff") || die "Failed to open $chr file\n\n";
+	open (GFF, "<$gff/dmel-${chr}-r${release}.gff") || die "Failed to open $chr gff file\n\n";
 
 	while(my $tmp =<GFF>){
 
@@ -147,7 +157,7 @@ foreach my $chr (@chromosomes){
 
 	# now loop through chromosome sequences 
 	# read sequence to one variable
-	open (DNA, "<dmel-${chr}-chromosome-r5.4.fasta") || die "Failed to open $chr dna file\n\n";
+	open (DNA, "<$dna/dmel-${chr}-chromosome-r${release}.fasta") || die "Failed to open $chr dna file\n\n";
 	my $seq;
 	while(my $tmp =<DNA>){
 		chomp($tmp);
