@@ -253,6 +253,10 @@ elsif($species =~ m/crt/i){
 	# from 4,131 high confidence poplar transcripts 
 	%expected = ("a" => "0.1878","c" => "0.2982", "g" => "0.3211","t" => "0.1929");
 }
+elsif($species =~ m/scg/i){
+	# from 5,884 S. cerevisiae genes (including 1000 nt upstream and downstream plus introns) 
+	%expected = ("a" => "0.3192","c" => "0.1903", "g" => "0.1923","t" => "0.2982");
+}
 else{
 	die "\'$species\' is not a valid species code.\n";
 }
@@ -523,7 +527,8 @@ sub pre_flight_checks{
 		print "Cr3U - Chlamydomonas reinhardtii 3' UTR (exons)\n";
 		print "CrT - Chlamydomonas reinhardtii primary transcripts (unspliced)\n";
 		print "CrU - Chlamydomonas reinhardtii upstream regions (1 kbp)\n";
-		print "DmI - Drosophila melanogaster introns\n\n";
+		print "DmI - Drosophila melanogaster introns\n";
+		print "ScG - Saccharomyces cerevisiae genes (including 1,000 nt upstream and downstream)\n";
 		die "Choose one option only.\n\n";
 	}
 
