@@ -28,6 +28,10 @@ $chart = $ARGV[0] if ($ARGV[0]);
 my %ratings2counts; # rating is key, value is count
 
 
+# want to track most songs rated by any artist
+my $max_ratings = 0;
+
+
 # check which library to use and whether library exists
 &check_library;
 
@@ -50,7 +54,7 @@ while(<IN>){
 		$album = $1;
 	    $label = $album."@@@".$artist;
 		
-		# keep track of overal song count for artists and albums
+		# keep track of overall song count for artists and albums
 		$artists{$artist}[0]++;
 		$albums{$label}[0]++;
 
@@ -64,14 +68,12 @@ while(<IN>){
 		$artists{$artist}[2] ++;
 		$artists2average{$artist} = $artists{$artist}[1] / 	$artists{$artist}[2];
 	
+		$max_ratings = $artists{$artist}[2] if ($artists{$artist}[2] >$max_ratings);
 	
 		$albums{$label}[1] += $rating;
 		$albums{$label}[2] ++;
 		$albums2average{$label} = $albums{$label}[1] / $albums{$label}[2];
 
-		#if ($artist eq "Hem"){
-		#	print "\t$artists{$artist}[1] $artists{$artist}[2]\n";
-		#}
 
     }
 }
@@ -102,13 +104,13 @@ foreach my $key (sort {$albums2average{$b} <=> $albums2average{$a}} (keys(%album
 }
 
 
-
 # now do same thing for artists
 
 $counter=0;
 print "\n\nARTISTS\n";
 
 foreach my $key (sort {$artists2average{$b} <=> $artists2average{$a}} (keys(%artists2average))){
+
 
 	my $percent = $artists{$key}[1] / $artists{$key}[0];
 	if(($percent >=0.50) && ($artists{$key}[2] >10)){
@@ -119,6 +121,7 @@ foreach my $key (sort {$artists2average{$b} <=> $artists2average{$a}} (keys(%art
 	}
     last if ($counter == $chart);
 }
+
 
 
 # Finally, print counts of each rating
@@ -134,8 +137,8 @@ exit(0);
 
 sub check_library{
 	unless($library){
-		my $path = glob("/Volumes/Multimedia/iTunes");
-		$library = $path."/iTunes Library.xml";
+		my $path = glob("~/Music/iTunes");
+		$library = $path."/iTunes Music Library.xml";
 	}
 	if(-e $library){
 		print "Using library: $library\n";
