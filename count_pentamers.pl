@@ -92,10 +92,18 @@ open(OUT, ">pentamer_comparison.txt") or die;
 
 # now need to compare ratios of pentamer frequencies
 foreach my $key (sort keys %pentamer_counts){
+
+	# can only calculate ratio if there is the same pentamer in both files
+	next unless (defined($pentamer_counts{$key}[0]) && defined($pentamer_counts{$key}[1]));
+	
     my $freq1 = $pentamer_counts{$key}[0]/$pentamer_count1;
     my $freq2 = $pentamer_counts{$key}[1]/$pentamer_count2;
+	
+#	next if ($pentamer_counts{$key}[0] < 20);
+#	next if ($pentamer_counts{$key}[1] < 20);
+	
     my $ratio = $freq1/$freq2;
-#    print "$key $pentamer_counts{$key}[2] $pentamer_counts{$key}[3]\n";
+    #print "$key $pentamer_counts{$key}[2] $pentamer_counts{$key}[3]\n";
     print OUT "$key $pentamer_counts{$key}[0] $pentamer_counts{$key}[1] $freq1 $freq2 $ratio\n";
 }
 
