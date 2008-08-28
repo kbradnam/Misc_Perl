@@ -137,6 +137,9 @@ elsif($species =~ m/atd/i){
 elsif($species =~ m/^dmi$/i){
 	%expected = ("a" => "0.2942","c" => "0.2040", "g" => "0.1979","t" => "0.3040");
 }
+elsif($species =~ m/^hs5u$/i){
+	%expected = ("a" => "0.2134","c" => "0.2864", "g" => "0.2970","t" => "0.2032");
+}
 elsif($species =~ m/^osi$/i){
 	# from 72,066 high confidence japonica introns (TIGR 5.0 annotations)
 	%expected = ("a" => "0.2769","c" => "0.1831", "g" => "0.1875","t" => "0.3525");
@@ -498,6 +501,7 @@ sub pre_flight_checks{
 		print "AtD  - Arabidopsis thaliana downstream region of genes (1000 bp 3' to transcript)\n";
 		print "CeI - Caenorhabditis elegans introns\n";
 		print "CeG - Caenorhabditis elegans genomic\n";
+		print "Hs5U - Homo sapiens 5' UTR (exons)\n";
 		print "OsI  - Oryza sativa (japonica) introns\n";
 		print "OsG  - Oryza sativa (japonica) genomic\n";
 		print "OsC  - Oryza sativa (japonica) CDSs\n";
