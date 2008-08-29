@@ -22,83 +22,90 @@ Usage: <fasta file 1> <fasta file 2> <word size> <number of shuffles>\n" unless 
 
 
 my ($FASTA1,$FASTA2,$WORD,$SHUFFLES) = @ARGV;
-
 die "Please specify a word size of 10 or less\n" if ($WORD >10);
 
 
-
+# First get the KL distance *BETWEEN* the two files
 my $comparison_distance = kl($FASTA1,$FASTA2);
-print "K-L distance between file 1 and file 2 = $comparison_distance\n";
+print "\nK-L distance between file 1 and file 2 = $comparison_distance\n\n";
 
 
 
-# now read the first input file and store all the sequences in an array
-# each element of array will be a sequence from input file
-my @file1_seqs;
-open(FILE,"$FASTA1") || die "Can't open $FASTA1\n";
 
-my $fasta = new FAlite(\*FILE);
+# Now need to calculate the the KL distance *WITHIN* each of the two files.
 
-# loop through each sequence in target file and add to array
-while(my $entry = $fasta->nextEntry) {  
-        push(@file1_seqs,uc($entry->seq));
-}
-close(FILE);
+foreach  my $file ($FASTA1,$FASTA2){
 
-
-# count how many times distance is exceeded
-my $c=0;
-
-# need two tmp file names which won't conflict with anything else
-my $tmp1 = "tmpseq1.fasta";
-my $tmp2 = "tmpseq2.fasta";
-
-# now make lots of pairs of files by randomly selecting sequence from @seqs
-for (my $i=1;$i<=$SHUFFLES;$i++){
-	# always want to keep original array unspoilt
-	my @seqs = @file1_seqs;
-
-	#now want two output files
-	open(OUT1,">$tmp1") || die "can't create $tmp1\n";
-	open(OUT2,">$tmp2") || die "can't create $tmp2\n";
+	# now read the first input file and store all the sequences in an array
+	# each element of array will be a sequence from input file
+	my @seqs_from_file;
 	
-	while(@seqs){
-		# choose a random position
-		my $rand1 = int(rand(1)*@seqs);
-		
-		# write output files, removing sequence from @seqs array 
-		print OUT1 ">$i\n$seqs[$rand1]\n";
-		splice(@seqs,$rand1,1);
-		
-		# repeat for 2nd randomly chosen sequence (if there is still something in @seqs)
-		if(@seqs){
-			my $rand2 = int(rand(1)*@seqs);
-			print OUT2 ">$i\n$seqs[$rand2]\n";
-			splice(@seqs,$rand2,1);
+	open(FILE,"$file") || die "Can't open $file\n";
+
+	my $fasta = new FAlite(\*FILE);
+
+	# loop through each sequence in target file and add to array
+	while(my $entry = $fasta->nextEntry) {  
+	        push(@seqs_from_file,uc($entry->seq));
+	}
+	close(FILE);
+
+	# need count how many times distance is exceeded
+	my $c=0;
+
+	# need two tmp file names which won't conflict with anything else
+	my $tmp1 = "tmpseq1.fasta";
+	my $tmp2 = "tmpseq2.fasta";
+
+	# now make lots of pairs of files by randomly selecting sequence from @seqs
+	for (my $i=1;$i<=$SHUFFLES;$i++){
+		# always want to keep original array unspoilt
+		my @seqs = @seqs_from_file;
+
+		#now want two output files
+		open(OUT1,">$tmp1") || die "can't create $tmp1\n";
+		open(OUT2,">$tmp2") || die "can't create $tmp2\n";
+
+		while(@seqs){
+			# choose a random position
+			my $rand1 = int(rand(1)*@seqs);
+
+			# write output files, removing sequence from @seqs array 
+			print OUT1 ">$i\n$seqs[$rand1]\n";
+			splice(@seqs,$rand1,1);
+
+			# repeat for 2nd randomly chosen sequence (if there is still something in @seqs)
+			if(@seqs){
+				my $rand2 = int(rand(1)*@seqs);
+				print OUT2 ">$i\n$seqs[$rand2]\n";
+				splice(@seqs,$rand2,1);
+			}
 		}
-	}
-	close OUT1;
-	close OUT2;
-	
-	# now calculate kl distance from pair of new files
-	my $distance = kl("$tmp1","$tmp2");
-	print "$i $distance";
-	
-	# has this exceeded first distance?
-	if($distance > $comparison_distance){
-		print "\tDISTANCE EXCEEDED\n";
-		$c++;
-	}
-	else{
-		print "\n";
+		close OUT1;
+		close OUT2;
+
+		# now calculate kl distance from pair of new files
+		my $distance = kl("$tmp1","$tmp2");
+		#print "$i $distance";
+
+		# has this exceeded first distance?
+		if($distance > $comparison_distance){
+			#print "\tDISTANCE EXCEEDED\n";
+			$c++;
+		}
+		else{
+			#print "\n";
+		}
+
+		# tidy up and remove tmp files
+		unlink($tmp1);
+		unlink($tmp2);
 	}
 
-	# tidy up and remove tmp files
-	unlink($tmp1);
-	unlink($tmp2);
+	print "Inter-sequence distance ($comparison_distance) exceeded $c times out of $SHUFFLES intra-sequence comparisons for file $file\n";
 }
+print "\n";
 
-print "\ncomparison distance ($comparison_distance) exceeded $c times out of $SHUFFLES\n";
 
 
 
