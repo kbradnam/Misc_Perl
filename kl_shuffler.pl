@@ -233,11 +233,31 @@ sub frequency_table{
 	}
 	close(FILE);
 	
-	# convert counts to frequencies
+	# check (and warn) if too many words do not exist in the input sequence files
+	# it is useful to know if many of the different possible words only exist as pseudocounts
+	# Also need to convert counts to frequencies
 	my %freq;
+	
+	# counter for how many words only exist as pseudocounts
+	my $only_pseudocounts = 0;
 	
 	foreach my $word (keys %count){
 		$freq{$word} = $count{$word}/$total_words;
+		$only_pseudocounts++ if ($count{$word} == 1);
+	}
+
+	my $total_keys = keys(%count);
+	my $percentage = sprintf("%.0f",$only_pseudocounts/$total_keys *100);
+	
+	# Only want to warn if a certain proportion of words only exist with counts of 1 (only pseudocounts)
+	# The K-L distance may be less meaningful if it based on many comparisons of 1 vs 1 counts
+	# The threshold level (10%) is arbitrary but should help to give a clue as to whether using a smaller word size would be more approrpriate
+
+	my $threshold = 10;
+	
+	if ($only_pseudocounts && ($percentage >= $threshold)){
+		print "\nWARNING: in file $file, $only_pseudocounts out of a possible $total_keys words ($percentage%) do not exist at all\n";
+		print "Maybe consider using a smaller word size in order to calculate a more reliable K-L distance\n"; 		
 	}
 
 	return \%freq;
