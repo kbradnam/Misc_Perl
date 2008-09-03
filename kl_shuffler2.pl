@@ -127,8 +127,6 @@ for(my $i=1;$i<3;$i++){
 	print "Inter-sequence distance exceeded $exceeded times out of $SHUFFLES intra-sequence comparisons for file $i\n";
 }
 
-exit;
-
 
 ##########################################################################
 #
