@@ -17,7 +17,7 @@ use warnings;
 use FAlite;
 
 die "
-kl_distance.pl - a program for calculating K-L distance between two FASTA files
+kl_shuffler.pl - a program for calculating K-L distance between two FASTA files
 and then comparing this distance with K-L distances derived from intra-file comparisons
 of sequences in both files.
 
