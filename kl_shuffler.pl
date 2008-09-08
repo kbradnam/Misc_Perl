@@ -17,7 +17,7 @@ use warnings;
 use FAlite;
 
 die "
-kl_shuffler.pl - a program for calculating K-L distance between two FASTA files
+kl_distance.pl - a program for calculating K-L distance between two FASTA files
 and then comparing this distance with K-L distances derived from intra-file comparisons
 of sequences in both files.
 
@@ -29,158 +29,172 @@ die "Please specify a word size of 10 or less\n" if ($WORD >10);
 
 
 
-# First get the KL distance *BETWEEN* the two files
-my $comparison_distance = kl($FASTA1,$FASTA2);
+##########################################################################
+#
+# First of all, read two input files and store sequences in arrays
+# These sequences will be used a lot by the rest of the script
+#
+##########################################################################
+
+my (@master_seqs1,@master_seqs2);
+
+open(FILE,"$FASTA1") || die "Can't open $FASTA1\n";
+my $fasta = new FAlite(\*FILE);
+
+# loop through each sequence in target file and add to array
+while(my $entry = $fasta->nextEntry) {  
+        push(@master_seqs1,uc($entry->seq));
+}
+close(FILE);
+
+
+open(FILE,"$FASTA2") || die "Can't open $FASTA2\n";
+$fasta = new FAlite(\*FILE);
+
+# loop through each sequence in target file and add to array
+while(my $entry = $fasta->nextEntry) {  
+        push(@master_seqs2,uc($entry->seq));
+}
+close(FILE);
+
+
+
+##########################################################################
+#
+# Now we can do the first calculation to get the KL distance *BETWEEN* the two files
+#
+##########################################################################
+
+# will use references for each sequence array
+my $comparison_distance = kl(\@master_seqs1,\@master_seqs2);
+
 print "\nInter-sequence K-L distance between file 1 and file 2 using word size $WORD = $comparison_distance\n\n";
 
 
-
-# will store sequences from both files in array to save time later on
-my (@seqs_from_1st_file,@seqs_from_2nd_file);
-my $file_counter=0;
+# need to count how many times the comparison KL distance is exceeded
+my $exceeded = 0;
 
 
+##########################################################################
+#
 # Now need to calculate the the KL distance *WITHIN* each of the two files.
+#
+##########################################################################
 
-foreach my $file ($FASTA1,$FASTA2){
-	$file_counter++;
-	
-	# now read the first input file and store all the sequences in an array
-	# each element of array will be a sequence from input file
-	my @seqs_from_file;
-	
-	open(FILE,"$file") || die "Can't open $file\n";
+# a simple loop to go through sequences from each of the input files
 
-	my $fasta = new FAlite(\*FILE);
-
-	# loop through each sequence in target file and add to array
-	while(my $entry = $fasta->nextEntry) {  
-	        push(@seqs_from_file,uc($entry->seq));
-	}
-	close(FILE);
-
-	# need count how many times distance is exceeded
-	my $c=0;
-
-	# copy sequence arrays for later on
-	if($file_counter ==1){
-		@seqs_from_1st_file = @seqs_from_file;
-	}
-	else{
-		@seqs_from_2nd_file = @seqs_from_file;
-	}
-
-	# now make lots of pairs of files by randomly selecting sequence from @seqs
-	for (my $i=1;$i<=$SHUFFLES;$i++){
-		# always want to keep original array unspoilt
-		my @seqs = @seqs_from_file;
-
-		#now want two output files
-		# need two tmp file names which won't conflict with anything else
-		my $tmp1 = "tmpseq1.$i";
-		my $tmp2 = "tmpseq2.$i";
+for(my $i=1;$i<3;$i++){
 		
-		open(OUT1,">$tmp1") || die "can't create $tmp1\n";
-		open(OUT2,">$tmp2") || die "can't create $tmp2\n";
+	# reset counter
+	$exceeded = 0;
+	
+	# for each run, will want to be able to store randomized arraya of @master_seqs1 & @master_seqs2
+	# and to do this we will first make a local copy of these arrays in @seqs
+	my (@seqs,@random1,@random2);
 
+	
+	# now make lots of pairs of files by randomly selecting sequence from @seqs
+	for (my $j=1;$j<=$SHUFFLES;$j++){
+
+		# reset arrays
+		@random1 = ();
+		@random2 = ();
+		
+		# make local copy of relevant sequence array
+		(@seqs = @master_seqs1) if ($i == 1);
+		(@seqs = @master_seqs2) if ($i == 2);
+	
 		while(@seqs){
 			# choose a random position
-			my $rand1 = int(rand(1)*@seqs);
-
-			# write output files, removing sequence from @seqs array 
-			print OUT1 ">$i\n$seqs[$rand1]\n";
+			my $rand1 = int(rand(1) * @seqs);
+						
+			# add a sequence to first new random array, and remove sequence from @seqs array 
+			push(@random1,$seqs[$rand1]);
 			splice(@seqs,$rand1,1);
 
 			# repeat for 2nd randomly chosen sequence (if there is still something in @seqs)
 			if(@seqs){
-				my $rand2 = int(rand(1)*@seqs);
-				print OUT2 ">$i\n$seqs[$rand2]\n";
+				my $rand2 = int(rand(1) * @seqs);
+				push(@random2,$seqs[$rand2]);
 				splice(@seqs,$rand2,1);
 			}
 		}
-		close OUT1;
-		close OUT2;
 
 		# now calculate kl distance from pair of new files
-		my $distance = kl("$tmp1","$tmp2");
-		#print "$i $distance";
+		my $distance = kl(\@random1,\@random2);
+		#print "$i $distance\n";
 
 		# has this exceeded first distance? If so, increment counter
-		$c++ if ($distance > $comparison_distance);
+		$exceeded++ if ($distance > $comparison_distance);
 
-		# tidy up and remove tmp files
-		unlink($tmp1);
-		unlink($tmp2);
 	}
-
-	print "Inter-sequence distance exceeded $c times out of $SHUFFLES intra-sequence comparisons for file $file\n";
+	print "Inter-sequence distance exceeded $exceeded times out of $SHUFFLES intra-sequence comparisons for file $i\n";
 }
 
 
-# need new counter
-my $c = 0;
+##########################################################################
+#
+# Now need to calculate the KL distance between two files with randomized sequences
+#
+##########################################################################
+
+
+# reset counter
+$exceeded = 0;
 
 for (my $i=1;$i<=$SHUFFLES;$i++){
 	
-	# need local copies of arrays for each shuffling run
-	my @seqs1 = @seqs_from_1st_file;
-	my @seqs2 = @seqs_from_2nd_file;
+	# need local copies of arrays for each shuffling run plus two arrays for storing shuffled sequences
+	my @seqs1 = @master_seqs1;
+	my @seqs2 = @master_seqs2;
+	my (@random1,@random2);
 	
-	# need two tmp file names which won't conflict with anything else
-	my $tmp1 = "tmpseq1.fasta";
-	my $tmp2 = "tmpseq2.fasta";
-
-	# now want two output files
-	open(OUT1,">$tmp1") || die "can't create $tmp1\n";
-	open(OUT2,">$tmp2") || die "can't create $tmp2\n";
-
-	# loop through each sequence in both input files
-	# these have been stored in @seqs_from_1st_file and @seqs_from_2nd_file arrays
+	# loop through each sequence in input arrays, and randomize sequence before making KL distance calculation
 
 	while(my $seq = shift(@seqs1)) {
-		print OUT1 ">$i\n";
         # randomize sequence
         my $random = randomize($seq);
-        print OUT1 "$random\n";
+		push(@random1,$random);
+		
 	}
 	while(my $seq = shift(@seqs2)) {
-		print OUT2 ">$i\n";
         # randomize sequence
         my $random = randomize($seq);
-        print OUT2 "$random\n";
+		push(@random2,$random)
 	}
 
-	close OUT1;
-	close OUT2;
-	
 	# now calculate kl distance from pair of new files
-	my $distance = kl("$tmp1","$tmp2");
+	my $distance = kl(\@random1,\@random2);
 
 	# has this exceeded first distance? If so, increment counter
-	$c++ if ($distance > $comparison_distance);
-
-	# tidy up and remove tmp files
-	unlink($tmp1);
-	unlink($tmp2);
+	$exceeded++ if ($distance > $comparison_distance);
 }
 
-print "Inter-sequence distance exceeded $c times out of $SHUFFLES when comparing shuffled versions of both files\n\n";
+print "Inter-sequence distance exceeded $exceeded times out of $SHUFFLES when comparing shuffled versions of both files\n\n";
 
 
 exit(0);
 
-
-
-
+################################################
+#
+#
+#  T H E   S U B R O U T I N E S
+#
+#
 ################################################
 
-sub kl{
-	my $file1 = shift;  
-	my $file2 = shift;
 
+# the main parent KL distance subroutine
+# this gets frequency tables for each array of sequences being compared
+# then calculate two KL distances before taking an average distance and converting to bits (nats?)
+
+sub kl{
+	my $seq1 = shift;
+	my $seq2 = shift;
+	
 	# get frequencies of words in each sequence file
-	my $freq1     = &frequency_table($file1,$WORD);
-	my $freq2     = &frequency_table($file2,$WORD);
+	my $freq1     = &frequency_table($seq1,$WORD);
+	my $freq2     = &frequency_table($seq2,$WORD);
 
 	# calculate reciprocal K-L distances
 	my $distance1 = &kl_distance($freq1,$freq2);
@@ -191,9 +205,7 @@ sub kl{
 
 	# convert score to bits
 	$distance /= log(2);
-	return($distance);
 }
-
 
 
 
@@ -204,60 +216,30 @@ sub frequency_table{
 	# keep track of all words
 	my $total_words = 0;
 
-	# open file to read sequence and break into words
-	# then count work frequencies to return values
-
-	open(FILE,"$file") || die "Can't open $file\n";
-
-	my $fasta = new FAlite(\*FILE);
-
 	# keep track of each word, initially set to 1 to avoid zero errors
 	my %count = &word_table($w,1);
 	
 	# loop through each sequence in target file
-	while(my $entry = $fasta->nextEntry) {  
-	        my $seq = uc($entry->seq);
+	foreach my $seq (@{$file}){  
+		# loop through sequence in windows equal to motif size
+	    for (my $i = 0; $i < length($seq)-$w+1; $i++) {
 			
-			# loop through sequence in windows equal to motif size
-		    for (my $i = 0; $i < length($seq)-$w+1; $i++) {
-				
-				# extract a window of sequence, split it, and place in array    
-		    	my $word = substr($seq, $i, $w);
-		
-				# check that word is a valid sequence word, count that words and increment total counter
-				if (exists $count{$word}){
-					$count{$word}++;
-					$total_words++;
-				}
-	        }
+			# extract a window of sequence, split it, and place in array    
+	    	my $word = substr($seq, $i, $w);
+	
+			# check that word is a valid sequence word, count that words and increment total counter
+			if (exists $count{$word}){
+				$count{$word}++;
+				$total_words++;
+			}
+        }
 	}
-	close(FILE);
 	
-	# check (and warn) if too many words do not exist in the input sequence files
-	# it is useful to know if many of the different possible words only exist as pseudocounts
-	# Also need to convert counts to frequencies
+	# convert counts to frequencies
 	my %freq;
-	
-	# counter for how many words only exist as pseudocounts
-	my $only_pseudocounts = 0;
 	
 	foreach my $word (keys %count){
 		$freq{$word} = $count{$word}/$total_words;
-		$only_pseudocounts++ if ($count{$word} == 1);
-	}
-
-	my $total_keys = keys(%count);
-	my $percentage = sprintf("%.0f",$only_pseudocounts/$total_keys *100);
-	
-	# Only want to warn if a certain proportion of words only exist with counts of 1 (only pseudocounts)
-	# The K-L distance may be less meaningful if it based on many comparisons of 1 vs 1 counts
-	# The threshold level (10%) is arbitrary but should help to give a clue as to whether using a smaller word size would be more approrpriate
-
-	my $threshold = 10;
-	
-	if ($only_pseudocounts && ($percentage >= $threshold)){
-		print "\nWARNING: in file $file, $only_pseudocounts out of a possible $total_keys words ($percentage%) do not exist at all\n";
-		print "Maybe consider using a smaller word size in order to calculate a more reliable K-L distance\n"; 		
 	}
 
 	return \%freq;
