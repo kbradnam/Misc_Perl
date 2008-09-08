@@ -95,7 +95,11 @@ for(my $i=1;$i<3;$i++){
 	
 	# now make lots of pairs of files by randomly selecting sequence from @seqs
 	for (my $j=1;$j<=$SHUFFLES;$j++){
-	
+
+		# reset arrays
+		@random1 = ();
+		@random2 = ();
+		
 		# make local copy of relevant sequence array
 		(@seqs = @master_seqs1) if ($i == 1);
 		(@seqs = @master_seqs2) if ($i == 2);
