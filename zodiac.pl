@@ -22,6 +22,10 @@ my ($species,$date);
 
 while(my $line = <>){
 	chomp($line);
+	
+	# skip blank lines
+	next if ($line =~ m/^$/);
+	
 	if ($line =~ m/^#/){
 		($species,$date) = split(/,/,$line);
 		$species =~ s/# //;
