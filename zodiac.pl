@@ -17,7 +17,8 @@ use warnings;
 
 my %species2text;
 my %species2dates;
-
+# will want a array of days to substitute any @day@ pattern
+my @days = qw(Monday Tuesday Wednesday Thursday Friday Saturday Sunday);
 my ($species,$date);
 
 while(my $line = <>){
@@ -32,10 +33,14 @@ while(my $line = <>){
 		($species2dates{$species} = $date) unless ($line =~ m/^# all/);
 	}
 	else{
+		# if we have any suitable text, then first check to see if it includes @day@
+		if($line =~ m/\@day\@/){
+			my $rand = int(rand(7));
+			$line =~ s/\@day\@/$days[$rand]/;
+		}
 		push(@{$species2text{$species}},$line);
 	}
 }
-
 
 # now loop through each of the 10 species extracting two random sentences per species
 
