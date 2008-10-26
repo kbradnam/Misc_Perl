@@ -14,11 +14,13 @@ use warnings;
 # first read data file of pre-written sentences
 # will need to store species specific text, plus text specific to any of the ten species
 # also another hash will store the dates for each sign
-
 my %species2text;
 my %species2dates;
+
 # will want a array of days to substitute any @day@ pattern
 my @days = qw(Monday Tuesday Wednesday Thursday Friday Saturday Sunday);
+
+
 my ($species,$date);
 
 while(my $line = <>){
@@ -38,6 +40,12 @@ while(my $line = <>){
 			my $rand = int(rand(7));
 			$line =~ s/\@day\@/$days[$rand]/;
 		}
+		# also add in random numbers for each occasion of @number@
+		if($line =~ m/\@number\@/){
+			my $number = int(rand(100));
+			$line =~ s/\@number\@/$number/;
+		}
+		
 		push(@{$species2text{$species}},$line);
 	}
 }
@@ -53,7 +61,7 @@ SPECIES: foreach my $species qw(Barnacle Snail Limpet Clam Squid Slug Oyster Sca
 	print "<a href=\"${url}${url_name}.html\">The $species</a>\n";
 	print "<b><i>$species2dates{$species}</b></i>\n";
 
-	my ($rand1,$rand2,$sentence1,$sentence2);
+	my ($rand1,$rand2,$rand3,$sentence1,$sentence2,$sentence3);
 
 	# if we are dealing with the slug, then we do things differently
 	if($species eq "Slug"){
@@ -65,7 +73,11 @@ SPECIES: foreach my $species qw(Barnacle Snail Limpet Clam Squid Slug Oyster Sca
 		$sentence2 = ${$species2text{"$species"}}[$rand2];
 		splice(@{$species2text{"$species"}},$rand2,1);
 
-		print "<P>$sentence1 $sentence2</P>\n";
+		$rand3 = int(rand(1) * @{$species2text{"$species"}});
+		$sentence3 = ${$species2text{"$species"}}[$rand3];
+		splice(@{$species2text{"$species"}},$rand3,1);
+
+		print "<P>$sentence1 $sentence2 $sentence3</P>\n";
 
 		next SPECIES;
 	}
@@ -78,8 +90,12 @@ SPECIES: foreach my $species qw(Barnacle Snail Limpet Clam Squid Slug Oyster Sca
 	$sentence2 = ${$species2text{"all"}}[$rand2];
 	splice(@{$species2text{"all"}},$rand2,1);
 
-	print "<P>$sentence1 $sentence2</P>\n";
-	
+	# 3rd sentence is species specific
+	# only one sentence taken per species, so need to splice array afterwards
+	$rand3 = int(rand(1) * @{$species2text{"$species"}});
+	$sentence3 = ${$species2text{"$species"}}[$rand3];
+
+	print "<P>$sentence1 $sentence2 $sentence3</P>\n";
 }
 
 
