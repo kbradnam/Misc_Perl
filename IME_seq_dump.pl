@@ -40,9 +40,6 @@ $min = 50    if (!$min);
 
 my $file = $ARGV[0];
 
-# count how many sequences fall into each bin
-my $counter = 0;
-
 
 # Determine coordinate range (in transcript coordinates) for which we want to extract intron sequence
 my $win_start = $start;
@@ -80,7 +77,6 @@ while(my $entry = $fasta->nextEntry) {
 
 	# CASE 1: intron sequence is wholly contained within window
 	if(($distance >= $win_start) && ($end_coord <= $win_end)){
-		$counter++;
 		my $tmp = substr($seq,0,$end_coord-$distance+1);
 		
 		# dump sequence if using -seqdump and there is at least $min nt
@@ -89,7 +85,6 @@ while(my $entry = $fasta->nextEntry) {
 
 	# CASE 2: intron sequence is larger than  window
 	elsif(($distance < $win_start) && ($end_coord > $win_end)){
-		$counter++;
 		my $tmp = substr($seq,$win_start-$distance,$window);
 		
 		# dump sequence if using -seqdump and there is at least $min nt
@@ -98,7 +93,6 @@ while(my $entry = $fasta->nextEntry) {
 
 	# CASE 3: intron sequence overlaps 5' edge of window
 	elsif(($distance < $win_start) && ($end_coord >= $win_start)){
-		$counter++;
 		my $tmp = substr($seq,$win_start - $distance,$end_coord - $win_start + 1);
 		
 		# dump sequence if using -seqdump and there is at least $min nt
@@ -107,7 +101,6 @@ while(my $entry = $fasta->nextEntry) {
 
 	# CASE 4: intron sequence overlaps 3' edge of window
 	elsif(($distance <= $win_end) && ($end_coord > $win_end)){
-		$counter++;
 		my $tmp = substr($seq,0,$win_end - $distance + 1);
 		
 		# dump sequence if using -seqdump and there is at least $min nt
@@ -117,8 +110,6 @@ while(my $entry = $fasta->nextEntry) {
 }
 close(FILE) || die "Can't close file\n";
 close(OUT);
-
-print "Sequences from $counter introns were output into new file\n";
 
 
 exit(0);
