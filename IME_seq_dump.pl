@@ -24,19 +24,25 @@ use Getopt::Long;
 my $window;     # how big a size window
 my $start;	    # start coordinate in transcript
 my $min;        # minimum amount of sequence to come from any one intron sequence (avoid taking just 1 nt of an intron)
-
-GetOptions ("window=i"     => \$window,
-			"start=i"	   => \$min,
-			"min=i"        => \$min,);
+my $donor;		# how much to clip from 5' end of sequence
+my $acceptor;	# how much to clip from 3' end of sequence
+GetOptions ("window=i"   => \$window,
+			"start=i"	 => \$min,
+			"min=i"      => \$min,
+			"donor=i"    => \$donor,  
+			"acceptor=i" => \$acceptor,
+			);
 
 
 # check command line options 
 die "Specify a name of of an IME-formatted FASTA file of intron sequences\n" if (@ARGV != 1);
 
 # set some defaults
-$start = 1    if (!$start);
-$window = 500 if (!$window);
-$min = 50    if (!$min);
+$start = 1     if (!$start);
+$window = 500  if (!$window);
+$min = 50      if (!$min);
+$donor = 5     if (!$donor);
+$acceptor = 10 if (!$acceptor);
 
 my $file = $ARGV[0];
 
@@ -58,7 +64,11 @@ my $fasta = new FAlite(\*FILE);
 while(my $entry = $fasta->nextEntry) {
     
 	# grab basic details
-	my $seq = $entry->seq;
+	my $whole_seq = $entry->seq;
+
+	# remove donor and acceptor;
+	my $seq = substr($whole_seq,$donor,-$acceptor);
+	
 	my $length = length($seq);
 	my $header = $entry->def;
 			
@@ -66,6 +76,9 @@ while(my $entry = $fasta->nextEntry) {
 	my $distance;
 	$header =~ m/_i\d+_(\d+)/;
 	$distance = $1;
+	
+	# modify distance to include the offset of the donor sequence that has been removed
+	$distance += $donor;
 	
 	# calculate end coordinate of intron
 	my $end_coord = $distance + $length -1;
