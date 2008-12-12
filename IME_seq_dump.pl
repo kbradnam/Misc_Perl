@@ -27,7 +27,7 @@ my $min;        # minimum amount of sequence to come from any one intron sequenc
 my $donor;		# how much to clip from 5' end of sequence
 my $acceptor;	# how much to clip from 3' end of sequence
 GetOptions ("window=i"   => \$window,
-			"start=i"	 => \$min,
+			"start=i"	 => \$start,
 			"min=i"      => \$min,
 			"donor=i"    => \$donor,  
 			"acceptor=i" => \$acceptor,
@@ -55,7 +55,6 @@ open(FILE,"<$file") || die "Couldn't open $file\n";
 
 # open output file
 open(OUT,">$file.$win_start-${win_end}") || die "couldn't create $file.$win_start-${win_end} file\n";
-
 
 
 my $fasta = new FAlite(\*FILE);
