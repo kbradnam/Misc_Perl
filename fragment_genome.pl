@@ -2,13 +2,8 @@
 #
 # fragment_genome.pl 
 #
-# a script to calculate the KL distance between two files (A & B) and then:
-# 1) calculate the *intra* sequence KL distance for file A (randomly split sequences in file A into two new files)
-# 2) calculate the *intra* sequence KL distance for file B
-# 3) calculate the distance between a shuffled version of A, and a shuffled version of B
-# 4) repeat steps 1-3 N times
-# 5) see how many times the intra KL distances exceed the known distance
-
+# a script to fragment a FASTA sequence file into smaller FASTA sequences of a specified size
+#
 # Last updated by: $Author$
 # Last updated on: $Date$
 
