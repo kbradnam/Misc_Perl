@@ -78,6 +78,8 @@ foreach my $motif (@files){
 
 	next unless ($motif =~ m/\.xms$/);
 	
+	print "# Processing $motif\n\n";
+
 	# first count how many motifs in the file
 	my $num_motifs = &count_motifs($motif);
 
@@ -204,7 +206,7 @@ sub parse_motif{
 	    }
 
 	    # get nucleotide frequencies from input file
-	    if(m/weight symbol=\"([a-z])[a-z]+\">(\-*0\.\d+)<\/weight/){
+	    if(m/weight symbol=\"([a-z])[a-z]+\">(\-*[10]\.\d+)<\/weight/){
 			my $base = lc($1);
 			my $freq = $2;
 
@@ -216,7 +218,6 @@ sub parse_motif{
 	    }
 	}
 	close(MOTIF) || die "Couldn't close $motif\n";
-	
 }
 
 
