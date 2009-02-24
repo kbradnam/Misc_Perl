@@ -25,13 +25,15 @@ my $scores;     # Show scores
 my $seqs;       # Show motif sequences in output (one sequence per motif in each intron)
 my $msummary;	# show motif count and percentage for all sequences combined
 my $file;		# switch to using input file of motifs (overides $motif)
+my $flanking;   # inspect nucleotide frequencies at flanking position
 
 GetOptions ("motif=s"    => \$motif,
 	       "target=s"    => \$target,
 	       "scores"      => \$scores,
 	       "seqs"        => \$seqs,	    	    
 		   "msummary"    => \$msummary,
-		   "file=s"	     => \$file
+		   "file=s"	     => \$file,
+		   "flanking"   => \$flanking
 );
 
 # are we using correct command-line options?
@@ -40,6 +42,13 @@ GetOptions ("motif=s"    => \$motif,
 # open and read motif file is $file is specified
 my @motifs;
 my %motifs_to_counts;
+
+# hash to store counts of nucleotides before and after motif position
+my %before;
+my %after;
+
+# will extract 1 nt either side of motif if -flanking specified - this might change in future
+my $flank = 1;
 
 # are we working with many motif regular expressions in a file?
 if($file){
@@ -89,6 +98,13 @@ while(my $entry = $fasta->nextEntry) {
 	foreach my $motif (@motifs){
 		$motif = lc($motif);
 
+		# extract flanking positions and add to two hashes
+		my @flanks = $seq =~ m/(\w{$flank}${motif}\w{$flank})/g if ($flanking);
+		foreach my $seq (@flanks){
+			$before{substr($seq,0,$flank)}++;
+			$after{substr($seq,-$flank,$flank)}++;
+		}
+
 	 	# use regexes to find motif
 		my $count = $seq =~ s/($motif)/ \U$1 /g;
 		($count = 0) if (!$count);
@@ -124,6 +140,22 @@ if($msummary){
 	print "\n\n";
 }
 
+
+# do we need to print details of flanking nucleotides?
+if($flanking){
+	print "BEFORE motif:\n";
+
+	foreach my $key (sort keys (%before)){
+	
+		print "$key ",sprintf("%.3f",$before{$key}/$total_motif_count), " $before{$key}\n";
+	}
+	print "\nAFTER motif:\n";
+
+	foreach my $key (sort keys (%before)){
+	
+		print "$key ",sprintf("%.3f",$after{$key}/$total_motif_count), " $after{$key}\n";
+	}
+}
 
 exit(0);
 
