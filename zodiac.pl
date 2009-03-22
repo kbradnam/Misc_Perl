@@ -20,6 +20,8 @@ my %species2dates;
 # will want a array of days to substitute any @day@ pattern
 my @days = qw(Monday Tuesday Wednesday Thursday Friday Saturday Sunday);
 
+# will want a array of colors to substitute any @color@ pattern
+my @colors = qw(red orange yellow green blue purple white black pink);
 
 my ($species,$date);
 
@@ -39,6 +41,11 @@ while(my $line = <>){
 		if($line =~ m/\@day\@/){
 			my $rand = int(rand(7));
 			$line =~ s/\@day\@/$days[$rand]/;
+		}
+		#if we have any suitable text, then first check to see if it includes @color@
+		if($line =~ m/\@color\@/){
+			my $rand = int(rand(9));
+			$line =~ s/\@color\@/$colors[$rand]/;
 		}
 		# also add in random numbers for each occasion of @number@
 		if($line =~ m/\@number\@/){
