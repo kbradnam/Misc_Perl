@@ -50,7 +50,7 @@ foreach my $species (@taxa){
 	# use 'query count' commands to get count of how many records match $query
 	my $count = `$prog query count \"$query\"`;
 	$count =~ s/\s+//g;
-	
+		
 	# want to just check (and report) how many records are being filtered out at this first stage
 	my $count_all = `$prog query count \"species_code = '$species'"`;
 	$count_all =~ s/\s+//g;
@@ -67,18 +67,20 @@ foreach my $species (@taxa){
 
 	my $percent_retained = sprintf("%.1f",($count/$count_all)*100);
 	print "${species_file_name}: Attempting to fetch $count reads out of $count_all possible (${percent_retained}%), $pages pages\n";
-
+	
 	#$pages = 3;
 	
 	for (my $i=0;$i<$pages;$i++){
 		$file = "${species_file_name}_trace_read_data${i}";
-		my $command = "(echo -n \"retrieve_gz fasta xml 0b\"\; query_tracedb.pl \"query page_size 40000 page_number $i binary $query\") | $prog > ${file}.gz"; 
+		my $command = "(echo -n \"retrieve_gz fasta xml 0b\"\; $prog \"query page_size 40000 page_number $i binary $query\") | $prog > ${file}.gz"; 
+#		my $command = "(echo -n \"retrieve fasta xml 0b\"\; $prog \"query page_size 40000 page_number $i binary $query\") | $prog > ${file}"; 
 	
 		print "${species_file_name}: Processing page ",$i+1,"/$pages\n";
+		print  "$command\n";
 
 		# run the command to grab the sequences and xml files
 		system("$command") && die "Can't execute $command\n";
-		
+
 		# now want to unpoack the file
 		system("gunzip ${file}.gz") && die "Can't unzip archive\n";
 
