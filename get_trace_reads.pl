@@ -11,7 +11,10 @@ use strict;
 use warnings;
 use FAlite;
 
-my @taxa = ("Homo sapiens", "Arabidopsis thaliana","Drosophila melanogaster");
+$SIG{'INT'} = 'INT_handler';
+
+
+my @taxa = ("Arabidopsis thaliana","Xenopus laevis","Drosophila melanogaster","Homo sapiens");
 #my @taxa = ("Arabidopsis thaliana","Drosophila melanogaster");
 
 # script name that does the actual fetching of data (supplied by NCBI)
@@ -25,19 +28,20 @@ my $min_bases = 25;
 my $total_bases = 0;
 my $total_clipped_bases = 0;
 my $rejected_traces = 0;
-my $species_total_bases = 0;
-my $species_clipped_bases = 0;
-my $species_rejected_traces = 0;
+my $species_total_bases;
+my $species_clipped_bases;
+my $species_rejected_traces;
 
-# need a file name for each species that we work with
+# need an output file name for each species that we work with
 my $file;
 
 
 my $date = `date`; 
 chomp($date);
-print "\n------------------------------------------------------\n$date\n\n";
 
-foreach my $species (@taxa){
+SPECIES: foreach my $species (@taxa){
+
+	print "\n------------------------------------------------------\n$date\n\n";
 	
 	# reset species-level counters
 	$species_total_bases = 0;
@@ -51,6 +55,7 @@ foreach my $species (@taxa){
 	my $count = `$prog query count \"$query\"`;
 	$count =~ s/\s+//g;
 		
+
 	# want to just check (and report) how many records are being filtered out at this first stage
 	my $count_all = `$prog query count \"species_code = '$species'"`;
 	$count_all =~ s/\s+//g;
@@ -60,15 +65,25 @@ foreach my $species (@taxa){
 	my $species_file_name = $species;
 	$species_file_name =~ s/\s+/_/g;
 
-	open(OUT,">${species_file_name}_trace_reads.fa") or die "Can't open output file for $species\n";
 
 	# can only download 40,000 records at a time
 	my $pages = int($count/40000)+1;
 
-	my $percent_retained = sprintf("%.1f",($count/$count_all)*100);
-	print "${species_file_name}: Attempting to fetch $count reads out of $count_all possible (${percent_retained}%), $pages pages\n";
+	# there might be no records after above filtering and so we need to skip to next species
+	if($count == 0){
+		print "${species_file_name}: 0 reads remain after filtering (from $count_all possible reads)\n";
+		next SPECIES;
+	}
+	else{
+		my $percent_retained = sprintf("%.1f",($count/$count_all)*100);
+		print "${species_file_name}: Attempting to fetch $count reads out of $count_all possible (${percent_retained}%), $pages pages\n";		
+	}
+
+	# if we have any sequences to fetch then need to make an output file
+	open(OUT,">${species_file_name}_trace_reads.fa") or die "Can't open output file for $species\n";
+
 	
-	#$pages = 3;
+	$pages = 4;
 	
 	for (my $i=0;$i<$pages;$i++){
 		$file = "${species_file_name}_trace_read_data${i}";
@@ -76,7 +91,7 @@ foreach my $species (@taxa){
 #		my $command = "(echo -n \"retrieve fasta xml 0b\"\; $prog \"query page_size 40000 page_number $i binary $query\") | $prog > ${file}"; 
 	
 		print "${species_file_name}: Processing page ",$i+1,"/$pages\n";
-		print  "$command\n";
+		#print  "$command\n";
 
 		# run the command to grab the sequences and xml files
 		system("$command") && die "Can't execute $command\n";
@@ -101,11 +116,30 @@ foreach my $species (@taxa){
 	print "$species_file_name: Processed $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
 	print "$species_file_name: $species_rejected_traces traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n";
 	
-	
 	$date = `date`; 
 	chomp($date);
 	print "\n$date\n------------------------------------------------------\n";
 }
+
+# Final print out of stat
+my $percent_clipped = sprintf("%.1f",($total_clipped_bases/$total_bases)*100);
+print "\n\n======================================================\n\n";
+print "TOTAL: Processed $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
+print "TOTAL: $rejected_traces traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n\n";
+print "======================================================\n\n";
+
+exit;
+
+#########################
+#
+#
+#  S U B R O U T I N E S
+#
+#
+#########################
+
+
+
 
 # subroutine to load file and clip sequences based on the following fields
 # clip_quality_left
@@ -122,7 +156,7 @@ sub process_file{
 	system("split -p \"^<\\?xml\" $file $split_file_prefix") && die "Couldn't split file\n";
 	
 	# now remove the original file
-	#unlink($file) || die "Can't remove $file\n";
+	unlink($file) || die "Can't remove $file\n";
 	
 	# want to store fasta headers, fasta sequences, and seq lengths in hashes all tied to TI number of each sequence
 	my %ti_to_seq;
@@ -244,14 +278,22 @@ TRACE: while (my $line = <XML>) {
 	unlink("${split_file_prefix}ab") || die "Can't remove ${split_file_prefix}ab\n";
 	
 }
-my $percent_clipped = sprintf("%.1f",($total_clipped_bases/$total_bases)*100);
-print "\n\n======================================================\n\n";
-print "TOTAL: Processed $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
-print "TOTAL: $rejected_traces traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n\n";
-print "======================================================\n\n";
 
-exit;
-
+# signal event handler in case of interrupts (Ctrl+C)
+sub INT_handler {
+	
+	# print final statistic of how many bases were clipped
+	$date = `date`; 
+	chomp($date);
+	
+	my $percent_clipped = sprintf("%.1f",($total_clipped_bases/$total_bases)*100);
+	print "\n\n======================================================\n\n";
+	print "SCRIPT INTERRUPTED at $date\n";
+	print "TOTAL: Processed $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
+	print "TOTAL: $rejected_traces traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n\n";
+	print "======================================================\n\n";
+    exit(0);
+}
 
 
 sub tidy_seq{
