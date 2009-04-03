@@ -14,7 +14,7 @@ use FAlite;
 $SIG{'INT'} = 'INT_handler';
 
 
-my @taxa = ("Arabidopsis thaliana","Xenopus laevis","Drosophila melanogaster","Homo sapiens","Zea mays", "Apis mellifera", "Bos taurus", "Plasmodium falciparum");
+my @taxa = ("Plasmodium falciparum","Arabidopsis thaliana","Xenopus laevis","Drosophila melanogaster","Homo sapiens","Zea mays", "Apis mellifera", "Bos taurus","Zea mays","Vitis vinifera","Caenorhabditis japonica", "Procavia capensis");
 #my @taxa = ("Arabidopsis thaliana","Drosophila melanogaster");
 
 # script name that does the actual fetching of data (supplied by NCBI)
@@ -23,30 +23,30 @@ my $prog = "query_tracedb.pl";
 # minimum number of bases that you need in a sequence after clipping to keep it
 my $min_bases = 25;
 
-# keep track of how many bases are clipped and how many traces are rejected for too many low quality bases
-# do this for all species (grand total), and keep separate species totals
+# keep track of how many bases are clipped and how many traces are rejected for too many low quality bases, plus how many errors there were
+# e.g. when clip left coordinate is greater than total length of sequence. Do this for all species (grand total), and keep separate species totals
+# also keep track of total traces parsed
 my $total_bases = 0;
 my $total_clipped_bases = 0;
-my $rejected_traces = 0;
+my $total_rejected_traces = 0;
+my $total_errors = 0;
+my $total_traces = 0;
+
 my $species_total_bases;
 my $species_clipped_bases;
 my $species_rejected_traces;
-
-# need an output file name for each species that we work with
-my $file;
-
-
-my $date = `date`; 
-chomp($date);
+my $species_errors;
 
 SPECIES: foreach my $species (@taxa){
-
+	my $date = `date`; 
+	chomp($date);
 	print "\n------------------------------------------------------\n$date\n\n";
 	
 	# reset species-level counters
 	$species_total_bases = 0;
 	$species_clipped_bases = 0;
 	$species_rejected_traces = 0;
+	$species_errors = 0;
 	
 	# store some of the query criteria in a separate string as we will want to reuse it later
 	my $query = "species_code = '$species' and (trace_type_code = 'WGS' or trace_type_code = 'WCS' or trace_type_code = 'SHOTGUN' or trace_type_code = '454' or trace_type_code = 'CLONEEND') and source_type = 'GENOMIC'";
@@ -60,11 +60,9 @@ SPECIES: foreach my $species (@taxa){
 	my $count_all = `$prog query count \"species_code = '$species'"`;
 	$count_all =~ s/\s+//g;
 	
-
-	# open a FASTA output file for all reads for that species
+	# make a string of the species name but without spaces
 	my $species_file_name = $species;
 	$species_file_name =~ s/\s+/_/g;
-
 
 	# can only download 40,000 records at a time
 	my $pages = int($count/40000)+1;
@@ -72,6 +70,7 @@ SPECIES: foreach my $species (@taxa){
 	# there might be no records after above filtering and so we need to skip to next species
 	if($count == 0){
 		print "${species_file_name}: 0 reads remain after filtering (from $count_all possible reads)\n";
+		print "------------------------------------------------------\n";
 		next SPECIES;
 	}
 	else{
@@ -82,12 +81,11 @@ SPECIES: foreach my $species (@taxa){
 	# if we have any sequences to fetch then need to make an output file
 	open(OUT,">${species_file_name}_trace_reads.fa") or die "Can't open output file for $species\n";
 
-	
-	$pages = 1;
+	$pages = 2;
 	
 	for (my $i=0;$i<$pages;$i++){
-		$file = "${species_file_name}_trace_read_data${i}";
-		my $command = "(echo \"retrieve_gz fasta xml 0b\"\; $prog \"query page_size 40000 page_number $i binary $query\") | $prog > ${file}.gz"; 
+		my $file = "${species_file_name}_trace_read_data${i}";
+		my $command = "(/bin/echo -n \"retrieve_gz fasta xml 0b\"\; $prog \"query page_size 40000 page_number $i binary $query\") | $prog > ${file}.gz"; 
 #		my $command = "(echo -n \"retrieve fasta xml 0b\"\; $prog \"query page_size 40000 page_number $i binary $query\") | $prog > ${file}"; 
 	
 		print "${species_file_name}: Processing page ",$i+1,"/$pages\n";
@@ -96,10 +94,9 @@ SPECIES: foreach my $species (@taxa){
 
 		# now want to unpoack the file
 		system("gunzip ${file}.gz") && die "Can't unzip archive\n";
-		exit;lt
 
 		# process sequences based on info in xml file
-		process_file($file);
+		process_file($file,$species_file_name);
 	}
 	close(OUT);
 	
@@ -114,17 +111,23 @@ SPECIES: foreach my $species (@taxa){
 	my $percent_clipped = sprintf("%.1f",($species_clipped_bases/$species_total_bases)*100);
 	print "$species_file_name: Processed $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
 	print "$species_file_name: $species_rejected_traces traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n";
+	print "$species_file_name: $species_errors traces were rejected for containing errors (inconsistant information)\n";
 	
-	$date = `date`; 
-	chomp($date);
-	print "\n$date\n------------------------------------------------------\n";
+	print "------------------------------------------------------\n";
 }
+
+my $date = `date`; 
+chomp($date);
+
+print "\nFINISHED RUN AT $date\n";
 
 # Final print out of stat
 my $percent_clipped = sprintf("%.1f",($total_clipped_bases/$total_bases)*100);
+
 print "\n\n======================================================\n\n";
-print "TOTAL: Processed $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
-print "TOTAL: $rejected_traces traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n\n";
+print "TOTAL: Processed $total_traces traces containing $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
+print "TOTAL: $total_rejected_traces traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n";
+print "TOTAL: $total_errors traces were rejected for containing errors (inconsistant information)\n\n";
 print "======================================================\n\n";
 
 exit;
@@ -147,13 +150,17 @@ exit;
 # clip_vector_right
 
 sub process_file{
+	
+	my $file = shift;
+	my $species_file_name = shift;
+	
 	# first want to split the file into two to make it easier to deal with the FASTA and XML separately
 	# use UNIX split, with -p option to specify a regular expression
 	
-	my $split_file_prefix = "trace_read_split_file";
+	my $split_file_prefix = "${species_file_name}_trace_read_split_file";
 	
 	system("split -p \"^<\\?xml\" $file $split_file_prefix") && die "Couldn't split file\n";
-	
+
 	# now remove the original file
 	unlink($file) || die "Can't remove $file\n";
 	
@@ -161,8 +168,7 @@ sub process_file{
 	my %ti_to_seq;
 	my %ti_to_header;
 	my %ti_to_seqlength;
-
-
+	
 	# parse FASTA file first
 	open(FASTA, "${split_file_prefix}aa") or die "Can't open fasta file";
 	my $FA = new FAlite (\*FASTA);
@@ -181,7 +187,9 @@ sub process_file{
 		
 	}
 	close(FASTA);
+	
 	unlink("${split_file_prefix}aa") || die "Can't remove ${split_file_prefix}aa\n";
+	
 		 
 	# now parse xml	
 	# looking to find up to four different fields, and we will only consider the most extreme value for either left/right field
@@ -202,10 +210,12 @@ sub process_file{
 TRACE: while (my $line = <XML>) {
 		next if ($line !~ /<ti>/);	
 		
+		$total_traces++;
+		
 		# first want to get ti number and look up length
 		(my $ti = $1)        if($line =~ m/<ti>(\d+)</);
 		my $length = $ti_to_seqlength{$ti};
-	
+		
 		# looking at each line to find up to four different fields, and we will only consider the most extreme value for either left/right field
 		# set clip right-values to length of sequence as we want to see if there are values that are lower than this
 		my $clip_left=0;
@@ -215,24 +225,46 @@ TRACE: while (my $line = <XML>) {
 		my $left=0;
 		my $right=$length;
 
-
 		($clip_left = $1)    if($line =~ m/<clip_quality_left>(\d+)</);
 		($clip_right = $1)   if($line =~ m/<clip_quality_right>(\d+)</);
 		($vector_left = $1)  if($line =~ m/<clip_vector_left>(\d+)</);
 		($vector_right = $1) if($line =~ m/<clip_vector_right>(\d+)</);
 		#print "\nTI:*$ti* LENGTH: $length CLIP_LEFT:$clip_left CLIP_RIGHT:$clip_right VECTOR_LEFT:$vector_left VECTOR_RIGHT:$vector_right\n";
-		
-		
+	
 		# now assign $left and $right to the most extreme values discovered
 		($left = $clip_left)     if ($clip_left > $left);
 		($left = $vector_left)   if ($vector_left > $left);
-		($right = $clip_right)   if ($clip_right < $right);
-		($right = $vector_right) if ($vector_right < $right);	
+
+		# some clip_right values are greater than the length of the sequence, in which case we can change to
+		# set them to the sequence length, i.e. no right clipping
+		($clip_right   = $length) if ($clip_right   > $length);
+		($vector_right = $length) if ($vector_right > $length);
+		
+		# for the right-fields, need to remember that a zero value just means no clip information is present
+		($right = $clip_right)   if (($clip_right < $right)   && ($clip_right   != 0));
+		($right = $vector_right) if (($vector_right < $right) && ($vector_right != 0));	
 		#print "Length = $length Left = $left, right = $right\n";
+		
+		
+		# have some basic sanity checks to catch errors		
+		my $error_test = 0;
+		
+		$error_test = 1 if ($clip_left   > $length);
+		$error_test = 1 if ($vector_left > $length);
+		$error_test = 1 if ($left        > $right);
+		
+		if($error_test){
+			$species_errors++;
+			$total_errors++;
+			print "\nTI:*$ti* LENGTH: $length CLIP_LEFT:$clip_left CLIP_RIGHT:$clip_right VECTOR_LEFT:$vector_left VECTOR_RIGHT:$vector_right\n";
+			
+			# no point going any further
+			next TRACE;
+		}
 		
 		# now clip sequence if necessary
 		my $seq = $ti_to_seq{$ti};
-
+		
 		if($left > 0 || $right < $length){
 			
 			# want to keep track total number of clipped bases and species specific clipped bases
@@ -248,20 +280,15 @@ TRACE: while (my $line = <XML>) {
 			
 			# die if we don't have any sequence for some reason
 			die "No seq\n$ti\tlength=$length\tleft=$left\tright=$right\n" if (!$seq);
+	
 		
-			#######################			
-			#
-			# Add check in case remaining sequence is below some useful limit?
-			#
-			#######################
-			
+			# Add check in case remaining sequence is below some useful limit?		
 			if($remaining_bases < $min_bases){
-				$rejected_traces++;
+				$total_rejected_traces++;
 				$species_rejected_traces++;
-				print "$ti has $remaining_bases bases after clipping\n";
+				#print "$ti has $remaining_bases bases after clipping\n";
 				next(TRACE);
-			}
-			
+			}		
 			
 			# modify FASTA header
 			$ti_to_header{$ti} .= " CLIPPED: $clipped_bases nt";
@@ -289,7 +316,7 @@ sub INT_handler {
 	print "\n\n======================================================\n\n";
 	print "SCRIPT INTERRUPTED at $date\n";
 	print "TOTAL: Processed $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
-	print "TOTAL: $rejected_traces traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n\n";
+	print "TOTAL: $total_rejected_traces traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n\n";
 	print "======================================================\n\n";
     exit(0);
 }
