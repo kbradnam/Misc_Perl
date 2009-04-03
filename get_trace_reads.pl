@@ -14,7 +14,7 @@ use FAlite;
 $SIG{'INT'} = 'INT_handler';
 
 
-my @taxa = ("Arabidopsis thaliana","Xenopus laevis","Drosophila melanogaster","Homo sapiens");
+my @taxa = ("Arabidopsis thaliana","Xenopus laevis","Drosophila melanogaster","Homo sapiens","Zea mays", "Apis mellifera", "Bos taurus", "Plasmodium falciparum");
 #my @taxa = ("Arabidopsis thaliana","Drosophila melanogaster");
 
 # script name that does the actual fetching of data (supplied by NCBI)
@@ -83,21 +83,20 @@ SPECIES: foreach my $species (@taxa){
 	open(OUT,">${species_file_name}_trace_reads.fa") or die "Can't open output file for $species\n";
 
 	
-	$pages = 4;
+	$pages = 1;
 	
 	for (my $i=0;$i<$pages;$i++){
 		$file = "${species_file_name}_trace_read_data${i}";
-		my $command = "(echo -n \"retrieve_gz fasta xml 0b\"\; $prog \"query page_size 40000 page_number $i binary $query\") | $prog > ${file}.gz"; 
+		my $command = "(echo \"retrieve_gz fasta xml 0b\"\; $prog \"query page_size 40000 page_number $i binary $query\") | $prog > ${file}.gz"; 
 #		my $command = "(echo -n \"retrieve fasta xml 0b\"\; $prog \"query page_size 40000 page_number $i binary $query\") | $prog > ${file}"; 
 	
 		print "${species_file_name}: Processing page ",$i+1,"/$pages\n";
-		#print  "$command\n";
 
-		# run the command to grab the sequences and xml files
 		system("$command") && die "Can't execute $command\n";
 
 		# now want to unpoack the file
 		system("gunzip ${file}.gz") && die "Can't unzip archive\n";
+		exit;lt
 
 		# process sequences based on info in xml file
 		process_file($file);
