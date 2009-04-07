@@ -10,18 +10,36 @@
 use strict;
 use warnings;
 use FAlite;
+use Getopt::Long;
+
+
+my $min_bases; # minimum number of bases that you need in a sequence after clipping to keep it
+my $max_pages; # maximum number of pages to download
+my $page_size; # how many records to try to download in each network query (max is 40,000)
+my $max_n;	   # what is the maximum percentage of N's allowed in the clipped sequence
+
+GetOptions ("min_bases:i" => \$min_bases,
+			"max_pages:i" => \$max_pages,
+            "page_size:i" => \$page_size,
+            "max_n:f"     => \$max_n);
+
+# set defaults if not specified on command line
+$min_bases = 20    if (!$min_bases);
+$max_pages = 2     if (!$max_pages);
+$page_size = 40000 if (!$page_size);
+$max_n = 5         if (!$max_n);
+
+
 
 $SIG{'INT'} = 'INT_handler';
 
 
-my @taxa = ("Plasmodium falciparum","Arabidopsis thaliana","Xenopus laevis","Drosophila melanogaster","Homo sapiens","Zea mays", "Apis mellifera", "Bos taurus","Zea mays","Vitis vinifera","Caenorhabditis japonica", "Procavia capensis");
+my @taxa = ("Plasmodium falciparum","Arabidopsis thaliana","Xenopus laevis","Drosophila melanogaster","Homo sapiens","Caenorhabditis japonica", "Procavia capensis");
 #my @taxa = ("Arabidopsis thaliana","Drosophila melanogaster");
 
 # script name that does the actual fetching of data (supplied by NCBI)
 my $prog = "query_tracedb.pl";
 
-# minimum number of bases that you need in a sequence after clipping to keep it
-my $min_bases = 25;
 
 # keep track of how many bases are clipped and how many traces are rejected for too many low quality bases, plus how many errors there were
 # e.g. when clip left coordinate is greater than total length of sequence. Do this for all species (grand total), and keep separate species totals
@@ -64,7 +82,7 @@ SPECIES: foreach my $species (@taxa){
 	my $species_file_name = $species;
 	$species_file_name =~ s/\s+/_/g;
 
-	# can only download 40,000 records at a time
+	# can only download maximum of 40,000 records at a time
 	my $pages = int($count/40000)+1;
 
 	# there might be no records after above filtering and so we need to skip to next species
@@ -80,13 +98,16 @@ SPECIES: foreach my $species (@taxa){
 
 	# if we have any sequences to fetch then need to make an output file
 	open(OUT,">${species_file_name}_trace_reads.fa") or die "Can't open output file for $species\n";
-
-	$pages = 2;
 	
-	for (my $i=0;$i<$pages;$i++){
+	PAGES: for (my $i=0;$i<$pages;$i++){
+		
+		if ($i >= $max_pages){
+			print "${species_file_name}: Stopping because max_pages limit of $max_pages has been reached\n";
+			last PAGES;
+		}
 		my $file = "${species_file_name}_trace_read_data${i}";
-		my $command = "(/bin/echo -n \"retrieve_gz fasta xml 0b\"\; $prog \"query page_size 40000 page_number $i binary $query\") | $prog > ${file}.gz"; 
-#		my $command = "(echo -n \"retrieve fasta xml 0b\"\; $prog \"query page_size 40000 page_number $i binary $query\") | $prog > ${file}"; 
+		my $command = "(/bin/echo -n \"retrieve_gz fasta xml 0b\"\; $prog \"query page_size $page_size page_number $i binary $query\") | $prog > ${file}.gz"; 
+#		my $command = "(echo -n \"retrieve fasta xml 0b\"\; $prog \"query page_size $page_size page_number $i binary $query\") | $prog > ${file}"; 
 	
 		print "${species_file_name}: Processing page ",$i+1,"/$pages\n";
 
