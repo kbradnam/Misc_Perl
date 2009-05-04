@@ -17,11 +17,13 @@ my $min_bases; # minimum number of bases that you need in a sequence after clipp
 my $max_pages; # maximum number of pages to download
 my $page_size; # how many records to try to download in each network query (max is 40,000)
 my $max_n;	   # what is the maximum percentage of N's allowed in the clipped sequence
+my $verbose;   # turn on extra output - e.g. errors for traces that were rejected
 
 GetOptions ("min_bases:i" => \$min_bases,
 			"max_pages:i" => \$max_pages,
             "page_size:i" => \$page_size,
-            "max_n:f"     => \$max_n);
+            "max_n:f"     => \$max_n,
+			"verbose"     => \$verbose);
 
 # set defaults if not specified on command line
 $min_bases = 20    if (!$min_bases);
@@ -36,24 +38,32 @@ $SIG{'INT'} = 'INT_handler';
 
 
 my @taxa = ("Plasmodium falciparum","Arabidopsis thaliana","Xenopus laevis","Drosophila melanogaster","Homo sapiens","Caenorhabditis japonica", "Procavia capensis");
+#@taxa = ("Procavia capensis");
 #my @taxa = ("Arabidopsis thaliana");
 
 # script name that does the actual fetching of data (supplied by NCBI)
 my $prog = "query_tracedb.pl";
 
-# keep track of how many bases are clipped and how many traces are rejected for too many low quality bases, plus how many errors there were
-# e.g. when clip left coordinate is greater than total length of sequence. Do this for all species (grand total), and keep separate species totals
-# also keep track of total traces parsed
+# need to keep track of:
+# 1) total traces parsed
+# 2) how many bases are clipped
+# 3) how many traces are rejected for being too short after clipping low quality bases, 
+# 4) how many traces are rejected for containing too many Ns
+# 5) how many other errors there were (e.g. when clip left coordinate is greater than total length of sequence)
+# Do this for all species (grand total), and keep separate species totals
+my $total_traces = 0;
 my $total_bases = 0;
 my $total_clipped_bases = 0;
-my $total_rejected_traces = 0;
+my $total_rejected_high_n = 0;
+my $total_rejected_too_short = 0;
 my $total_errors = 0;
-my $total_traces = 0;
 
 my $species_total_bases;
 my $species_clipped_bases;
-my $species_rejected_traces;
+my $species_rejected_high_n;
+my $species_rejected_too_short;
 my $species_errors;
+
 
 # want to store fasta headers, fasta sequences, and seq lengths in hashes all tied to TI number of each sequence	
 my %ti_to_seq;
@@ -64,8 +74,7 @@ my %ti_to_seqlength;
 
 # first thing to do is test whether connection to trace server is down
 # may as well exit now if it is
-my $status = check_network();
-die "It seems that the Trace Archive is not available at this time, please try later\n" unless ($status);
+die "It seems that the Trace Archive is not available at this time, please try later\n" unless check_network();
 
 SPECIES: foreach my $species (@taxa){
 	my $date = `date`; 
@@ -75,13 +84,17 @@ SPECIES: foreach my $species (@taxa){
 	# reset species-level counters
 	$species_total_bases = 0;
 	$species_clipped_bases = 0;
-	$species_rejected_traces = 0;
+	$species_rejected_high_n = 0;
+	$species_rejected_too_short = 0;
 	$species_errors = 0;
 	
 	# store some of the query criteria in a separate string as we will want to reuse it later
 	my $query = "species_code = '$species' and (trace_type_code = 'WGS' or trace_type_code = 'WCS' or trace_type_code = 'SHOTGUN' or trace_type_code = '454' or trace_type_code = 'CLONEEND') and source_type = 'GENOMIC'";
 
 	#print "$prog query count \"$query\"\n";
+
+	# Connection check
+	die "It seems that the Trace Archive is not available at this time, please try later\n" unless check_network();
 
 	# use 'query count' commands to get count of how many records match $query
 	my $count = `$prog query count \"$query\"`;
@@ -132,6 +145,9 @@ SPECIES: foreach my $species (@taxa){
 
 		my $command = "(/bin/echo -n \"retrieve_gz fasta 0b\"\; $prog \"query page_size $page_size page_number $i binary $query\") | $prog"; 
 
+		# Connection check
+		die "It seems that the Trace Archive is not available at this time, please try later\n" unless check_network();
+
 		# send it through a pipe to gunzip and then to perl
 		open(FASTA,"$command | /usr/bin/gunzip -c | ") or die "Can't open pipe: $? $!\n";
 		my $FA = new FAlite (\*FASTA);
@@ -142,6 +158,9 @@ SPECIES: foreach my $species (@taxa){
 			die "No ti in $header\n" if (!$ti);
 			$ti_to_header{$ti} = $header;
 			$ti_to_seq{$ti} = $entry->seq;
+			
+			die "Can't get sequence for $ti\n" if (!$ti_to_seq{$ti});
+			
 			$ti_to_seqlength{$ti} = length($entry->seq);
 
 			# update global and species specific stats
@@ -213,7 +232,7 @@ SPECIES: foreach my $species (@taxa){
 			if($error_test){
 				$species_errors++;
 				$total_errors++;
-				print "ERROR: TI:*$ti* LENGTH: $length CLIP_LEFT:$clip_left CLIP_RIGHT:$clip_right VECTOR_LEFT:$vector_left VECTOR_RIGHT:$vector_right\n";
+				print "ERROR: TI:*$ti* LENGTH: $length CLIP_LEFT:$clip_left CLIP_RIGHT:$clip_right VECTOR_LEFT:$vector_left VECTOR_RIGHT:$vector_right\n" if ($verbose);
 			
 				# no point going any further
 				next TRACE;
@@ -221,7 +240,6 @@ SPECIES: foreach my $species (@taxa){
 		
 			# now clip sequence if necessary
 			my $seq = $ti_to_seq{$ti};
-		
 			if($left > 0 || $right < $length){
 			
 				# want to keep track total number of clipped bases and species specific clipped bases
@@ -229,30 +247,39 @@ SPECIES: foreach my $species (@taxa){
 				$total_clipped_bases += $clipped_bases;
 				$species_clipped_bases += $clipped_bases;
 
-				#print "Clipping $clipped_bases bases\n";		
+				# how many bases will be left after clipping?
 				my $remaining_bases = $length - $clipped_bases;
-
-				# use substr to do the actual clipping
-				$seq = substr($seq,$left-1,$remaining_bases);
-			
-				# die if we don't have any sequence for some reason
-				die "No seq\n$ti\tlength=$length\tleft=$left\tright=$right\n" if (!$seq);
-	
-		
+				
 				# Add check in case remaining sequence is below some useful limit?		
 				if($remaining_bases < $min_bases){
-					$total_rejected_traces++;
-					$species_rejected_traces++;
-					#print "$ti has $remaining_bases bases after clipping\n";
+					$total_rejected_too_short++;
+					$species_rejected_too_short++;
+					print "ERROR: $ti has $remaining_bases bases after clipping\n" if ($verbose);
 					next(TRACE);
-				}		
-			
-				# modify FASTA header
+				}
+				
+				# use substr to do the actual clipping and modify corresponding FASTA header with clipping info
+				$seq = substr($seq,$left-1,$remaining_bases);
 				$ti_to_header{$ti} .= " CLIPPED: $clipped_bases nt";
 			}
-			my $tidied_seq = tidy_seq($seq);
+			
+			# die if we don't have any sequence for some reason
+			die "No seq\n$ti\tlength=$length\tleft=$left\tright=$right\n" if (!$seq);
 		
-			# now send to output file
+			# now check whether remaining sequence contains more than $max_n Ns in which case we should ignore it
+			my $n = ($seq =~ tr/N/N/);
+			my $percent_n =($n / length($seq)*100);
+			if($percent_n > $max_n){
+				$total_rejected_high_n++;
+				$species_rejected_high_n++;
+				#print "ERROR: $ti contains $percent_n Ns, more than ${max_n}% Ns in its sequence\n";
+				
+				print "ERROR: $ti contains more than ${max_n}% Ns in its sequence\n" if ($verbose);
+				next(TRACE);
+			}
+			
+			# If we have survived to this point, then we have a valid sequence which we can tidy and then print to output
+			my $tidied_seq = tidy_seq($seq);
 			print OUT "$ti_to_header{$ti}\n$tidied_seq\n";
 		}
 	
@@ -273,8 +300,9 @@ SPECIES: foreach my $species (@taxa){
 	#########################
 	
 	my $percent_clipped = sprintf("%.1f",($species_clipped_bases/$species_total_bases)*100);
-	print "$species_file_name: Processed $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
-	print "$species_file_name: WARNING - $species_rejected_traces traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n" if ($species_rejected_traces > 0);
+	print "$species_file_name: Processed $species_total_bases nt of which $species_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
+	print "$species_file_name: WARNING - $species_rejected_too_short traces were rejected for being too short after vector/quality clipping\n" if ($species_rejected_too_short > 0);
+	print "$species_file_name: WARNING - $species_rejected_high_n traces were rejected for containing too many unknown bases (Ns)\n" if ($species_rejected_high_n > 0);
 	print "$species_file_name: WARNING - $species_errors traces were rejected for containing errors (inconsistant information)\n" if ($species_errors > 0);
 	
 	print "------------------------------------------------------\n";
@@ -290,7 +318,8 @@ my $percent_clipped = sprintf("%.1f",($total_clipped_bases/$total_bases)*100);
 
 print "\n\n======================================================\n\n";
 print "TOTAL: Processed $total_traces traces containing $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
-print "TOTAL: $total_rejected_traces traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n";
+print "TOTAL: $total_rejected_too_short traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n";
+print "TOTAL: $total_rejected_high_n traces were rejected for containing too many unknown bases (>%$max_n)\n";
 print "TOTAL: $total_errors traces were rejected for containing errors (inconsistant information)\n\n";
 print "======================================================\n\n";
 
@@ -315,8 +344,10 @@ sub INT_handler {
 	my $percent_clipped = sprintf("%.1f",($total_clipped_bases/$total_bases)*100);
 	print "\n\n======================================================\n\n";
 	print "SCRIPT INTERRUPTED at $date\n";
-	print "TOTAL: Processed $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
-	print "TOTAL: $total_rejected_traces traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n\n";
+	print "TOTAL: Processed $total_traces traces containing $total_bases nt of which $total_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
+	print "TOTAL: $total_rejected_too_short traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n";
+	print "TOTAL: $total_rejected_high_n traces were rejected for containing too many unknown bases (>%$max_n)\n";
+	print "TOTAL: $total_errors traces were rejected for containing errors (inconsistant information)\n\n";
 	print "======================================================\n\n";
     exit(0);
 }
