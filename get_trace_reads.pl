@@ -11,7 +11,12 @@ use strict;
 use warnings;
 use FAlite;
 use Getopt::Long;
+use LWP::UserAgent;
+use HTTP::Request::Common 'POST';
 
+$ENV{'LANG'}='C'; # copied from query_tracedb.pl - not sure what this is doing
+$ENV{'LC_ALL'}='C'; # copied from query_tracedb.pl - not sure what this is doing
+$SIG{'INT'} = 'INT_handler'; # for handling signal interrupts
 
 my $min_bases; # minimum number of bases that you need in a sequence after clipping to keep it
 my $max_pages; # maximum number of pages to download
@@ -38,7 +43,7 @@ $SIG{'INT'} = 'INT_handler';
 
 
 my @taxa = ("Plasmodium falciparum","Arabidopsis thaliana","Xenopus laevis","Drosophila melanogaster","Homo sapiens","Caenorhabditis japonica", "Procavia capensis");
-#@taxa = ("Procavia capensis");
+@taxa = ("Plasmodium falciparum");
 #my @taxa = ("Arabidopsis thaliana");
 
 # script name that does the actual fetching of data (supplied by NCBI)
@@ -72,9 +77,8 @@ my %ti_to_seqlength;
 
 
 
-# first thing to do is test whether connection to trace server is down
-# may as well exit now if it is
-die "It seems that the Trace Archive is not available at this time, please try later\n" unless check_network();
+# first thing to do is test whether connection to trace server is down, may as well exit now if it is
+check_network();
 
 SPECIES: foreach my $species (@taxa){
 	my $date = `date`; 
@@ -94,7 +98,7 @@ SPECIES: foreach my $species (@taxa){
 	#print "$prog query count \"$query\"\n";
 
 	# Connection check
-	die "It seems that the Trace Archive is not available at this time, please try later\n" unless check_network();
+	check_network();
 
 	# use 'query count' commands to get count of how many records match $query
 	my $count = `$prog query count \"$query\"`;
@@ -143,12 +147,20 @@ SPECIES: foreach my $species (@taxa){
 	
 		print "${species_file_name}: Processing page ",$i+1,"/$pages\n";
 
-		my $command = "(/bin/echo -n \"retrieve_gz fasta 0b\"\; $prog \"query page_size $page_size page_number $i binary $query\") | $prog"; 
+		
+		##########################################
+		#
+		# G R A B   T R A C E   S E Q U E N C E S 
+		#
+		##########################################
 
 		# Connection check
-		die "It seems that the Trace Archive is not available at this time, please try later\n" unless check_network();
+		check_network();
+				
+		# Form command that will grab FASTA sequences of specified reads
+		my $command = "(/bin/echo -n \"retrieve_gz fasta 0b\"\; $prog \"query page_size $page_size page_number $i binary $query\") | $prog"; 
 
-		# send it through a pipe to gunzip and then to perl
+		# send command through a pipe to gunzip and then output will be sent to FAlite module
 		open(FASTA,"$command | /usr/bin/gunzip -c | ") or die "Can't open pipe: $? $!\n";
 		my $FA = new FAlite (\*FASTA);
 		while (my $entry = $FA->nextEntry) {			
@@ -159,7 +171,7 @@ SPECIES: foreach my $species (@taxa){
 			$ti_to_header{$ti} = $header;
 			$ti_to_seq{$ti} = $entry->seq;
 			
-			die "Can't get sequence for $ti\n" if (!$ti_to_seq{$ti});
+			die "Can't get sequence for $ti\n" if (!defined($ti_to_seq{$ti}));
 			
 			$ti_to_seqlength{$ti} = length($entry->seq);
 
@@ -168,11 +180,22 @@ SPECIES: foreach my $species (@taxa){
 			$species_total_bases += length($entry->seq);
 		}	
 		close(FASTA);
+	
+	
+		################################
+		#
+		# G R A B   T R A C E   I N F O
+		#
+		################################
 		
-		# have new command for getting trace info
+		
+		# now make new command for getting trace info for each read
 		$command = "(/bin/echo -n \"retrieve_gz info 0b\"\; $prog \"query page_size $page_size binary page_number $i $query\") | $prog"; 
 		
-
+		# Connection check
+		check_network();
+	
+	
 		# send it through a pipe to send it to perl, use gunzip -c to uncompress data in place
 		open(INFO,"$command | /usr/bin/gunzip -c | ") or die "Can't open pipe\n";
 
@@ -378,16 +401,22 @@ sub tidy_seq{
     return ($output_seq);
 }
 
-sub check_network{
-		
-	my $return = 0;
 
-	# run the help command to see if trace archive is receiving queries
-	# if it is then we can expect the first line of output to part of the help statement
-	my @status = `query_tracedb.pl help`;
-	chomp(@status);
+sub check_network{
+                
+    # try to retrieve FASTA of TI number 1 as a test of network
+    my $request = POST 'http://trace.ncbi.nlm.nih.gov/Traces/trace.cgi?cmd=raw', [query=>'retrieve fasta 1'];
+    my $response =  LWP::UserAgent->new->request($request);
 	
-	($return = 1) if ($status[0] =~ m/help\s+- display this screen/);
+	# first check that connection actually worked
+    if ($response->is_error){
+   		die "Connection attempt to trace server resulted in an error\n";
+    }
 	
-	return($return);
+	# now check that there wasn't an 001 or 002 error, 
+	# i.e. connection worked but trace server returned an error code rather than sequence or info
+	if($response->content =~ m/^00\d:/i) {
+		die "Connection to trace server returned an error code: ",$response->content,"\n";
+	}
 }
+
