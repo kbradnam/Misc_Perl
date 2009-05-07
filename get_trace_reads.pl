@@ -23,19 +23,21 @@ my $max_pages; # maximum number of pages to download
 my $page_size; # how many records to try to download in each network query (max is 40,000)
 my $max_n;	   # what is the maximum percentage of N's allowed in the clipped sequence
 my $verbose;   # turn on extra output - e.g. errors for traces that were rejected
+my $program;   # can specify path to query_tracedb.pl program
 
 GetOptions ("min_bases:i" => \$min_bases,
 			"max_pages:i" => \$max_pages,
             "page_size:i" => \$page_size,
             "max_n:f"     => \$max_n,
-			"verbose"     => \$verbose);
+			"verbose"     => \$verbose,
+			"program:s"   => \$program);
 
 # set defaults if not specified on command line
 $min_bases = 20    if (!$min_bases);
 $max_pages = 2     if (!$max_pages);
 $page_size = 40000 if (!$page_size);
 $max_n = 5         if (!$max_n);
-
+$program = "query_tracedb.pl" if (!$program);
 
 
 $SIG{'INT'} = 'INT_handler';
@@ -43,11 +45,12 @@ $SIG{'INT'} = 'INT_handler';
 
 
 my @taxa = ("Plasmodium falciparum","Arabidopsis thaliana","Xenopus laevis","Drosophila melanogaster","Homo sapiens","Caenorhabditis japonica", "Procavia capensis");
-@taxa = ("Plasmodium falciparum");
+#@taxa = ("Plasmodium falciparum");
 #my @taxa = ("Arabidopsis thaliana");
 
 # script name that does the actual fetching of data (supplied by NCBI)
-my $prog = "query_tracedb.pl";
+# using glob incase '~' was used to specify location
+my $prog = glob($program);
 
 # need to keep track of:
 # 1) total traces parsed
@@ -163,7 +166,8 @@ SPECIES: foreach my $species (@taxa){
 		# send command through a pipe to gunzip and then output will be sent to FAlite module
 		open(FASTA,"$command | /usr/bin/gunzip -c | ") or die "Can't open pipe: $? $!\n";
 		my $FA = new FAlite (\*FASTA);
-		while (my $entry = $FA->nextEntry) {			
+		while (my $entry = $FA->nextEntry) {
+			die "$entry\n" if ($entry =~ m/Couldn't connect to TRACE server/i);			
 			my $header = $entry->def;
 			$header =~ m/ti\|(\d+) /;
 			my $ti = $1;
