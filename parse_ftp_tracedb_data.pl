@@ -219,7 +219,9 @@ FILE: foreach my $clip_file (@clip_files) {
 			
 			# do we want to move this older file to commando?
 			if ($move_files){
-				ftp_files($output_file); 		
+				# first zip file to save space and speed transfer
+				system("/usr/bin/gzip $output_file") && die "Could not gzip $output_file\n";
+				ftp_files("${output_file}.gz"); 		
 			}
 		
 			$output_file_counter++;
