@@ -12,6 +12,8 @@ use warnings;
 use Getopt::Long;
 use Net::FTP;
 
+# turn on autoflush
+$| = 1;
 
 # Need this or else things won't work!
 $ENV{FTP_PASSIVE} = 1;

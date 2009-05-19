@@ -14,6 +14,9 @@ use FAlite;
 use Getopt::Long;
 use Net::FTP;
 
+# turn on autoflushing off buffer
+$| = 1;
+
 # Need this or else FTP won't work!
 $ENV{FTP_PASSIVE} = 1;
 
