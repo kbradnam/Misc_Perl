@@ -15,6 +15,9 @@ use Net::FTP;
 # turn on autoflush
 $| = 1;
 
+# for handling signal interrupts
+$SIG{'INT'} = 'INT_handler'; 
+
 # Need this or else things won't work!
 $ENV{FTP_PASSIVE} = 1;
 
@@ -27,6 +30,7 @@ my $min_traces;   # what is the minimum number of traces that each species needs
 my $species_list; # optionally specify a file which contains species (quicker than looking up via separate script)
 my $prog;         # specify path to a program that will produce list of (eukaryotic) species
 my $verbose;      # turn on extra output (usefulf for debugging)
+my $ignore_processed; # check to see what files have previously been processed and ignore those even if gzip files are present
 
 GetOptions ("max_files:i"    => \$max_files,
 			"debug"          => \$debug,
@@ -36,6 +40,7 @@ GetOptions ("max_files:i"    => \$max_files,
 			"min_traces:i"   => \$min_traces,
 			"species_list:s" => \$species_list,
 			"prog:s"         => \$prog,
+			"ignore_processed"  => \$ignore_processed,			
 			"verbose"        => \$verbose);
 
 # set defaults if not specified on command line
@@ -60,7 +65,21 @@ else{
 my @taxa = get_species_names();
 
 
+# open a file which will contain details of any files that have been processed
+# (so they can be ignored in future)
+my $processed_file_name = "trace_archive_processed_files.txt";
 
+# if -ignore option is being used we need to first get a list of previously processed files
+my %previously_processed;
+if($ignore_processed){
+	open(IN,"<$processed_file_name") or die "Can't find $processed_file_name file\n";
+	while(<IN>){
+		chomp;
+		my ($file) = split(/\s+/,$_);
+		$previously_processed{$file} = 1;
+	}
+	close(IN);
+}
 
 
 
@@ -92,7 +111,7 @@ SPECIES: foreach my $species (@taxa){
 	$species = lc($species);
 	$species =~ s/ /_/g;
 	
-	print "\nAttempting to fetch sequences for $species\n";
+	print "\nAttempting to fetch files for $species\n";
 	print "======================================================\n";
 	my $dir = "$root/$species";
 
@@ -115,7 +134,7 @@ SPECIES: foreach my $species (@taxa){
 	my $number_of_files = $1;
 
 	FILE: for (my $i=1;$i<=$number_of_files;$i++){
-		
+						
 		# break out of loop if we have exceeded max number of pages
 		if ($i > $max_files){
 			print "Maximum number of files ($max_files) has been exceeded, skipping to next species\n";
@@ -145,14 +164,23 @@ exit;
 sub get_files{
 	my ($dir,$species,$i,$number_of_files,$type,$attempt) = @_;
 
+	# potentially have to fetch two differently formatted file names depending on whether there are no quality scores or not
 	my $number = sprintf("%03d", $i);
+	my $file1 = "$type.$species.$number.gz";
+	my $file2 = "$type.$species.qualityless.$number.gz";
+
+	# now check to see whether this file has been processed before (if -ignore_processed option is in use)
+	if($ignore_processed && $previously_processed{$file1}){
+		print "$file1 has been processed before, skipping to next file\n";
+		return(1);
+	}
+	if($ignore_processed && $previously_processed{$file2}){
+		print "$file2 has been processed before, skipping to next file\n";
+		return(1);
+	}
 
 	print "Getting $type number $i of $number_of_files, attempt number $attempt\n";
 
-	# potentially have to fetch two differently formatted file names depending on whether there are no quality scores or not
-	my $file1 = "$type.$species.$number.gz";
-	my $file2 = "$type.$species.qualityless.$number.gz";
-	
 	
 	if(defined $ftp->size("$dir/$file1")){
 
@@ -175,7 +203,7 @@ sub get_files{
 			return(0) if ($attempt > $max_attempts);
 			print "Sleeping for $sleep seconds, and then retrying\n";
 			sleep($sleep);
-			get_files($dir,$species,$number,$i,$type,++$attempt);
+			get_files($dir,$species,$i,$number_of_files,$type,++$attempt);
 		}		
 	}
 	
@@ -200,7 +228,7 @@ sub get_files{
 			return(0) if ($attempt > $max_attempts);
 			print "Sleeping for $sleep seconds, and then retrying\n";
 			sleep($sleep);
-			get_files($dir,$species,$number,$i,$type,++$attempt);
+			get_files($dir,$species,$i,$number_of_files,$type,++$attempt);
 		}		
 	}
 	
@@ -232,4 +260,18 @@ sub get_species_names{
 		@taxa = `$prog`or die "Can't run $prog\n";	
 	}
 	return(@taxa);
+}
+
+
+
+# signal event handler in case of interrupts (Ctrl+C)
+sub INT_handler {
+	
+	# print final statistic of how many bases were clipped
+	my $date = `date`; 
+	chomp($date);
+	
+	print "\n\nSCRIPT INTERRUPTED at $date\n";
+	print "\n$missing_counter species (out of $species_counter) could not be found on FTP site, might be due to slight variations in species names\n\n";    
+	exit(0);
 }
