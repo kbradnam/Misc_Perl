@@ -103,7 +103,6 @@ if($ignore_processed){
 	close(IN);
 }
 
-
 # Get list of clip files in current directory (or in $dir if specified)
 my @clip_files = glob("${dir}clip.*.gz");
 
@@ -190,7 +189,6 @@ FILE: foreach my $clip_file (@clip_files) {
     }       
     close(FASTA);
 
-
 	# time to open an output file for processed data, but we first need to see whether there are output files 
 	# that were already copied to commando and/or output files in the current directory which were not 
 	# copied to commando. This will help decide what numerical suffix the file should get
@@ -206,7 +204,7 @@ FILE: foreach my $clip_file (@clip_files) {
 	my $output_file_counter = $last_processed_output_file;
 	my $output_file = "${species}_processed_traces.${output_file_counter}.fa";
 
-
+	
 	# if output file doesn't already exist open a new one...
 	if(! -e $output_file){
 		open(OUT,">$output_file") or die "Can't create $output_file\n";		
@@ -339,7 +337,8 @@ FILE: foreach my $clip_file (@clip_files) {
 
 	# transfer file now unless there is another file for this species in the same directory
 	unless(-e $next_file_name){
-		ftp_files($output_file) if ($move_files); 				
+		system("/usr/bin/gzip $output_file") && die "Could not gzip $output_file\n";
+		ftp_files("${output_file}.gz") if ($move_files); 				
 	}
 	
 	print "======================================================\n\n";
@@ -438,14 +437,14 @@ sub check_commando{
 
 	my @fasta;
 	# if there no files already copied to commando, we return zero
- 	unless(@fasta = $ftp->ls("${species}_processed_traces.[0-9]*.fa")){
+ 	unless(@fasta = $ftp->ls("${species}_processed_traces.[0-9]*.fa.*")){
 		$ftp->quit or die "Can't quit FTP",$ftp->message;
 		return(0);               
  	}               
 
 	# else we grab the numerical suffix of the last file there and return it's suffix instead
     my $last_file = $fasta[-1];
-    $last_file =~ m/${species}_processed_traces.([0-9]*).fa/;
+    $last_file =~ m/${species}_processed_traces.([0-9]*).fa.*/;
 	my $suffix = $1;
 	$ftp->quit or die "Can't quit FTP",$ftp->message;
     return($suffix);
