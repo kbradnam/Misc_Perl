@@ -31,6 +31,7 @@ my $species_list; # optionally specify a file which contains species (quicker th
 my $prog;         # specify path to a program that will produce list of (eukaryotic) species
 my $verbose;      # turn on extra output (usefulf for debugging)
 my $ignore_processed; # check to see what files have previously been processed and ignore those even if gzip files are present
+my $stop;         # stop script when you reach species starting with specified letters
 
 GetOptions ("max_files:i"    => \$max_files,
 			"debug"          => \$debug,
@@ -39,6 +40,7 @@ GetOptions ("max_files:i"    => \$max_files,
 			"max_attempts:i" => \$max_attempts,
 			"min_traces:i"   => \$min_traces,
 			"species_list:s" => \$species_list,
+			"stop:s"         => \$stop,			
 			"prog:s"         => \$prog,
 			"ignore_processed"  => \$ignore_processed,			
 			"verbose"        => \$verbose);
@@ -49,6 +51,7 @@ $timeout = 180     if (!$timeout);
 $sleep = 10        if (!$sleep);
 $max_attempts = 5  if (!$max_attempts);
 $min_traces = 1000 if (!$min_traces);
+die "-stop option must specify a lower case letter\n" if($stop && ($stop !~ m/[a-z]/));
 $prog = glob("~/Work/bin/find_eukaryotes_in_trace_archive.pl -min_traces $min_traces") if (!$prog);
 
 if (!$debug){
@@ -58,15 +61,12 @@ else{
 	$debug = 1;
 }
 
+
 #########################################
-# GET LIST OF EUKARYOTES IN TRACE ARCHIVE
+# GET LIST OF SPECIES TO IGNORE
 #########################################
 
-my @taxa = get_species_names();
-
-
-# open a file which will contain details of any files that have been processed
-# (so they can be ignored in future)
+# this will be the file that parse_ftp_tracedb_data.pl will produce
 my $processed_file_name = "trace_archive_processed_files.txt";
 
 # if -ignore option is being used we need to first get a list of previously processed files
@@ -81,6 +81,12 @@ if($ignore_processed){
 	close(IN);
 }
 
+#########################################
+# GET LIST OF EUKARYOTES IN TRACE ARCHIVE
+#########################################
+
+my @taxa = get_species_names();
+
 
 
 ########################
@@ -91,53 +97,62 @@ my $user = "anonymous";
 my $password = "krbradnam\@ucdavis.edu";
 my $root = "pub/TraceDB";
 
-#my @taxa = ("Plasmodium falciparum","Arabidopsis thaliana","Xenopus laevis","Drosophila melanogaster","Homo sapiens","Caenorhabditis japonica", "Procavia capensis");
-#my @taxa = ("Drosophila melanogaster","Homo sapiens","Caenorhabditis japonica", "Procavia capensis");
-
 
 # keep track of how many species did not have an exact file name match on FTP site
 my $missing_counter = 0;
 my $species_counter = 0;
 
-
 my $ftp;
 
-
 SPECIES: foreach my $species (@taxa){
-	$species_counter++;
-
-	# get species name in correct format (should already be lower case)
-	chomp($species);	
-	$species = lc($species);
-	$species =~ s/ /_/g;
 	
-	print "\nAttempting to fetch files for $species\n";
-	print "======================================================\n";
-	my $dir = "$root/$species";
+	# stop if -stop is being used
+	if($stop && ($species =~ m/^$stop/)){
+		print "Letter $stop has been reached...stopping program\n";
+		exit(0);
+	}
+	$species_counter++;
+	
+	print "\nFetching files for $species\n" if ($verbose);
 
 	$ftp = Net::FTP->new($host, Debug => $debug, Timeout => $timeout)  or die "Cannot connect to $host: $@\n",$ftp->message;
 	$ftp->login($user,$password) or die "Cannot login ", $ftp->message, "\n";
 	$ftp->binary;
 
+	my $dir = "$root/$species";
 
 	# need to find out how many files are in directory, grab all FASTA files and use array index of last file
 	# also keep count of how many species we don't get an exact name match for
 	my @fasta;
 	unless(@fasta = $ftp->ls("$dir/fasta.$species.[0-9]*.gz")){
-		print "MISSING: $species\n" if ($verbose);
+		print "MISSING SPECIES: $species\n";
 		$missing_counter++;
 		next SPECIES;	
 	}		
+		
+	# need to work out what is the first and last files in the directory 
+	# for some species the first file is not numbered 1 (it's either absent or there are qualityless files instead of
+	# the regular files)
 	
-	my $last_file = $fasta[-1];
-	$last_file =~ m/fasta.$species.*(\d+).gz/;
-	my $number_of_files = $1;
+	my $first_file = $fasta[0];	
+	$first_file =~ m/fasta.$species.(\d+).gz/;
+	my $starting_file = $1;
 
-	FILE: for (my $i=1;$i<=$number_of_files;$i++){
+	my $last_file = $fasta[-1];
+	$last_file =~ m/fasta.$species.(\d+).gz/;
+	my $number_of_files = $1;
+	
+	$number_of_files =~ s/^0+//;
+	
+	my $file_counter = 0;
+	
+	FILE: for (my $i=$starting_file;$i<=$number_of_files;$i++){
+		
+		$file_counter++;
 						
 		# break out of loop if we have exceeded max number of pages
-		if ($i > $max_files){
-			print "Maximum number of files ($max_files) has been exceeded, skipping to next species\n";
+		if ($file_counter > $max_files){
+			print "Maximum number of files ($max_files) has been exceeded, skipping to next species\n" if ($verbose);
 			last FILE;
 		}	
 		
@@ -164,64 +179,44 @@ exit;
 sub get_files{
 	my ($dir,$species,$i,$number_of_files,$type,$attempt) = @_;
 
-	# potentially have to fetch two differently formatted file names depending on whether there are no quality scores or not
+	# note that some files exist on the ftp site with a 'qualityless' part to their file name, e.g. clip.drosophila_melanogaster.qualityless.004.gz
+	# these are rare and non-standard so we will just ignore them
+
+	# format file name	
 	my $number = sprintf("%03d", $i);
-	my $file1 = "$type.$species.$number.gz";
-	my $file2 = "$type.$species.qualityless.$number.gz";
+	my $file = "$type.$species.$number.gz";
 
 	# now check to see whether this file has been processed before (if -ignore_processed option is in use)
-	if($ignore_processed && $previously_processed{$file1}){
-		print "$file1 has been processed before, skipping to next file\n";
+	if($ignore_processed && $previously_processed{$file}){
+		print "$file has been processed before, skipping to next file\n" if ($verbose);
 		return(1);
 	}
-	if($ignore_processed && $previously_processed{$file2}){
-		print "$file2 has been processed before, skipping to next file\n";
-		return(1);
-	}
-
-	print "Getting $type number $i of $number_of_files, attempt number $attempt\n";
 
 	
-	if(defined $ftp->size("$dir/$file1")){
+#	print "Looking for $file\n";
+	
+	# now need to check that files for species actually exist on FTP site
+	if(defined $ftp->size("$dir/$file")){
 
-		# check whether file exists locally (and is same size)
-		my $size = $ftp->size("$dir/$file1");
+		# get size of file on FTP site
+		my $size = $ftp->size("$dir/$file");
 		
-		if(-e $file1 && (-s $file1 == $size)){
-			print "$file1 exists locally - skipping\n\n";
+		# is file in local directory AND same size?
+		if(-e $file && (-s $file == $size)){
+			print "$file exists locally - skipping\n\n" if ($verbose);
 			return(1);
 		}
-		elsif(-e $file1 && (-s $file1 != $size)){
-			print "$file1 exists locally but is a different size, will download again\n";
+		# is file in local directory but different size?
+		elsif(-e $file && (-s $file != $size)){
+			print "FILE INCOMPLETE: refetching $file number $i of $number_of_files, attempt number $attempt\n";	
+		}
+		# if we get here must be a new file to download
+		else{
+			print "fetching $file number $i of $number_of_files, attempt number $attempt\n";	
 		}
 
 		# use eval statement to catch any timeouts
-		eval{$ftp->get("$dir/$file1") or die "Can't grab $file1\n",$ftp->message};	
-		if ($@ =~ /Timeout/){
-		   # catching code goes here
-			print "$@\n";
-			return(0) if ($attempt > $max_attempts);
-			print "Sleeping for $sleep seconds, and then retrying\n";
-			sleep($sleep);
-			get_files($dir,$species,$i,$number_of_files,$type,++$attempt);
-		}		
-	}
-	
-	# now try qualityless file name 
-	elsif(defined $ftp->size("$dir/$file2")){
-		
-		# check whether file exists locally (and is same size)
-		my $size = $ftp->size("$dir/$file2");
-		
-		if(-e $file2 && (-s $file2 == $size)){
-			print "$file2 exists locally - skipping\n\n";
-			return(1);
-		}
-		elsif(-e $file2 && (-s $file2 != $size)){
-			print "$file2 exists locally but is a different size, will download again\n";
-		}
-		
-		eval{$ftp->get("$file2") or die "Can't grab $file2\n",$ftp->message};
+		eval{$ftp->get("$dir/$file") or die "Can't grab $file\n",$ftp->message};	
 		if ($@ =~ /Timeout/){
 		   # catching code goes here
 			print "$@\n";
@@ -234,8 +229,9 @@ sub get_files{
 	
 	# or give up
 	else{
-		print "ERROR: $type file $i can not be found\n";
-		return(0);
+		print "MISSING FILE: $file  not present on FTP site\n";
+		# can still return 1 as this i
+		return(1);
 	}
 	
 
@@ -246,13 +242,18 @@ sub get_files{
 
 
 sub get_species_names{
-	print "Fetching list of eukaryotes by using $prog\n";
+	print "\nFetching list of eukaryotes by using $prog\n\n";
 
 	my @taxa;
 	if($species_list){
-		open (IN,"<$species_list") or die "-Can't find file specified by -species_file: $species_list\n";
-		while(<IN>){
-			push(@taxa,$_);
+		open (IN,"<$species_list") or die "Can't find file specified by -species_file: $species_list\n";
+		while(my $species = <IN>){
+			
+		# get species name in correct format (should already be lower case)
+		chomp($species);	
+		$species = lc($species);
+		$species =~ s/ /_/g;
+		push(@taxa,$species);
 		}
 		close(IN);
 	}
