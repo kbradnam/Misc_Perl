@@ -31,23 +31,26 @@ my $ignore_processed; # check to see what files have previously been processed a
 my $verbose;          # turn on extra output - e.g. errors for traces that were rejected
 my $move_files;       # ftp files to commando
 my $clean_files;      # remove existing gzip files after transfer
+my $stop;         # stop script when you reach species starting with specified letters
 
 GetOptions ("dir:s"             => \$dir,
 			"min_bases:i"       => \$min_bases,
 			"max_n:f"           => \$max_n,
 			"verbose"           => \$verbose,
-			"max_output_size:i" => \$max_output_size,
+			"max_output_size:f" => \$max_output_size,
 			"ignore_processed"  => \$ignore_processed,
 			"move_files"        => \$move_files,
+			"stop:s"            => \$stop,                     
 			"clean_files"       => \$clean_files);
 
 
 # set defaults if not specified on command line
 $min_bases = 30    if (!$min_bases);
 $max_n = 5         if (!$max_n);
+die "-stop option must specify a lower case letter\n" if($stop && ($stop !~ m/[a-z]/));
 
-# set an initial limit of 2 Gb, and will create new output files if they grow bigger than that
-$max_output_size = 2 if (!$max_output_size);
+# set an initial limit of 0.5 Gb, and will create new output files if they grow bigger than that
+$max_output_size = 0.5 if (!$max_output_size);
 # convert to bytes
 $max_output_size *= 1073741824;
 
@@ -116,6 +119,12 @@ FILE: foreach my $clip_file (@clip_files) {
 	$clip_file_name =~ m/clip.(.*?)\..*?([0-9]+).gz/;
 	my ($species,$file_number) = ($1,$2);
 	
+	# stop if -stop is being used
+    if($stop && ($species =~ m/^$stop/)){
+    	print "\nLetter $stop has been reached...stopping program\n";
+        exit(0);
+     }
+	
 	# make versions for fasta file name
 	my ($fasta_file, $fasta_file_name) = ($clip_file, $clip_file_name);
 	$fasta_file =~ s/clip/fasta/;
@@ -130,12 +139,11 @@ FILE: foreach my $clip_file (@clip_files) {
 
 	# now check to see whether this file has been processed before (if -ignore_processed option is in use)
 	if($ignore_processed && $previously_processed{$clip_file_name}){
-		print "$clip_file_name has been processed before, skipping to next file\n\n";
+		print "$clip_file_name has been processed before, skipping to next file\n" if ($verbose);
 		next FILE;	
 	}
 
-	print "======================================================\n";	
-  	print "Unzipping $clip_file\n";	
+  	print "Unzipping $clip_file\n" if ($verbose);	
 
 	# now process clip file to store information
 	# use two hashes which track clip left/right values for each TI
@@ -151,7 +159,7 @@ FILE: foreach my $clip_file (@clip_files) {
 	}
 	close(IN);
 
-	print "Unzipping $fasta_file\n";	
+	print "Unzipping $fasta_file\n" if ($verbose);	
   
 	# now need to parse the associated data in FASTA file
 	# send command through a pipe to gunzip and then output will be sent to FAlite module	
@@ -189,6 +197,7 @@ FILE: foreach my $clip_file (@clip_files) {
     }       
     close(FASTA);
 
+
 	# time to open an output file for processed data, but we first need to see whether there are output files 
 	# that were already copied to commando and/or output files in the current directory which were not 
 	# copied to commando. This will help decide what numerical suffix the file should get
@@ -199,11 +208,9 @@ FILE: foreach my $clip_file (@clip_files) {
 	my $last_processed_output_file = $last_commando_file+1; 
 	($last_processed_output_file = $last_local_file) if ($last_local_file > $last_commando_file); 
 
-
 	# increment file counter (it will be set to 1 if there are no files on commando)
 	my $output_file_counter = $last_processed_output_file;
 	my $output_file = "${species}_processed_traces.${output_file_counter}.fa";
-
 	
 	# if output file doesn't already exist open a new one...
 	if(! -e $output_file){
@@ -213,13 +220,19 @@ FILE: foreach my $clip_file (@clip_files) {
 	else{
 		# if output file exists but is too big we need to make a new file with an incremented suffix
 		if(-s $output_file > $max_output_size){
-			print "$output_file has become too large (>$max_output_size gigabytes), creating new output file\n";
+			print "$output_file has become too large (>$max_output_size gigabytes), creating new output file\n" if ($verbose);
 			
 			# do we want to move this older file to commando?
 			if ($move_files){
 				# first zip file to save space and speed transfer
 				system("/usr/bin/gzip $output_file") && die "Could not gzip $output_file\n";
-				ftp_files("${output_file}.gz"); 		
+				ftp_files("${output_file}.gz");
+				
+				# if we are cleaning then we can also get rid of the processed gzip file
+				if($clean_files){
+					unlink("${output_file}.gz")  or die "Can't remove ${output_file}.gz\n";
+				}
+				
 			}
 		
 			$output_file_counter++;
@@ -233,8 +246,7 @@ FILE: foreach my $clip_file (@clip_files) {
 	}
 
 	
-	
-	print "Processing sequence and clip information\n";	
+	print "Processing $clip_file_name & $fasta_file_name\n";	
 
 	# now loop through all the TIs and clip sequence if necessary
 	TRACE: foreach my $ti (sort {$a <=> $b} keys %ti_to_seq){
@@ -318,9 +330,9 @@ FILE: foreach my $clip_file (@clip_files) {
 	# print summary statistics for just this file
 	my $percent_clipped = sprintf("%.1f",($file_clipped_bases/$file_total_bases)*100);
 	print "Processed $file_total_traces traces containing $file_total_bases nt of which $file_clipped_bases nt (${percent_clipped}%) had to be clipped\n";
-	print "$file_rejected_too_short traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n";
-	print "$file_rejected_high_n traces were rejected for containing too many unknown bases (>$max_n%)\n";
-	print "$file_errors traces were rejected for containing errors (inconsistant information)\n";
+	print "$file_rejected_too_short traces were rejected for being too short (<$min_bases) after vectory/quality clipping\n" if ($file_rejected_too_short > 0);
+	print "$file_rejected_high_n traces were rejected for containing too many unknown bases (>$max_n%)\n" if ($file_rejected_high_n > 0);
+	print "$file_errors traces were rejected for containing errors (inconsistant information)\n" if ($file_errors > 0);
 
 	# update processed file information, include settings used to process files
 	print PROCESSED "$clip_file_name min_bases=$min_bases max_n=$max_n\n";
@@ -338,12 +350,19 @@ FILE: foreach my $clip_file (@clip_files) {
 	# transfer file now unless there is another file for this species in the same directory
 	unless(-e $next_file_name){
 		system("/usr/bin/gzip $output_file") && die "Could not gzip $output_file\n";
-		ftp_files("${output_file}.gz") if ($move_files); 				
+		if ($move_files){
+			ftp_files("${output_file}.gz");
+			
+			# if we are cleaning then we can also get rid of the processed gzip file
+			if($clean_files){
+				unlink("${output_file}.gz")  or die "Can't remove ${output_file}.gz\n";
+			}						
+		}
 	}
 	
-	print "======================================================\n\n";
+	print "\n";
 	
-	# do we want to remove zipped files	
+	# do we want to remove the original (unprocessed) zipped files?
 	if ($clean_files){
 		unlink($clip_file)  or die "Can't remove $clip_file\n";
 		unlink($fasta_file) or die "Can't remove $clip_file\n";		
