@@ -137,7 +137,9 @@ SPECIES: foreach my $species (@taxa){
 	my $first_file = $fasta[0];	
 	$first_file =~ m/fasta.$species.(\d+).gz/;
 	my $starting_file = $1;
-
+	$starting_file =~ s/^0+//;
+	
+	
 	my $last_file = $fasta[-1];
 	$last_file =~ m/fasta.$species.(\d+).gz/;
 	my $number_of_files = $1;
