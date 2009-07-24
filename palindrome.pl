@@ -20,16 +20,18 @@ use FAlite;
 my $filename;
 my $min_loop;
 my $max_loop;
-my $min_regex;
+my $min_regex; # minimum size of regular expression to search for
 my $max_regex; 
 my $report;     # only show matching regexes that occur $limit times
+my $no_dimers;   # ignore palindromes which are all just a poly-dimer (e.g. ATAT*atata*TATA)
 
 GetOptions ("filename=s"  => \$filename,
             "min_loop=i"  => \$min_loop,
             "max_loop=i"  => \$max_loop,
             "min_regex=i" => \$min_regex,
             "max_regex=i" => \$max_regex,             
-            "report=i"    => \$report
+            "report=i"    => \$report,
+			"no_dimers"    => \$no_dimers
 );
 
 # set defaults 
@@ -64,7 +66,7 @@ while(my $entry = $fasta->nextEntry) {
 	# loop through each regex
     foreach my $regex (@regexes){
 		# loop through each match to the regex
-		while ($seq =~ m/$regex/g){
+		REGEX: while ($seq =~ m/$regex/g){
          	my $match = $&; # the match to the regex
 			my $endline = $'; # the match of everything after regex
 			
@@ -76,8 +78,24 @@ while(my $entry = $fasta->nextEntry) {
 			# allowing for 0-15 bases in the middle
          	if ($endline =~ /^([cagt]{$min_loop,$max_loop})($revmatch)/){
             	my $palindrome = uc($match) . "*" . $1 . "*" . uc($2);
-            	$palindromes{$palindrome}++;
-				$palindrome_count++;
+
+				# want to be able to potentially filter out any palindrome
+				# which is just a poly-dimer
+				my $dimer_check = 0;
+				
+				if ($no_dimers){
+					# use an all lower case version  of palindrome for testing
+					my $tmp = $match . $1 . $2;
+					foreach my $dimer qw(ac ag at ca cg ct ga gc gt ta tc tg){
+						if ($tmp =~ m/^($dimer){2,50}$/){
+							#print "poly-dimer: $palindrome\n"; 
+							$dimer_check = 1;						
+						}
+					}
+				}
+	
+            	$palindromes{$palindrome}++ unless ($dimer_check);
+				$palindrome_count++ unless ($dimer_check); 
             }
 		}
 	}
@@ -94,6 +112,12 @@ my $number_of_palindromes = scalar(keys(%palindromes));
 my $palindromes_per_sequence = sprintf("%.2f",($palindrome_count/$seq_count));
 
 print "$filename contains $number_of_palindromes different palindromes ($palindrome_count total) from $seq_count sequences";
-print ": $palindromes_per_sequence palindromes per sequence\n";
+print ": $palindromes_per_sequence palindromes per sequence. ";
+if ($no_dimers){
+	print "poly-dimer check ON\n";
+}
+else{
+	print "poly-dimer check OFF\n";
+}
 
 exit;
