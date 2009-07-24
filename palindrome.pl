@@ -54,6 +54,7 @@ for my $n ($min_regex..$max_regex){
 # keep track of number of sequences in file & total number of palindromes
 my $seq_count = 0;
 my $palindrome_count = 0;
+my $total_seq_length = 0;
  
 open (FASTA, "$filename") or die"Cannot open $filename\n";
 my $fasta = new FAlite(\*FASTA);
@@ -62,6 +63,7 @@ while(my $entry = $fasta->nextEntry) {
 	$seq_count++;
  	my $header = $entry->def;
     my $seq = lc($entry->seq);
+	$total_seq_length += length($seq);
 
 	# loop through each regex
     foreach my $regex (@regexes){
@@ -109,10 +111,10 @@ foreach my $key (sort {$palindromes{$a} <=> $palindromes{$b}} keys (%palindromes
 }
 
 my $number_of_palindromes = scalar(keys(%palindromes));
-my $palindromes_per_sequence = sprintf("%.2f",($palindrome_count/$seq_count));
+my $palindromes_per_1000nt = sprintf("%.2f",($palindrome_count/($total_seq_length/1000)));
 
 print "$filename contains $number_of_palindromes different palindromes ($palindrome_count total) from $seq_count sequences";
-print ": $palindromes_per_sequence palindromes per sequence. ";
+print ": $palindromes_per_1000nt palindromes per 1000 nt of sequence. ";
 if ($no_dimers){
 	print "poly-dimer check ON\n";
 }
