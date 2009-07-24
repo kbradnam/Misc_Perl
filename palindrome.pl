@@ -91,6 +91,9 @@ foreach my $key (sort {$palindromes{$a} <=> $palindromes{$b}} keys (%palindromes
 }
 
 my $number_of_palindromes = scalar(keys(%palindromes));
-print "$filename contains $number_of_palindromes different palindromes ($palindrome_count total) from $seq_count sequences\n";
+my $palindromes_per_sequence = sprintf("%.2f",($palindrome_count/$seq_count));
+
+print "$filename contains $number_of_palindromes different palindromes ($palindrome_count total) from $seq_count sequences";
+print ": $palindromes_per_sequence palindromes per sequence\n";
 
 exit;
