@@ -24,6 +24,7 @@ my $min_regex; # minimum size of regular expression to search for
 my $max_regex; 
 my $report;     # only show matching regexes that occur $limit times
 my $no_dimers;   # ignore palindromes which are all just a poly-dimer (e.g. ATAT*atata*TATA)
+my $gc_pair_min; # specify a minimum number of G-C pairs in the palindrome unit, useful if you are expecting these to form stem loop
 
 GetOptions ("filename=s"  => \$filename,
             "min_loop=i"  => \$min_loop,
@@ -31,15 +32,19 @@ GetOptions ("filename=s"  => \$filename,
             "min_regex=i" => \$min_regex,
             "max_regex=i" => \$max_regex,             
             "report=i"    => \$report,
-			"no_dimers"    => \$no_dimers
+			"no_dimers"    => \$no_dimers,
+			"gc_pair_min=i" => \$gc_pair_min
 );
 
 # set defaults 
-$min_loop  = 0  if (!$min_loop);
-$max_loop  = 15 if (!$max_loop);
-$min_regex = 5  if (!$min_regex);
-$max_regex = 20 if (!$max_regex);
-$report    = 0  if (!$report);
+$min_loop  = 2   if (!$min_loop);
+$max_loop  = 15  if (!$max_loop);
+$min_regex = 5   if (!$min_regex);
+$max_regex = 20  if (!$max_regex);
+$report    = 0   if (!$report);
+$gc_pair_min = 0 if (!$gc_pair_min);
+
+die "Usage: palindrome.pl -filename <filename> <options>\n" if (!$filename);
 
 my %palindromes;
 
@@ -71,16 +76,17 @@ while(my $entry = $fasta->nextEntry) {
 		REGEX: while ($seq =~ m/$regex/g){
          	my $match = $&; # the match to the regex
 			my $endline = $'; # the match of everything after regex
+			my $match_pos = length($`);
 			
 			# make opposite pattern to match (reverse & complement)
          	my $revmatch = reverse($match);
          	$revmatch =~ tr/cagt/gtca/;
-			
+			my $loop;
 			# now look for match to reverse complement sequence within remainder of $seq
 			# allowing for 0-15 bases in the middle
          	if ($endline =~ /^([cagt]{$min_loop,$max_loop})($revmatch)/){
             	my $palindrome = uc($match) . "*" . $1 . "*" . uc($2);
-
+				my $loop = $1;
 				# want to be able to potentially filter out any palindrome
 				# which is just a poly-dimer
 				my $dimer_check = 0;
@@ -95,9 +101,11 @@ while(my $entry = $fasta->nextEntry) {
 						}
 					}
 				}
-	
-            	$palindromes{$palindrome}++ unless ($dimer_check);
-				$palindrome_count++ unless ($dimer_check); 
+				# count how man GC pairs there are
+				my $gc_pair_count = $match =~ tr/[cg]/[cg]/;
+            	$palindromes{$palindrome}++ unless ($dimer_check || ($gc_pair_count > $gc_pair_min));
+				$palindrome_count++ unless ($dimer_check || ($gc_pair_count > $gc_pair_min)); 
+		
             }
 		}
 	}
