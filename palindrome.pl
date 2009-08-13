@@ -88,8 +88,9 @@ while(my $entry = $fasta->nextEntry) {
 	
     my $seq = lc($entry->seq);
 	$total_seq_length += length($seq);
-	
-	my ($distance_to_TSS) = $header =~ m/.*_i\d+_(\d+)_\w+/;
+
+	my $distance_to_TSS = 0;	
+	$distance_to_TSS = $header =~ m/.*_i\d+_(\d+)_\w+/;
 
 	# keep track of all regexes that match each sequence, might want to eliminate duplicates (e.g. ACAGT vs ACAGTA) later on
 	my @regexes_in_seq = ();
