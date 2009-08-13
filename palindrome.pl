@@ -30,6 +30,7 @@ my $show_match;  # show matching palindromes
 my $print_pre_match; # print FASTA output of sequences that occur before the regex
 my $print_match;     # print FASTA output of sequences of the matching palindrome (two matches + loop)
 my $print_post_match; # print FASTA output of sequences that occur after the regex
+my $print_no_match;  # print FASTA output of sequences that don't have any palindromes
 
 GetOptions ("filename=s"    => \$filename,
             "min_loop=i"    => \$min_loop,
@@ -43,7 +44,8 @@ GetOptions ("filename=s"    => \$filename,
 			"show_match"    => \$show_match,
 			"print_pre_match" => \$print_pre_match,
 			"print_match" => \$print_match,
-			"print_post_match" => \$print_post_match
+			"print_post_match" => \$print_post_match,
+			"print_no_match" => \$print_no_match		
 );
 
 # set defaults 
@@ -156,6 +158,10 @@ while(my $entry = $fasta->nextEntry) {
 				print ">$header\n$post_match\n" if ($print_post_match);
 				
             }
+			else{
+				# do we want to print the sequences that don't contain any palindrome?
+				print ">$header\n$seq\n" if ($print_no_match);
+			}
 		}
 	}
 
