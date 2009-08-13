@@ -158,17 +158,19 @@ while(my $entry = $fasta->nextEntry) {
 				print ">$header\n$pre_match\n" if ($print_pre_match);
 				print ">$header\n$post_match\n" if ($print_post_match);
 				
-            }
-			else{
-				# do we want to print the sequences that don't contain any palindrome?
-				print ">$header\n$seq\n" if ($print_no_match);
-			}
+            }		
 		}
 	}
 
 	my $number_of_palindromes = $palindrome_count;
 	my $palindromes_per_1000nt = sprintf("%.2f",($palindrome_count/(length($seq)/1000)));
 	print "$header Contains $number_of_palindromes palindromes, $palindromes_per_1000nt palindromes per 1000 nt\n" if ($individual && $number_of_palindromes >0);
+
+	# do we want to print the sequences that don't contain any palindrome?			
+	if($palindrome_count == 0 && $print_no_match){
+		print ">$header\n$seq\n" if ($print_no_match);		
+	}
+
 }
 close FASTA;
 
