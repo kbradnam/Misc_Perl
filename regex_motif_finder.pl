@@ -82,7 +82,7 @@ my ($total_seq_length,$total_motif_length,$seq_count,$total_motif_count);
 
 
 # loop through each sequence in target file
-while(my $entry = $fasta->nextEntry) {
+SEQ: while(my $entry = $fasta->nextEntry) {
 	$seq_count++;
 	# get header
 	my $header = $entry->def;
@@ -97,7 +97,11 @@ while(my $entry = $fasta->nextEntry) {
 	
 	foreach my $motif (@motifs){
 		$motif = lc($motif);
-
+		
+		# skip to next sequence if motif is longer than sequence
+		my $motif_length = length($motif);
+		next SEQ if ($motif_length > $length);
+		
 		# extract flanking positions and add to two hashes
 		my @flanks = $seq =~ m/(\w{$flank}${motif}\w{$flank})/g if ($flanking);
 		foreach my $seq (@flanks){
