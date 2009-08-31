@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 #
 # get_IP.pl
 #
@@ -10,6 +10,7 @@
 ################################################################################
 
 use strict;
+use warnings;
 use Net::SMTP;
 
 
@@ -17,12 +18,16 @@ use Net::SMTP;
 my $ip = `curl -s http://checkip.dyndns.org`;
 $ip =~ s/.*?(\d+\.\d+\.\d+\.\d+).*/$1/s;
 
-
 # 2) Look up where that IP address corresponds to
 my $address = `curl -s http://www.antionline.com/tools-and-toys/ip-locate/`;
-$address =~ m/are located in (.* United States)/;
-my $place = $1;
 
+my $place;
+if($address =~ m/cannot be resolved/){
+	$place = "Cannot determine place";
+}
+else{
+	($place) = $address =~ m/are located in (.* United States)/;;
+}
 
 # 3) Find out which machine is this being run on (remove any .local suffix)
 my $machine = `uname -n`;
@@ -34,8 +39,8 @@ chomp($machine);
 my @hosts = ('mailhost','localhost');
 my $smtp = Net::SMTP->new(\@hosts) || die "Couldn't connect to host\n";
 
-my $from = 'keithwho@mac.com';
-my $to   = 'keithwho@mac.com';
+my $from = 'whykeith@mac.com';
+my $to   = 'whykeith@mac.com';
 
 $smtp->mail($from);
 $smtp->to($to);
