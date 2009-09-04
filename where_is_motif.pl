@@ -273,8 +273,8 @@ elsif($species =~ m/smi/i){
 	%expected = ("a" => "0.2043","c" => "0.2115", "g" => "0.2086","t" => "0.3755");
 }
 elsif($species =~ m/vci/i){
-	# from 23,091 V. carteri introns 
-	%expected = ("a" => "0.2963","c" => "0.1657", "g" => "0.1822","t" => "0.3558");
+	# from 10,960 V. carteri introns 
+	%expected = ("a" => "0.2071","c" => "0.2658", "g" => "0.2724","t" => "0.2547");
 }
 else{
 	die "\'$species\' is not a valid species code.\n";
