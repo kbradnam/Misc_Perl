@@ -260,6 +260,22 @@ elsif($species =~ m/scg/i){
 	# from 5,884 S. cerevisiae genes (including 1000 nt upstream and downstream plus introns) 
 	%expected = ("a" => "0.3192","c" => "0.1903", "g" => "0.1923","t" => "0.2982");
 }
+elsif($species =~ m/ppi/i){
+	# from 26,415 P. patens introns 
+	%expected = ("a" => "0.2788","c" => "0.1582", "g" => "0.1791","t" => "0.3840");
+}
+elsif($species =~ m/sbi/i){
+	# from 57,284 S. bicolor introns 
+	%expected = ("a" => "0.2636","c" => "0.1965", "g" => "0.2004","t" => "0.3395");
+}
+elsif($species =~ m/smi/i){
+	# from 11,118 S. moellendorfii introns 
+	%expected = ("a" => "0.2043","c" => "0.2115", "g" => "0.2086","t" => "0.3755");
+}
+elsif($species =~ m/vci/i){
+	# from 23,091 V. carteri introns 
+	%expected = ("a" => "0.2963","c" => "0.1657", "g" => "0.1822","t" => "0.3558");
+}
 else{
 	die "\'$species\' is not a valid species code.\n";
 }
@@ -533,6 +549,10 @@ sub pre_flight_checks{
 		print "CrU - Chlamydomonas reinhardtii upstream regions (1 kbp)\n";
 		print "DmI - Drosophila melanogaster introns\n";
 		print "ScG - Saccharomyces cerevisiae genes (including 1,000 nt upstream and downstream)\n";
+		print "PpI - Physcomitrella patens introns\n";
+		print "SbI - Sorghum bicolor introns\n";
+		print "SmI - Selaginella moellendorfii introns\n";
+		print "VcI - Volvox carteri introns\n";
 		die "Choose one option only.\n\n";
 	}
 
