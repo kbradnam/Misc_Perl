@@ -56,7 +56,7 @@ $max_regex = 20  if (!$max_regex);
 $gc_pair_min = 0 if (!$gc_pair_min);
 
 die "Usage: palindrome.pl -filename <filename> <options>\n" if (!$filename);
-
+ 
 # generate list of regexes
 my @regexes;
 
@@ -89,63 +89,79 @@ while(my $entry = $fasta->nextEntry) {
     my $seq = lc($entry->seq);
 	$total_seq_length += length($seq);
 
-	my $distance_to_TSS = 0;	
-	$distance_to_TSS = $header =~ m/.*_i\d+_(\d+)_\w+/;
+	my ($distance_to_TSS) = $header =~ m/.*_i\d+_(\d+)_\w+/;
 
 	# keep track of all regexes that match each sequence, might want to eliminate duplicates (e.g. ACAGT vs ACAGTA) later on
 	my @regexes_in_seq = ();
 
 	# loop through each regex
     foreach my $regex (@regexes){
-		# loop through each match to the regex
-		REGEX: while ($seq =~ m/$regex/g){
-         	my $match = $&; # the match to the regex
 
+		# will want to increment matching position one nt at a time, by influencing pos()
+		my $pos_counter = 1;
+		
+		# loop through each match to the regex		
+		MATCH: while ($seq =~ m/$regex/g){
+         	my $match = $&; # the match to the regex
+			
+			# now force matching operator to start at beginning of the string and increment by 1 nt
+			# rather than starting the search at the end of the first match
+			pos($seq) = $pos_counter;
+			$pos_counter++;
+			
 			# count how man G or C nucleotides there are in the match
+			# and skip to next match if there are not enough GC pairs
 			my $gc_pair_count = $match =~ tr/[cg]/[cg]/;
 
-			# skip to next REGEX if there are not enough
-			next REGEX if ($gc_pair_count < $gc_pair_min);
+			next MATCH if ($gc_pair_count >= $gc_pair_min);
 
 			# store some more details of the match
 			my $endline = $'; # the match of everything after regex
 			my $match_position = length($`) + 1; # store the position of the match within the sequence
 			my $distance_to_match_from_TSS = $distance_to_TSS + $match_position;
-			
+
 			# make opposite pattern to match (reverse & complement)
          	my $revmatch = reverse($match);
          	$revmatch =~ tr/cagt/gtca/;
 			my $loop;
-			
+
 			# now look for match to reverse complement sequence within remainder of $seq
 			# allowing for 0-15 bases in the middle
          	if ($endline =~ /^([cagt]{$min_loop,$max_loop})($revmatch)/){
-				my ($loop, $match_2) = ($1, $2);
 
+				my ($loop, $match_2) = ($1, $2);
             	my $palindrome = uc($match) . "*" . $loop . "*" . uc($match_2);
 
 				# format a version to use if -print_match is specified
 				my $print_palindrome = lc($palindrome);
 				$print_palindrome =~ s/\*//g;
-				
+
 				# want to be to ignore any palindrome which is just a poly-dimer (unless -allow_dimers specified)
 				unless($allow_dimers){
 					# use an all lower case version  of palindrome for testing
 					my $tmp = $match . $loop . $match_2;
 					foreach my $dimer qw(ac ag at ca cg ct ga gc gt ta tc tg){
-						# jump to next REGEX if the palindrome is all dimers
-						next REGEX if ($tmp =~ m/^($dimer){2,1000}$/);
+						# skip to next match if the palindrome is all dimers
+						next MATCH if ($tmp =~ m/^($dimer){2,1000}$/);
 					}
-				}				
-				push(@regexes_in_seq, $match);
+				}
+				
+				print "Stem = max_regex\n" if (length($match) eq $max_regex);
+				
+				
+				# will build a list of all regexes that match this sequence				
+				push(@regexes_in_seq, $match);									
+
 				# if we have more than one matching regex in this sequence, check that they are not redundant, if so, just keep the longest 
 				if (@regexes_in_seq > 1){
 					my $redundant = 0;
 					($redundant, @regexes_in_seq) = remove_redundant_regexes(@regexes_in_seq);
-					# skip to next regex if there was a redundant one
-					next REGEX if ($redundant > 0);
+
+					# skip to next match if there was a redundant one
+					next MATCH if ($redundant > 0);
 				}
-				
+
+
 				# if we are here, we can count palindrome details and print if necessary
 				$palindrome_count++;
 				$total_palindrome_count++; 
@@ -156,14 +172,17 @@ while(my $entry = $fasta->nextEntry) {
 				my $pre_match = $`;
 				my $post_match = $';
 				print ">$header\n$pre_match\n" if ($print_pre_match);
-				print ">$header\n$post_match\n" if ($print_post_match);
+				print ">$header\n$post_match\n" if ($print_post_match);						
+
+	            		
 				
-            }		
+			}
+
 		}
 	}
 
 	my $number_of_palindromes = $palindrome_count;
-	my $palindromes_per_1000nt = sprintf("%.2f",($palindrome_count/(length($seq)/1000)));
+	my $palindromes_per_1000nt = sprintf("%.3f",($palindrome_count/(length($seq)/1000)));
 	print "$header Contains $number_of_palindromes palindromes, $palindromes_per_1000nt palindromes per 1000 nt\n" if ($individual && $number_of_palindromes >0);
 
 	# do we want to print the sequences that don't contain any palindrome?			
@@ -176,7 +195,7 @@ close FASTA;
 
 # print out overall stats?
 if($summary){
-	my $palindromes_per_1000nt = sprintf("%.2f",($total_palindrome_count/($total_seq_length/1000)));
+	my $palindromes_per_1000nt = sprintf("%.3f",($total_palindrome_count/($total_seq_length/1000)));
 
 	print "$filename contains $total_palindrome_count palindromes from $seq_count sequences ($total_seq_length nt total)";
 	print ": $palindromes_per_1000nt palindromes per 1000 nt of sequence. ";
