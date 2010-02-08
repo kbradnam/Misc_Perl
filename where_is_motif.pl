@@ -345,6 +345,9 @@ while(my $entry = $fasta->nextEntry) {
     my $length = length($seq);
 	$total_seq_length += $length;
 	
+	# have one variable to hold all uppercased motifs in one variable
+	my $all_motifs_seq = $seq;
+	
 	# will count total amount of motif in each sequence (motifs may overlap so need to be sure we are not double counting)
 	# to help this we will temporarily store a copy of $seq to mask out where any motifs are with a '-' character then
 	# we can just count the dashes to know how many bases of a sequence are motif
@@ -387,11 +390,12 @@ while(my $entry = $fasta->nextEntry) {
 				my $start_coord = $i+1;
 			  	print "$header $score $start_coord/$length $window\n";
 			}
-			if($seqs){
+			if($seqs || $mseqs){
 				my $highlight = uc($window);
 				my $new_seq = $seq;
 				$new_seq =~ s/$window/ $highlight /g;
 				print "$new_seq\n" if ($seqs);
+				$all_motifs_seq =~ s/$window/$highlight/ig;
 			}
 		}
 	}
@@ -410,7 +414,9 @@ while(my $entry = $fasta->nextEntry) {
 	}
 	# if not in -mask mode, just show intron sequences that contain a motif above threshold
 	elsif ($mseqs && !$mask && $above_threshold){
-		print "$header\n$seq\n" 	
+		# first have to add spaces to $all_motifs_seq
+		$all_motifs_seq =~ s/([A-Z]+)/ $1 /g;
+		print "$header\n$all_motifs_seq\n" 	
 	}
 }
 
