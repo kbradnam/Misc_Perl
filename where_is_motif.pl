@@ -24,13 +24,14 @@ my $target;     # file with sequences in which to find motif
 my $threshold;  # limit for log-odds score for which to report motif hits
 my $scores;     # Show scores
 my $seqs;       # Show motif sequences in output (one sequence per motif in each intron)
-my $species;    # code to determine which species to use expected frequencies from
+my $background; # code to determine which background frequencies to use (from __DATA__ section)
+my $background_file;     # read frequencies from file instead
 my $mdensity;	# count (and show) amount and percentage of motif in each sequence (one line per sequence)
 my $mseqs;		# just show sequences of each intron that have motifs above threshold (one sequence per intron)
 my $mask;		# show all intron sequences (regardless of whether they have motifs) and mask out motif with -'s
 my $msummary;	# show motif count and percentage for all sequences combined
 my $mcount;     # just show count of motifs above threshold in each sequence
-
+my $reverse;    # calculate frequencies for reverse strand
 my $stats;      # report stats on all log likelihood scores found
 my $min;        # Set minimum cut off for use with -stats option
 my $max;        # Set maximum cut off for use with -stats option
@@ -41,7 +42,8 @@ GetOptions ("motif=s"    => \$motif,
 	       "threshold=f" => \$threshold,
 	       "scores"      => \$scores,
 	       "seqs"        => \$seqs,	    	    
-		   "species=s"   => \$species,
+		   "bg:s"        => \$background,
+		   "bg_file=s"   => \$background_file,
 		   "mdensity"    => \$mdensity,  
 		   "mseqs"		 => \$mseqs,
 		   "mask"		 => \$mask,
@@ -51,7 +53,8 @@ GetOptions ("motif=s"    => \$motif,
 	       "min=f"       => \$min,
 	       "max=f"       => \$max,
 	       "interval=f"  => \$interval,
-);
+	       "reverse"     => \$reverse
+) or die "\n";
 
 # are we using correct command-line options?
 &pre_flight_checks;
@@ -81,205 +84,10 @@ my @motif;
 my $motif_length;
 
 # Need sets of expected nucleotide frequencies to compute log likelihood scores
-# set of frequencies chosen by -species option
-# following may have to be tidied up if I need to add more species
+# set of frequencies chosen by -bg_freqs or -bg_file options
 
 my %expected;
-
-if($species =~ m/cei/i){
-	# from 31,044 WS180 confirmed introns
-	%expected = ("a" => "0.3333","c" => "0.1621", "g" => "0.1597","t" => "0.3449");
-}
-elsif($species =~ m/ceg/i){
-	# from WS180 chromosomes
-	%expected = ("a" => "0.32280","c" => "0.17733","g" => "0.17709","t" => "0.32279");
-}
-elsif($species =~ m/^ati$/i){
-	# from 59,260 high confidence TAIR7 introns
-	%expected = ("a" => "0.2713","c" => "0.1534", "g" => "0.1701","t" => "0.4051");
-}
-elsif($species =~ m/^atir$/i){
-	# from 59,260 high confidence TAIR7 introns
-	%expected = ("a" => "0.4051","c" => "0.1701", "g" => "0.1534","t" => "0.2713");
-}
-elsif($species =~ m/atg/i){
-	# from August 2006 TAIR set of chromosomes
-	%expected = ("a" => "0.3200","c" => "0.1802", "g" => "0.1801","t" => "0.3197");
-}
-elsif($species =~ m/at5u/i){
-	# from 14,862 high confidence TAIR7 5' UTRs
-	%expected = ("a" => "0.3017","c" => "0.2180", "g" => "0.1593","t" => "0.3210");
-}
-elsif($species =~ m/at3u/i){
-	# from 13,459 high confidence TAIR7 3' UTRs
-	%expected = ("a" => "0.2960","c" => "0.1473", "g" => "0.1731","t" => "0.3835");
-}
-elsif($species =~ m/atig/i){
-	# from 30,4113 TAIR7 intergenic annotations
-	%expected = ("a" => "0.3437","c" => "0.1568", "g" => "0.1562","t" => "0.3433");
-}
-elsif($species =~ m/atc/i){
-	# from 70,370 high confidence TAIR7 CDS exons
-	%expected = ("a" => "0.2831","c" => "0.2067", "g" => "0.2408","t" => "0.2694");
-}
-elsif($species =~ m/att/i){
-	# from 13,163 high confidence TAIR7 transcripts
-	%expected = ("a" => "0.2815","c" => "0.1849", "g" => "0.2078","t" => "0.3258");
-}
-elsif($species =~ m/atu/i){
-	# from 32,041 TAIR7 1,000 bp upstream sequences
-	%expected = ("a" => "0.3342","c" => "0.1685", "g" => "0.1651","t" => "0.3321");
-}
-elsif($species =~ m/atd/i){
-	# from 32,041 TAIR7 1,000 bp downstream sequences
-	%expected = ("a" => "0.3211","c" => "0.1787", "g" => "0.1724","t" => "0.3278");
-}
-elsif($species =~ m/^dmi$/i){
-	%expected = ("a" => "0.2942","c" => "0.2040", "g" => "0.1979","t" => "0.3040");
-}
-elsif($species =~ m/^hs5u$/i){
-	%expected = ("a" => "0.2134","c" => "0.2864", "g" => "0.2970","t" => "0.2032");
-}
-elsif($species =~ m/^osi$/i){
-	# from 72,066 high confidence japonica introns (TIGR 5.0 annotations)
-	%expected = ("a" => "0.2769","c" => "0.1831", "g" => "0.1875","t" => "0.3525");
-}
-elsif($species =~ m/os5u/i){
-	# from 16,267 high confidence japonica sequences (TIGR 5.0 annotations)
-	%expected = ("a" => "0.2083","c" => "0.3191", "g" => "0.2491","t" => "0.2234");
-}
-elsif($species =~ m/os3u/i){
-	# from 14,798 high confidence japonica sequences (TIGR 5.0 annotations)
-	%expected = ("a" => "0.2715","c" => "0.1874", "g" => "0.2133","t" => "0.3278");
-}
-elsif($species =~ m/osg/i){
-	# from 12 japonica genome sequences (TIGR 5.0 version)
-	%expected = ("a" => "0.2822","c" => "0.2178", "g" => "0.2178","t" => "0.2822");
-}
-elsif($species =~ m/osc/i){
-	# from 80,515 high confidence japonica CDS exons (TIGR 5.0 annotations)
-	%expected = ("a" => "0.2421","c" => "0.2559", "g" => "0.2774","t" => "0.2245");
-}
-elsif($species =~ m/ost/i){
-	# from 13,201 high confidence japonica transcripts (TIGR 5.0 annotations)
-	%expected = ("a" => "0.2624","c" => "0.2125", "g" => "0.2208","t" => "0.3043");
-}
-elsif($species =~ m/osig/i){
-	# from 56,208 japonica sequences (TIGR 5.0 annotations)
-	%expected = ("a" => "0.2927","c" => "0.2073", "g" => "0.2074","t" => "0.2926");
-}
-elsif($species =~ m/osu/i){
-	# from 13,201 japonica 1 kbp upstream regions
-	%expected = ("a" => "0.2960","c" => "0.2159", "g" => "0.2020","t" => "0.2861");
-}
-elsif($species =~ m/^pti$/i){
-	# from 26,415 high confidence introns (v1.1 annotations)
-	%expected = ("a" => "0.2788","c" => "0.1582", "g" => "0.1791","t" => "0.35384025");
-}
-elsif($species =~ m/pt5u/i){
-	# from 26,415 high confidence UTRs (v1.1 annotations)
-	%expected = ("a" => "0.3004","c" => "0.2249", "g" => "0.1792","t" => "0.2954");
-}
-elsif($species =~ m/pt3u/i){
-	# from 7,841 high confidence UTRs (v1.1 annotations)
-	%expected = ("a" => "0.2754","c" => "0.1658", "g" => "0.1974","t" => "0.3614");
-}
-elsif($species =~ m/ptg/i){
-	# from 22,012 genome sequences (v1.0)
-	%expected = ("a" => "0.3316","c" => "0.1687", "g" => "0.1685","t" => "0.3311");
-}
-elsif($species =~ m/ptc/i){
-	# from 31,232 high confidence poplar CDS exons (v1.1 annotations)
-	%expected = ("a" => "0.2816","c" => "0.2039", "g" => "0.2437","t" => "0.2708");
-}
-elsif($species =~ m/ptt/i){
-	# from 7,089 high confidence poplar transcripts (v1.1 annotations)
-	%expected = ("a" => "0.2803","c" => "0.1754", "g" => "0.1996","t" => "0.3447");
-}
-elsif($species =~ m/ptu/i){
-	# from 7,089 1 kbp upstream sequences
-	%expected = ("a" => "0.3473","c" => "0.1590", "g" => "0.1480","t" => "0.3456");
-}
-elsif($species =~ m/^vvi$/i){
-	# from 23,091 high confidence introns
-	%expected = ("a" => "0.2963","c" => "0.1657", "g" => "0.1822","t" => "0.3558");
-}
-elsif($species =~ m/vv5u/i){
-	# from 5,483 high confidence 5' UTRs 
-	%expected = ("a" => "0.2673","c" => "0.1987", "g" => "0.1980","t" => "0.3360");
-}
-elsif($species =~ m/vv3u/i){
-	# from 5,232 high confidence 3' UTRs 
-	%expected = ("a" => "0.2823","c" => "0.1670", "g" => "0.1937","t" => "0.3570");
-}
-elsif($species =~ m/vvg/i){
-	# from 35 genome sequences 
-	%expected = ("a" => "0.3274","c" => "0.1727", "g" => "0.1728","t" => "0.3272");
-}
-elsif($species =~ m/vvc/i){
-	# from 27,598 high confidence poplar CDS exons 
-	%expected = ("a" => "0.2754","c" => "0.2098", "g" => "0.2484","t" => "0.2464");
-}
-elsif($species =~ m/vvt/i){
-	# from 5,077 high confidence poplar transcripts 
-	%expected = ("a" => "0.2910","c" => "0.1740", "g" => "0.1935","t" => "0.3416");
-}	
-elsif($species =~ m/vvu/i){
-	# from 5,0877 1 kbp upstream sequences
-	%expected = ("a" => "0.3488","c" => "0.1513", "g" => "0.1506","t" => "0.3492");
-}
-elsif($species =~ m/^cri$/i){
-	# from 21,979 high confidence introns
-	%expected = ("a" => "0.1774","c" => "0.2968", "g" => "0.3261","t" => "0.1997");
-}
-elsif($species =~ m/cru/i){
-	# from 4,131 1 kbp upstream sequences
-	%expected = ("a" => "0.1948","c" => "0.2934", "g" => "0.3142","t" => "0.1976");
-}
-elsif($species =~ m/cr5u/i){
-	# from 4,636 high confidence 5' UTRs 
-	%expected = ("a" => "0.2288","c" => "0.2869", "g" => "0.2591","t" => "0.2252");
-}
-elsif($species =~ m/cr3u/i){
-	# from 4,430 high confidence 3' UTRs 
-	%expected = ("a" => "0.1979","c" => "0.2393", "g" => "0.3451","t" => "0.2178");
-}
-elsif($species =~ m/crg/i){
-	# from 1,266 genome sequences 
-	%expected = ("a" => "0.1802","c" => "0.3198", "g" => "0.3198","t" => "0.1802");
-}
-elsif($species =~ m/crc/i){
-	# from 25,286 high confidence CDS exons 
-	%expected = ("a" => "0.1812","c" => "0.3212", "g" => "0.3361","t" => "0.1615");
-}
-elsif($species =~ m/crt/i){
-	# from 4,131 high confidence poplar transcripts 
-	%expected = ("a" => "0.1878","c" => "0.2982", "g" => "0.3211","t" => "0.1929");
-}
-elsif($species =~ m/scg/i){
-	# from 5,884 S. cerevisiae genes (including 1000 nt upstream and downstream plus introns) 
-	%expected = ("a" => "0.3192","c" => "0.1903", "g" => "0.1923","t" => "0.2982");
-}
-elsif($species =~ m/ppi/i){
-	# from 26,415 P. patens introns 
-	%expected = ("a" => "0.2788","c" => "0.1582", "g" => "0.1791","t" => "0.3840");
-}
-elsif($species =~ m/sbi/i){
-	# from 57,284 S. bicolor introns 
-	%expected = ("a" => "0.2636","c" => "0.1965", "g" => "0.2004","t" => "0.3395");
-}
-elsif($species =~ m/smi/i){
-	# from 11,118 S. moellendorfii introns 
-	%expected = ("a" => "0.2043","c" => "0.2115", "g" => "0.2086","t" => "0.3755");
-}
-elsif($species =~ m/vci/i){
-	# from 10,960 V. carteri introns 
-	%expected = ("a" => "0.2071","c" => "0.2658", "g" => "0.2724","t" => "0.2547");
-}
-else{
-	die "\'$species\' is not a valid species code.\n";
-}
-
+read_background_frequencies();
 
 # track base position in motif
 my $pos = 0;
@@ -506,62 +314,6 @@ sub pre_flight_checks{
 	die "$motif does not seem to exist\n" if (! -e $motif);
 	die "$target does not seem to exist\n" if (! -e $target);
 
-	# check that species code has been chosen
-	if(!$species){
-		print "\nPlease specify a suitable species code using the -species option.\n";
-		print "Species codes are required to determine the correct expected nucleotide\nfrequencies when scoring motifs\n\n";
-		print "Current options (all case-insensitive) are:\n";
-		print "AtI  - Arabidopsis thaliana introns\n";
-		print "AtIR - Arabidopsis thaliana introns (reverse complemented)\n";
-		print "AtG  - Arabidopsis thaliana genomic\n";
-		print "AtC  - Arabidopsis thaliana CDSs\n";
-		print "AtIG - Arabidopsis thaliana intergenic\n";
-		print "At5U - Arabidopsis thaliana 5' UTR (exons)\n";
-		print "At3U - Arabidopsis thaliana 3' UTR (exons)\n";
-		print "AtT - Arabidopsis thaliana primary transcripts (unspliced)\n"; 
-		print "AtU  - Arabidopsis thaliana upstream region of genes (1000 bp 5' to transcript)\n";
-		print "AtD  - Arabidopsis thaliana downstream region of genes (1000 bp 3' to transcript)\n";
-		print "CeI - Caenorhabditis elegans introns\n";
-		print "CeG - Caenorhabditis elegans genomic\n";
-		print "Hs5U - Homo sapiens 5' UTR (exons)\n";
-		print "OsI  - Oryza sativa (japonica) introns\n";
-		print "OsG  - Oryza sativa (japonica) genomic\n";
-		print "OsC  - Oryza sativa (japonica) CDSs\n";
-		print "OsIG - Oryza sativa (japonica) intergenic\n";
-		print "Os5U - Oryza sativa (japonica) 5' UTR (exons)\n";
-		print "Os3U - Oryza sativa (japonica) 3' UTR (exons)\n";
-		print "OsT - Oryza sativa (japonica) primary transcripts (unspliced)\n";
-		print "OsU - Oryza sativa (japonica) upstream regions (1 kbp)\n";
-		print "PtI  - Populus trichocarpa introns (v1.1 annotations)\n";
-		print "PtG  - Populus trichocarpa genomic (v1.0 sequence)\n";
-		print "PtC  - Populus trichocarpa CDSs\n";
-		print "Pt5U - Populus trichocarpa 5' UTR (exons)\n";
-		print "Pt3U - Populus trichocarpa 3' UTR (exons)\n";
-		print "PtT - Populus trichocarpa primary transcripts (unspliced)\n";
-		print "PtU - Populus trichocarpa upstream regions (1 kbp)\n";
-		print "VvI  - Vitis vinifera introns\n";
-		print "VvG  - Vitis vinifera genomic\n";
-		print "VvC  - Vitis vinifera CDSs\n";
-		print "Vv5U - Vitis vinifera 5' UTR (exons)\n";
-		print "Vv3U - Vitis vinifera 3' UTR (exons)\n";
-		print "VvT - Vitis vinifera primary transcripts (unspliced)\n";
-		print "VvU - Vitis vinifera upstream regions (1 kbp)\n";
-		print "CrI  - Chlamydomonas reinhardtii introns\n";
-		print "CrG  - Chlamydomonas reinhardtii genomic\n";
-		print "CrC  - Chlamydomonas reinhardtii CDSs\n";
-		print "Cr5U - Chlamydomonas reinhardtii 5' UTR (exons)\n";
-		print "Cr3U - Chlamydomonas reinhardtii 3' UTR (exons)\n";
-		print "CrT - Chlamydomonas reinhardtii primary transcripts (unspliced)\n";
-		print "CrU - Chlamydomonas reinhardtii upstream regions (1 kbp)\n";
-		print "DmI - Drosophila melanogaster introns\n";
-		print "ScG - Saccharomyces cerevisiae genes (including 1,000 nt upstream and downstream)\n";
-		print "PpI - Physcomitrella patens introns\n";
-		print "SbI - Sorghum bicolor introns\n";
-		print "SmI - Selaginella moellendorfii introns\n";
-		print "VcI - Volvox carteri introns\n";
-		die "Choose one option only.\n\n";
-	}
-
 	# have we chosen an option to print some output?
 	if (!$seqs && !$stats && !$scores && !$mdensity && !$msummary && !$mseqs && !$mcount){
 		die "You have to choose at least one of the following options:\n-stats, -seqs, -scores, -mdensity, -msummary, -mseqs, -mcount\n";	
@@ -586,4 +338,143 @@ sub pre_flight_checks{
 	if($mask && !$mseqs){
 		die "-mask option is only to be used with -mseqs option\n";
 	}
+	# always need to specify a background code, shouldn't just use -bg_file
+	if($background_file && !$background){
+#		die "Need to also specify -bg if using -bg_file\n";
+	}
 }
+
+
+sub read_background_frequencies{
+	my %background;
+
+	# default filehandle
+	my $fh = 'DATA';
+	
+	# use different filehandle if background file is supplied
+	if($background_file){
+		open(my $in, '<', $background_file) or die "Can't open file: \'$background_file\' $!";
+		print "Reading from background file $background_file\n\n";
+		$fh = $in;
+	}
+
+	# read <DATA> or $background_file
+	while(<$fh>){
+		chomp;
+		next if m/^#/; # skip comment lines
+		next if m/^$/; # skip blank lines
+
+		# check we have enough fields
+		my @line = split(/,/);
+		if (@line < 6){
+			print "The following background frequency information does not contain the minimum of 6 fields:\n$_\n\n";
+			print "The correct format is a comma separated file with the following information:\n";
+			print "<code>,<description>,A,C,G,T,optional notes\n\n";
+			print "E.g.\n";
+			print "Hsg,Homo sapiens genes,0.22,0.29,0.28,0.21,from my recent experiement\n\n";
+			print "The <code> field should be used by the -bg option of this script.\n";
+			exit;
+		}
+		my ($code,$details,$a,$c,$g,$t,$notes) = @line;
+
+		# check frequencies, allow a little flexibility
+		my $sum = $a + $c + $g + $t;
+		die "The following background frequencies add up to $sum and not 1:\n$_\n" if ($sum < 0.99 or $sum > 1.01);
+		
+		# check $code field for whitespace
+		if($code =~ m/\s+/){
+			print "Removing spaces from \'$code\' field\n";
+			$code =~ s/\s+//g;
+		}			
+		$background{$code}{'details'} = $details;
+		$background{$code}{'a'} = $a;
+		$background{$code}{'c'} = $c;
+		$background{$code}{'g'} = $g;
+		$background{$code}{'t'} = $t;
+		$background{$code}{'notes'} = $notes;
+	}
+
+	# set an error status
+	my $error = 0;
+	if($background){
+		print "You asked for background code \'$background\'. ";
+		if($background{$background}){
+			print "Using code ati: $background{$background}{'details'}\n";
+			# load up %expected hash
+			foreach my $base qw (a c g t){
+				# remove white space if present from nucleotide frequency fields
+				$background{$background}{$base} =~ s/\s+//g;
+
+				# and now assign to final hash
+				$expected{$base} = $background{$background}{$base}; 
+			}	
+		}
+		else{
+			$error = 1;
+			print "This code does not exist\n";
+		}	
+	}
+	else{
+		$error = 1;
+	}
+	
+	# print error message and summary of available error codes
+	if($error){
+		print "\nSpecify a background code (with the -bg option) from the following choices:\n\n";
+		print "Code\tDescription\n----\t-----------\n";
+		foreach my $key (sort keys %background){
+			print "$key\t$background{$key}{'details'}\n";
+		}		
+		exit;
+	}
+}
+
+__DATA__
+# Code, Full name, Freq_A, Freq_C, Freq_G, Freq_T, Notes
+cei,Caenorhabditis elegans introns,0.3333,0.1621,0.1597,0.3449,from 31044 WS180 confirmed introns
+ceg,Caenorhabditis elegans genome,0.32280,0.17733,0.17709,0.32278,from WS180 chromosomes
+ati,Arabidopsis thaliana introns,0.2713,0.1534,0.1701,0.4052,from 59260 high confidence TAIR7 introns
+atg,Arabidopsis thaliana genome,0.3200,0.1802,0.1801,0.3197,from August 2006 TAIR set of chromosomes
+at5u,Arabidopsis thaliana 5' UTRs,0.3017,0.2180,0.1593,0.3210,from 14862 high confidence TAIR7 5' UTRs
+at3u,Arabidopsis thaliana 3' UTRs,0.2960,0.1473,0.1731,0.3836,from 13,459 high confidence TAIR7 3' UTRs
+atig,Arabidopsis thaliana intergenic,0.3437,0.1568,0.1562,0.3433,from 304113 TAIR7 intergenic annotations
+atc,Arabidopsis thaliana CDSs,0.2831,0.2067,0.2408,0.2694,from 70370 high confidence TAIR7 CDS exons
+att,Arabidopsis thaliana transcripts,0.2815,0.1849,0.2078,0.3258,from 13163 high confidence TAIR7 transcripts
+atu,Arabidopsis thaliana upstream regions,0.3342,0.1685,0.1651,0.3321,from 32041 TAIR7 1,000 bp upstream sequences
+atd,Arabidopsis thaliana downstream regions,0.3211,0.1787,0.1724,0.3278,from 32041 TAIR7 1,000 bp downstream sequences
+dmi,Drosophila melanogaster introns,0.2942,0.2040,0.1979,0.3040,
+hs5u,Homo sapiens 5' UTRs,0.2134,0.2864,0.2970,0.2032,
+osi,Oryza sativa introns,0.2769,0.1831,0.1875,0.3525,from 72066 high confidence japonica introns (TIGR 5.0 annotations)
+os5u,Oryza sativa 5' UTRs,0.2083,0.3191,0.2491,0.2234,from 16267 high confidence japonica sequences (TIGR 5.0 annotations)
+os3u,Oryza sativa 3' UTRs,0.2715,0.1874,0.2133,0.3278,from 14798 high confidence japonica sequences (TIGR 5.0 annotations)
+osg,Oryza sativa genome,0.2822,0.2178,0.2178,0.2822,from 12 japonica genome sequences (TIGR 5.0 version)
+osc,Oryza sativa CDSs,0.2421,0.2559,0.2774,0.2245,from 80515 high confidence japonica CDS exons (TIGR 5.0 annotations)
+ost,Oryza sativa transcripts,0.2624,0.2125,0.2208,0.3043,from 13201 high confidence japonica transcripts (TIGR 5.0 annotations)
+osig,Oryza sativa intergenic,0.2927,0.2073,0.2074,0.2926,from 56,208 japonica sequences (TIGR 5.0 annotations)
+osu,Oryza sativa upstream regions,0.2960,0.2159,0.2020,0.2861,from 13201 japonica 1 kbp upstream regions
+pti,Populus trichocarpa,0.2788,0.1581,0.1791,0.3839,from 26415 high confidence introns (v1.1 annotations)
+pt5u,Populus trichocarpa 5' UTRs,0.3004,0.2249,0.1792,0.2954,26415 high confidence UTRs (v1.1 annotations)
+pt3u,Populus trichocarpa 3' UTRs,0.2754,0.1658,0.1974,0.3614,from 7841 high confidence UTRs (v1.1 annotations)
+ptg,Populus trichocarpa genome,0.3316,0.1687,0.1685,0.3311,from 22012 genome sequences (v1.0)
+ptc,Populus trichocarpa CDSs,0.2816,0.2039,0.2437,0.2708,from 31232 high confidence poplar CDS exons (v1.1 annotations)
+ptt,Populus trichocarpa transcripts,0.2803,0.1754,0.1996,0.3447,from 7089 high confidence poplar transcripts (v1.1 annotations)
+ptu,Populus trichocarpa upstream regions,0.3473,0.1590,0.1480,0.3456,from 7089 1 kbp upstream sequences
+vvi,Vitis vinifera introns,0.2963,0.1657,0.1822,0.3558,from 23091 high confidence introns
+vv5u,Vitis vinifera 5' UTRs,0.2673,0.1987,0.1980,0.3360,from 5483 high confidence 5' UTRs 
+vv3u,Vitis vinifera 3' UTRs,0.2823,0.1670,0.1937,0.3570,from 5232 high confidence 3' UTRs 
+vvg,Vitis vinifera genome,0.3274,0.1727,0.1728,0.3272,from 35 genome sequences 
+vvc,Vitis vinifera CDSs,0.2824,0.2023,0.2423,0.2729,from 27598 high confidence poplar CDS exons 
+vvt,Vitis vinifera transcripts,0.2910,0.1740,0.1935,0.3416,from 5077 high confidence poplar transcripts 
+vvu,Vitis vinifera upstream regions,0.3488,0.1513,0.1506,0.3492,from 50877 1 kbp upstream sequences
+cri,Chlamydomonas reinhardtii introns,0.1774,0.2968,0.3261,0.1997,from 21979 high confidence introns
+cru,Chlamydomonas reinhardtii upstream regions,0.1948,0.2934,0.3142,0.1976,from 4131 1 kbp upstream sequences
+cr5u,Chlamydomonas reinhardtii 5' UTRs,0.2288,0.2869,0.2591,0.2252,from 4636 high confidence 5' UTRs 
+cr3u,Chlamydomonas reinhardtii 3' UTRS,0.1979,0.2393,0.3451,0.2178,from 4430 high confidence 3' UTRs 
+crg,Chlamydomonas reinhardtii genome,0.1802,0.3198,0.3198,0.1802,from 1266 genome sequences 
+crc,Chlamydomonas reinhardtii CDSs,0.1812,0.3212,0.3361,0.1615,from 25286 high confidence CDS exons 
+crt,Chlamydomonas reinhardtii transcripts,0.1878,0.2982,0.3211,0.1929,from 4131 high confidence poplar transcripts 
+scg,Saccharomyces cerevisiae genome,0.3192,0.1903,0.1923,0.2982,from 5884 S. cerevisiae genes (including 1000 nt upstream and downstream plus introns) 
+ppi,Physcomitrella patens introns,0.2788,0.1582,0.1791,0.3840,from 26415 P. patens introns 
+sbi,Sorghum bicolor introns,0.2636,0.1965,0.2004,0.3395,from 57284 S. bicolor introns 
+smi,Selaginella moellendorfii introns,0.2043,0.2115,0.2086,0.3755,from 11118 S. moellendorfii introns 
+vci,Volvox carteri introns, 0.2071,0.2658,0.2724,0.2547,from 10960 V. carteri introns 
