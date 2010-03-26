@@ -36,6 +36,7 @@ my $stats;      # report stats on all log likelihood scores found
 my $min;        # Set minimum cut off for use with -stats option
 my $max;        # Set maximum cut off for use with -stats option
 my $interval;   # Set interval size for use with -stats option
+my $help;       # help option
 
 GetOptions ("motif=s"    => \$motif,
 	       "target=s"    => \$target,
@@ -53,6 +54,7 @@ GetOptions ("motif=s"    => \$motif,
 	       "min=f"       => \$min,
 	       "max=f"       => \$max,
 	       "interval=f"  => \$interval,
+	       "help"        => \$help,
 	       "reverse"     => \$reverse
 ) or die "\n";
 
@@ -278,7 +280,7 @@ if($stats){
 	    	}
 		}
 		# warn if any score is outside min and max
-		print "ERROR! $score lies outside min ($min) and max ($max) boundaries\n" if ($flag == 0);
+		print STDERR "ERROR! $score lies outside min ($min) and max ($max) boundaries\n" if ($flag == 0);
     }
 
     foreach my $key (sort {$limits{$a} <=> $limits{$b}}(keys(%limits))){
@@ -304,8 +306,31 @@ exit(0);
 ##############################################
 
 sub pre_flight_checks{
-	# check that both command line options are specified
-	die "Need to specify both -motif and -target options\n" if(!$motif || !$target);
+
+	my $usage = "\nwhere_is_motif.pl -motif <xms motif file> -target <FASTA file> -bg <background code> <mandatory arguments> <optional arguments>
+	
+	MANDATORY ARGUMENTS:
+	Must specify at least one of the following (some options will be incompatible with each other but you will be warned):
+	-seqs      : show an output sequence with location of motif for *each* motif in each input sequence 
+	-mseqs     : Multiple seqs option, show only one output sequence per input sequence, highlighting all motifs in input sequence
+	-scores    : show summary of motif score and location for *each* motif in each input sequence
+	-mdensity  : show motif density calculation rather than log-odds score for *each* motif in each input sequence
+	-mcount    : show count of all motifs (above threshold) in each input sequence
+	-msummary  : report summary statistics for entire input file of sequences
+	-stats     : provide summary of distribution of all log-odds scores (NOT YET WORKING PROPERLY)
+	
+	OPTIONAL ARGUMENTS:
+	-threshold : change the log-odds threshold for reporting motif matches (defaults to zero)
+	-bg_file   : specify a file which contains one or more suitable background frequencies to use (in addition to built in background frequencies)
+	-mask      : only to be used with -mseqs option. Masks out motifs and replaces them with dashes in final output.
+	-reverse   : NOT YET IMPLEMENTED - will find motifs on reverse strand of sequence and adjust background frequencies accordingly
+	";
+
+	
+	if($help || !$motif || !$target || !$background){
+		print "$usage\n";
+		exit;
+	}
 
 	# check that motif file looks like a valid file
 	die "-motif option must specify a valid Nested MICA *.xms output file\n" if($motif !~ m/\.xms$/);
@@ -340,7 +365,7 @@ sub pre_flight_checks{
 	}
 	# always need to specify a background code, shouldn't just use -bg_file
 	if($background_file && !$background){
-#		die "Need to also specify -bg if using -bg_file\n";
+		die "Need to also specify -bg if using -bg_file\n";
 	}
 }
 
@@ -354,7 +379,7 @@ sub read_background_frequencies{
 	# use different filehandle if background file is supplied
 	if($background_file){
 		open(my $in, '<', $background_file) or die "Can't open file: \'$background_file\' $!";
-		print "Reading from background file $background_file\n\n";
+		print STDERR "Reading from background file $background_file\n\n";
 		$fh = $in;
 	}
 
@@ -367,12 +392,12 @@ sub read_background_frequencies{
 		# check we have enough fields
 		my @line = split(/,/);
 		if (@line < 6){
-			print "The following background frequency information does not contain the minimum of 6 fields:\n$_\n\n";
-			print "The correct format is a comma separated file with the following information:\n";
-			print "<code>,<description>,A,C,G,T,optional notes\n\n";
-			print "E.g.\n";
-			print "Hsg,Homo sapiens genes,0.22,0.29,0.28,0.21,from my recent experiement\n\n";
-			print "The <code> field should be used by the -bg option of this script.\n";
+			print STDERR "The following background frequency information does not contain the minimum of 6 fields:\n$_\n\n";
+			print STDERR "The correct format is a comma separated file with the following information:\n";
+			print STDERR "<code>,<description>,A,C,G,T,optional notes\n\n";
+			print STDERR "E.g.\n";
+			print STDERR "Hsg,Homo sapiens genes,0.22,0.29,0.28,0.21,from my recent experiement\n\n";
+			print STDERR "The <code> field should be used by the -bg option of this script.\n";
 			exit;
 		}
 		my ($code,$details,$a,$c,$g,$t,$notes) = @line;
@@ -383,7 +408,7 @@ sub read_background_frequencies{
 		
 		# check $code field for whitespace
 		if($code =~ m/\s+/){
-			print "Removing spaces from \'$code\' field\n";
+			print STDERR "Removing spaces from \'$code\' field\n";
 			$code =~ s/\s+//g;
 		}			
 		$background{$code}{'details'} = $details;
@@ -397,9 +422,9 @@ sub read_background_frequencies{
 	# set an error status
 	my $error = 0;
 	if($background){
-		print "You asked for background code \'$background\'. ";
+		print STDERR "You asked for background code \'$background\'. ";
 		if($background{$background}){
-			print "Using code ati: $background{$background}{'details'}\n";
+			print STDERR "Using code ati: $background{$background}{'details'}\n";
 			# load up %expected hash
 			foreach my $base qw (a c g t){
 				# remove white space if present from nucleotide frequency fields
@@ -411,7 +436,7 @@ sub read_background_frequencies{
 		}
 		else{
 			$error = 1;
-			print "This code does not exist\n";
+			print STDERR "This code does not exist\n";
 		}	
 	}
 	else{
@@ -420,8 +445,8 @@ sub read_background_frequencies{
 	
 	# print error message and summary of available error codes
 	if($error){
-		print "\nSpecify a background code (with the -bg option) from the following choices:\n\n";
-		print "Code\tDescription\n----\t-----------\n";
+		print STDERR "\nSpecify a background code (with the -bg option) from the following choices:\n\n";
+		print STDERR "Code\tDescription\n----\t-----------\n";
 		foreach my $key (sort keys %background){
 			print "$key\t$background{$key}{'details'}\n";
 		}		
