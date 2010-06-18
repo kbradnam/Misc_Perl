@@ -2,7 +2,8 @@
 #
 # regex_breeder.pl
 #
-# A script to 
+# A script to breed sets of motifs (using regular expressions) and see which best explains
+# known expression values for various introns
 #
 # Last updated by: $Author$
 # Last updated on: $Date$
@@ -13,6 +14,7 @@ use Keith;
 use FAlite;
 use Getopt::Long;
 use List::Util qw(sum);
+use DataBrowser;
 
 my $file;               # input file
 my $n;                  # population size
@@ -21,26 +23,35 @@ my $max_motifs;         # maximum number of motifs in each motif set
 my $min_r;              # minimum correlation value needed from motifsets in starting population
 my $max_pattern_length; # maximum pattern length in regular expression
 my $starting_motif;     # optionally seed one motif in starting generation 
+my $exclude_motif;      # optionally specify a motif pattern that can never occur 
+my $mortality;          # what fraction of the population dies each generation
+my $survivors;          # how many motifsets in each generation should be kept without mutation
+my $verbose; 			# turn on extra output
 
 GetOptions ("n=i"              => \$n,
 			"max_motifs=i"     => \$max_motifs,
 			"file=s"           => \$file,
 			"min_r=f"          => \$min_r,
 			"max_pattern=i"    => \$max_pattern_length,
-			"starting_motif=s" => \$starting_motif
+			"starting_motif=s" => \$starting_motif,
+			"exclude_motif=s"  => \$exclude_motif,
+			"generations=i"    => \$generations,
+			"mortality=f"      => \$mortality,
+			"survivors=i"      => \$survivors,
+			"verbose"          => \$verbose
 			);
 
 
 # set defaults
-$n = 10000              if (!$n);
-$generations = 1000     if (!$generations);
-$max_motifs = 2         if (!$max_motifs);
+$n = 100                if (!$n);
+$generations = 100      if (!$generations);
+$max_motifs = 5         if (!$max_motifs);
 $min_r = 0.25           if (!$min_r);
-$max_pattern_length = 3 if (!$max_pattern_length);
+$max_pattern_length = 9 if (!$max_pattern_length);
+$mortality = 0.25       if (!$mortality);
+$survivors = 10         if (!$survivors);
+
 die "Specify intron file with -file option\n" if (!$file);
-
-
-
 
 
 # turn on autoflush
@@ -49,6 +60,7 @@ $| = 1;
 # big multi-dimensional array to hold all of the data
 # plus a second array to hold copy of data for mutating
 my @motifset;
+
 my @copy;
 
 # want to keep track of sequences from input file, plus their expression level
@@ -58,7 +70,7 @@ my %seq_to_id;
 
 # need list of all IUPAC bases plus a translation to turn those into regular expressions
 # overload the list of bases with most common ones (these will be selected at random)
-my @bases = qw(A A A A A A A A C C C C C C C C G G G G G G G G T T T T T T T R R R Y Y Y S S S W W W K M B D H V N);
+my @bases = qw(A C G G T R Y S W K M B D H V N);
 my %bases_to_regex = (
 	A => 'A',
 	C => 'C',
@@ -84,12 +96,6 @@ read_file();
 print "Creating starting population\n";
 create_starting_population($n);
 
-# mutate half of the population 
-mutate_copy();
-
-# add mutated copies back to original set
-@motifset = (@motifset,@copy);
-
 
 #############################
 #
@@ -100,80 +106,54 @@ mutate_copy();
 my %motifsets_to_scores;
 
 for (my $i = 1; $i <= $generations; $i++){
-	print "\nGeneration $i\n";
+	print "\n==============\nGENERATION $i\n==============\n";
 	
 	# wipe relevant hashes and arrays
 	%motifsets_to_scores = ();
-	@copy = ();
-
-	# an array to keep the winning n/2 survivors of selection
-	my @survivors;
 
 	# grab scores from each motifset
-	score_motifsets($i);
-	
-	# now need to remove the worst $n/2 motifsets
+	score_motifsets();
+
+	# sort scores
 	my @sorted = (reverse sort {$motifsets_to_scores{$a} <=> $motifsets_to_scores{$b}} (keys(%motifsets_to_scores)));
- 
-	# simple counter
-	my $c = 1;
 
-	my $print_limit = 10;
-	
-	# loop through scores and make a new motifset array of the top n/2 survivors
-	foreach my $motifset (@sorted){
-		
-		# print details of top few motifs
-		my $number_of_motifs = @{$motifset[$motifset]};
-		print "$c) $number_of_motifs motifs r = $motifsets_to_scores{$motifset}\n" if ($c <= $print_limit);
-		for my $j (0 .. $number_of_motifs-1){
+	print "\nTop motifs\n===========\n";
+	# print details of the top $survivors motifsets	
+	for (my $j = 0; $j < @sorted; $j++){
+#		last if ($j >= $survivors);
+		last if ($j >= 5);
 
-			# get motif out of data structure
-			my $number_of_bases = scalar @{$motifset[$motifset][$j]};
+		my $number_of_motifs = @{$motifset[$j]{motifs}}; 
+		my $strand           = $motifset[$j]{strand};
+		my $distance         = $motifset[$j]{distance};
+		print_motifset($sorted[$j]);
+		print "\n";
+		# make these top scoring motifs untouchable
+		$motifset[$sorted[$j]]{untouchable} = 1;
+	}
 
-			# assemble motif as a string out of @motifset data, also keep a regex version
-			my $motif;
-			my $motif_regex;
-			for my $k (0 .. $number_of_bases-1){
-				$motif .= $motifset[$motifset][$j][$k]{base};
-				$motif_regex .= $bases_to_regex{$motifset[$motifset][$j][$k]{base}};
+	# death - remove the $mortality percentage of the lowest scoring motifsets
+	kill_motifsets(\@sorted);
+	print "\n";
 
-				# only print out min and max if max is greater than 1 (otherwise it's just one base)
-				if($motifset[$motifset][$j][$k]{max} > 1){
-					$motif .= "{" . $motifset[$motifset][$j][$k]{min} . ",";
-					$motif .= $motifset[$motifset][$j][$k]{max} . "}";
+	# reproduction, add new motifsets from survivors
+	reproduction();
 
-					$motif_regex .= "{" . $motifset[$motifset][$j][$k]{min} . ",";
-					$motif_regex .= $motifset[$motifset][$j][$k]{max} . "}";
-				}
-
-				# add details of this motifset to two new arrays, survivors + copy
-				$survivors[$c-1][$j][$k]{base} = $motifset[$motifset][$j][$k]{base};
-				$survivors[$c-1][$j][$k]{min} = $motifset[$motifset][$j][$k]{min};
-				$survivors[$c-1][$j][$k]{max} = $motifset[$motifset][$j][$k]{max};
-
-				$copy[$c-1][$j][$k]{base} = $motifset[$motifset][$j][$k]{base};
-				$copy[$c-1][$j][$k]{min} = $motifset[$motifset][$j][$k]{min};
-				$copy[$c-1][$j][$k]{max} = $motifset[$motifset][$j][$k]{max};
-
-			}
-			print "\tmotif $j ($number_of_bases nt): $motif\t$motif_regex\n" if ($c <= $print_limit);
-		}
-				
-		# stop at the halfway point
-		last if ($c == ($n/2));
-		$c++;
-	}	
-	
-	mutate_copy();
-	
-	# add mutated copies back to original along with the best survivors from above
-	@motifset = (@survivors,@copy);
+	# mutate surviving motifsets (except the untouchables)
+	mutate_copy($i);
 }
 
-
-
 exit;
+
+
+
+##########################################################################
+#
+# 
+#              T  H  E     S  U  B  R  O  U  T  I  N  E  S
+#  
+#
+###########################################################################
 
 sub read_file{
 	open(IN,"<$file") || die "Couldn't open $file file\n";
@@ -182,13 +162,12 @@ sub read_file{
 
     # loop through each sequence in target file
     while(my $entry = $fasta->nextEntry) {
-
  		# get and trim header
     	my $header = $entry->def;
     	$header =~ m/.* x(\d{1,2}\.\d)/;
     	my $expression = $1;
 
-		die "$header\n" if (!$expression);
+		die "Can't find expression value in: $header\n" if (!$expression);
     	$header =~ s/ .*//;
 		$header =~ s/>//;
 
@@ -202,494 +181,658 @@ sub read_file{
 	close(IN);
 }
 
+
+###########################################################################
+#
+# CREATE_STARTING_POPULATION
+#
+# Create $n motifsets
+#
+###########################################################################
+
 sub create_starting_population{
-	my $n = shift;
-	$n /= 2;
+	my ($n) = @_;
+
+	# will create $n motifset objects
 	
-	MOTIF: for my $i (0 .. $n-1){		
-		my $number_of_motifs = int(rand($max_motifs));
-		for my $j (0 .. $number_of_motifs){
+	MOTIF: foreach my $i (0 .. $n - 1){
 
-			my $motif_length = int(rand(6))+1;
-			
-			for my $k (0 .. $motif_length){
-				
-				# choose a random base (using IUPAC codes)
-				my $base = $bases[int(rand(@bases))];
-				
-				# start off with minimum pattern length of 1 
-				my $min = 1;
-				
-				# and choose maximum number, bias this to be mostly 1, 5% chance of it being 2
-				my $increment = int(rand(1.05));
-				my $max = $min + $increment;
+		# first decide how many motifs can be in each motifset
+		my @motifs;
+		my $number_of_motifs = int(rand($max_motifs)) + 1;
 
-				$motifset[$i][$j][$k]{base} = $base;
-				$motifset[$i][$j][$k]{min}  = $min;
-				$motifset[$i][$j][$k]{max}  = $max;
-				
-				# now test score of this motif
-				# same information is repeated into a different set which will be mutated
-				$copy[$i][$j][$k]{base} = $base;
-				$copy[$i][$j][$k]{min}  = $min;
-				$copy[$i][$j][$k]{max}  = $max;
-			}
+		foreach my $j (1 .. $number_of_motifs){
+			my $motif = create_single_motif();
+			push(@motifs, $motif);
 		}
-		# get score for this motifset
-		my $r = score_motifset($i);
-#		print "motifset $i, r = $r\n";
+		
+		# choose starting distance from TSS from which motifs will only be considered
+		# initially make this choice quite simple
+		my @distances = qw(100 250 500 1000 5000);
+		my $distance = $distances[int(rand(@distances))];
+		
+		
+		# choose whether motifs can be placed on the leading strand or on both strands
+		my @strands = qw(1 2);
+		my $strand = $strands[int(rand(@strands))];
+		
+		push @motifset, {
+			motifs   => \@motifs,
+			strand   => $strand,
+			distance => $distance
+		};
+		
+		
+		# print motifs
+#		print "\nmotifset $i\n";
+#		print "Strand = $motifset[$i]{strand}\n";
+#		print "Distance threshold = $motifset[$i]{distance}\n";
 
-		# reject and try again if below some threshold (to ensure a good starting population)
-		if ($r < $min_r){
-			splice(@motifset,$i,1);
-			splice(@copy,$i,1);
-			redo MOTIF;
-		}
-		else{
-			foreach my $trigger qw(0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1){
-				print (($trigger*100) . "% ") if ((($i+1)/$n) == $trigger);
+#		print "Number of motifs = $number_of_motifs\n";
+		my $motif_count = 1;
+		foreach my $motif (@{$motifset[$i]{motifs}}){
+#			print "\tMotif $motif_count\n";
+			# how to loop through motifs at this point?
+			foreach my $pos (@{$motif}){
+#				print "\t\t${$pos}{base}\{${$pos}{min},${$pos}{max}\}\n";
 			}
+			$motif_count++;
 		}
 	}
-	print "\n";
-	
-	# if -starting_motif has been specified, we overwrite first_motif of motif set
+#	print "$motif->[0]{base}\n";
+
+	# if -starting_motif has been specified, we overwrite first motif of motifset with a single motif
 	if($starting_motif){
-		# erase existing motif at that position
-		@{$motifset[0][0]} = ();
-		@{$copy[0][0]} = ();
 
-		my $counter = 0;
-		my @motif = split(//,$starting_motif);
+		# erase first motifset but add default values for strand (1) and distance (1000)
+        $motifset[0] = ();
+		$motifset[0]{distance} = 1000;
+		$motifset[0]{r} = 0;
+		$motifset[0]{strand} = 1;
+		${$motifset[0]}{motifcounts}[0] = 0;
 		
-		while(@motif){
-			my ($min,$max);			
-			my $base = shift(@motif);
-			my $next_base;
-			if($motif[0]){
-				$next_base = $motif[0];
-			}
-			else{
-				$next_base = "END";
-			}
-			
-			# are both positions regular characters with no length pattern?
-			if ($base =~ m/[ACGTRYSWKMBDHVN]/ && $next_base =~ m/[ACGTRYSWKMBDHVN]/){		
+        my $counter = 0;
+        my @motif = split(//,$starting_motif);
+         
+        while(@motif){
+	     	my ($min, $max);                 
+	        my $base = shift(@motif);
+	        my $next_base;
+	        if($motif[0]){
+	        	$next_base = $motif[0];
+	        } else{
+	        	$next_base = "END";
+	        }
+		
+	        # are both positions regular characters with no length pattern?
+	        if ($base =~ m/[ACGTRYSWKMBDHVN]/ && $next_base =~ m/[ACGTRYSWKMBDHVN]/){               
+            	# if so then just set min and max length to be equal to 1
+                $motifset[0]{motifs}[0][$counter]{base} = $base;
+                $motifset[0]{motifs}[0][$counter]{min}  = 1;
+                $motifset[0]{motifs}[0][$counter]{max}  = 1;
 
-				# if so then just set min and max length to be equal to 1
-				$motifset[0][0][$counter]{base} = $base;
-				$motifset[0][0][$counter]{min}  = 1;
-				$motifset[0][0][$counter]{max}  = 1;
-				$copy[0][0][$counter]{base} = $base;
-				$copy[0][0][$counter]{min}  = 1;
-				$copy[0][0][$counter]{max}  = 1;
+                $counter++;
+	        } else{
 		
-				$counter++;
+                shift(@motif);                  # get rid of '{'
+                $min = shift(@motif);
+
+				# now we might have a single value for min and max (e.g. Y{3} rather than Y{3,3})
+				# treat accordingly
+				
+				if($motif[0] eq '}'){
+					$max = $min;
+				} else{
+	                shift(@motif);                  # get rid of ','
+	                $max = shift(@motif);
+					
+				}
+                shift(@motif);                  # get rid of '}'        
+        
+                $motifset[0]{motifs}[0][$counter]{base} = $base;
+                $motifset[0]{motifs}[0][$counter]{min}  = $min;
+                $motifset[0]{motifs}[0][$counter]{max}  = $max;
+               
+                $counter++;
+	         }
+		}
+	}
+}
+
+sub create_single_motif{
+	my $motif_length = int(rand(3))+1;
+	
+	my @motif;
+	foreach my $i (0 .. $motif_length){
+		
+		# choose a random base (using IUPAC codes)
+		my $base = $bases[int(rand(@bases))];
+		
+		# decide minimum and maximum number of repetitions for that base
+		
+		# choose maximum number: between 1 and 3
+		my $max = int(rand(3)) + 1;
+		
+		# min is anynumber up to the max
+		my $min = int(rand($max)) + 1;
+		
+		push @motif, {
+			base => $base,
+			min  => $min,
+			max  => $max,
+		};
+	}
+	return(\@motif);
+}
+
+###########################################################################
+#
+# KILL_MOTIFSETS
+#
+# Empty a fraction of motifsets with the lowest r2 scores
+#
+###########################################################################
+
+sub kill_motifsets{
+	my ($sorted_motifsets) = @_;
+	
+	print "\nKilling motifsets\n=================\n" if ($verbose);
+	my $to_die = $n * $mortality;
+	print "\n$to_die motifsets must die!\n\n" if ($verbose);
+
+	my @doomed = @{$sorted_motifsets}[$n-$to_die..$n-1];
+	for (my $s = 0; $s < @doomed; $s++){
+		print "$s) Killing motifset $doomed[$s] r = $motifsets_to_scores{$doomed[$s]}\n" if ($verbose);
+		$motifset[$doomed[$s]] = undef;
+	}
+}
+
+
+
+###########################################################################
+#
+# REPRODUCTION
+#
+# Fill missing motifsets by randomly choosing from surviving motifsets
+#
+###########################################################################
+
+sub reproduction{
+	print "\nReproduction\n============\n" if ($verbose);
+	
+	# loop through all motifsets
+	for my $i (0 .. $n-1){
+		
+		# is the current motifset dead?
+		if(!defined($motifset[$i])){
+			print "Motifset $i is dead\n" if ($verbose);
+			print "\tfinding suitable replacement\n" if ($verbose);
+
+			# stay in while loop until we find a suitable replacement motif
+			while(1){
+				my $rand = int(rand($n));
+				if(defined($motifset[$rand])){
+					print "\treplacing motifset $i with motifset $rand\n" if ($verbose);
+					
+#					browse($motifset[$rand]);
+
+					# now copy over from an existing motifset					
+					copy_motifset($rand,$i);
+				
+					# you might have copied an untouchable motifset, in which case we should make the copy
+					# 'touchable', i.e. up for possibility of mutation
+					$motifset[$i]{untouchable} = 0;					
+
+					last;
+				}
 			}
-			else{
-				shift(@motif);			# get rid of '{'
-				$min = shift(@motif);
-				shift(@motif);			# get rid of ','
-				$max = shift(@motif);
-				shift(@motif);			# get rid of '}'	
+		} else {
+			if($motifset[$i]{untouchable} == 1){
+				print "Motifset $i is alive (and untouchable)\n" if ($verbose);
 				
-				$motifset[0][0][$counter]{base} = $base;
-				$motifset[0][0][$counter]{min}  = $min;
-				$motifset[0][0][$counter]{max}  = $max;
-				$copy[0][0][$counter]{base} = $base;
-				$copy[0][0][$counter]{min}  = $min;
-				$copy[0][0][$counter]{max}  = $max;
+			} else {
+				print "Motifset $i is alive\n" if ($verbose);
 				
-				$counter++;
 			}
 		}
 	}
 }
+
+###########################################################################
+#
+# COPY_MOTIFSET
+#
+# To deal with references need to copy motifsets by traversing data structure
+#
+###########################################################################
+
+sub copy_motifset{
+	my ($old, $new) = @_;
+	# will copy $old motifset to $new
+
+	# copy over any hash key-value pairs at top level of motifset object
+	${$motifset[$new]}{distance}    = ${$motifset[$old]}{distance};
+	${$motifset[$new]}{strand}      = ${$motifset[$old]}{strand};
+	${$motifset[$new]}{untouchable} = ${$motifset[$old]}{untouchable};
+	${$motifset[$new]}{r}           = ${$motifset[$old]}{r};
+	
+	# now loop through all motifs in $old motifset
+	for (my $m = 0; $m < @{$motifset[$old]{motifs}}; $m++){
+
+		# and now loop through all bases in each motif of $old motifset and copy to $new motifset
+		for (my $n = 0; $n < @{$motifset[$old]{motifs}[$m]}; $n++){
+			$motifset[$new]{motifs}[$m][$n]{base} = $motifset[$old]{motifs}[$m][$n]{base};
+			$motifset[$new]{motifs}[$m][$n]{min}  = $motifset[$old]{motifs}[$m][$n]{min};
+			$motifset[$new]{motifs}[$m][$n]{max}  = $motifset[$old]{motifs}[$m][$n]{max};
+		}		
+	}
+}
+
+
+
+###########################################################################
+#
+# MUTATE_COPY
+#
+# Iterate through all untouchable motifsets and perform various mutations
+#
+###########################################################################
 
 sub mutate_copy{
+	my ($generation) = @_;
 	
-	for (my $i=0; $i < @copy; $i++){
+	print "\nMutating motifsets\n==================\n" if ($verbose);
+
+	for (my $i = 0; $i < @motifset; $i++){
+		print "$i)" if ($verbose);
+
+		# skip the untouchables and the dead
+		if (defined($motifset[$i]) && ($motifset[$i]{untouchable} == 1)){
+			print " - this motifset is untouchable\n" if ($verbose);
+			next;
+		} else{
+			print " - this motifset is up for mutation\n" if ($verbose);
+		}
 		
-		###################################
-		# 1) Add 1 new motifs to a motifset
-		###################################
+		# choose how many mutations to make (potentially all possible types of mutation could be applied to a single motifset)
+		my $number_of_mutations = int(rand(12)+1);
+		print "Motifset $i will undergo $number_of_mutations mutations\n" if ($verbose);
+		
+		# now loop through each mutation
+		for(my $p = 0; $p < $number_of_mutations; $p++){
 
-		if(rand(1) < 0.25){
+			# now choose which mutation will happen this time
+			my $mutation_type = int(rand(12)+1);
+
+			if($mutation_type == 1){			
+				# 1) Add 1 new motifs to a motifset
+				my ($number_of_motifs) = get_mutation_info($i);
+
+				# can only add a motif if we have less than max number of $max_motifs
+				if($number_of_motifs < $max_motifs){
+					print "\tADDING MOTIF!\n" if ($verbose);				
+					my $motif = create_single_motif();
+					push @{$motifset[$i]{motifs}}, $motif;
+				}
+			} 
 			
-			my $number_of_motifs = scalar @{$copy[$i]};
+			elsif ($mutation_type == 2){			
+				# 2) Remove 1 motif from motifset
 
-			# can only add a motif if we have less than max number of $max_motifs
-			if($number_of_motifs < $max_motifs){
-				# next position in array will be equal to size of array
-	 			my $next_position = scalar @{$copy[$i]};
+				my ($number_of_motifs) = get_mutation_info($i);
 
-				# create random details for new motif
-				my $motif_length = int(rand(6));
+				# can't remove motif if there is only one
+				next if ($number_of_motifs == 1);
+			
+				print "\tREMOVING MOTIF!\n" if ($verbose);
+			
+				# choose which motif to remove
+				my $rand = int(rand($number_of_motifs));
+				splice(@{$motifset[$i]{motifs}},$rand,1);
+			} 
+			
+			elsif($mutation_type == 3){			
+				# 3) Add 1 base to one motif in motifset
 
-				for my $k (0 .. $motif_length){
+				my ($number_of_motifs, $motif, $number_of_bases, $position) = get_mutation_info($i);
 
-					# choose a random base (using IUPAC codes)
-					my $base = $bases[int(rand(@bases))];
+				print "\tADDING BASE TO MOTIF $motif AT POSITION $position\n" if ($verbose);
+						
+				# choose a random base (using IUPAC codes)
+				my $base = $bases[int(rand(@bases))];
 
-					# choose mininum number of copies of that base 
-					my $min = 1;
+				# choose maximum number: between 1 and 3
+				my $max = int(rand(3)) + 1;
 
-					# and choose maximum number
-					my $increment = int(rand(1.05));
-					my $max = $min + $increment;
+				# min is any number up to the max
+				my $min = int(rand($max)) + 1;
 
-					$copy[$i][$next_position][$k]{base} = $base;
-					$copy[$i][$next_position][$k]{min}  = $min;
-					$copy[$i][$next_position][$k]{max}  = $max;
-				}				
+				my $new_pos = {
+					base => $base,
+					min  => $min,
+					max  => $max
+				};
+
+				# add new base at randomly chosen position
+				splice(@{$motifset[$i]{motifs}[$motif]},$position,0,$new_pos);
 			}
-		}
-
-		###################################
-		# 2) Remove 1 motif from motifset
-		###################################
-
-		if(rand(1) < 0.25){
-			my $number_of_motifs = scalar @{$copy[$i]};
-
-			# can't remove motif if there is only one
-			last if ($number_of_motifs == 1);
-			
-			# choose which motif to remove
-			my $rand = int(rand($number_of_motifs));
-			splice(@{$copy[$i]},$rand,1);
-		}
 		
-		#########################################
-		# 3) Add 1 base to one motif in motifset
-		#########################################
+			elsif($mutation_type == 4){			
+				# 4) Remove 1 base from one motif in motifset
+				my ($number_of_motifs, $motif, $number_of_bases, $position) = get_mutation_info($i);
+
+				# can only do this if you have at least 2 bases
+				if($number_of_bases >1){
+					print "\tREMOVING BASE $position FROM MOTIF $motif\n" if ($verbose);
+
+					# add details of new base to @copy
+					splice(@{$motifset[$i]{motifs}[$motif]},$position,1);				
+				}
+			}
 		
-		if(rand(1) < 0.25){
-			my $number_of_motifs = scalar @{$copy[$i]};
+			elsif($mutation_type == 5){			
+				# 5) Substitute 1 base from one motif in motifset
+				my ($number_of_motifs, $motif, $number_of_bases, $position) = get_mutation_info($i);
 
-			# choose a motif to have a base added
-			my $motif = int(rand($number_of_motifs));
-			
-			# choose a position in that motif to add new base
-			my $number_of_bases = scalar @{$copy[$i][$motif]};
-			my $position = int(rand($number_of_bases));
-			
-			# choose a random base (using IUPAC codes)
-			my $base = $bases[int(rand(@bases))];
+				print "\tSUBSTITUTING BASE $position FROM MOTIF $motif\n" if ($verbose);
 
-			# choose mininum number of copies of that base 
-			my $min = int(rand(2))+1;
-
-			# and choose maximum number
-			my $increment = int(rand(2));
-			my $max = $min + $increment;
-	
-			# to simplify things we will just add base at end of motif (for now)
-			$copy[$i][$motif][$number_of_bases]{base} = $base;
-			$copy[$i][$motif][$number_of_bases]{min}  = $min;
-			$copy[$i][$motif][$number_of_bases]{max}  = $max;
-		}
-
-		################################################
-		# 4) Remove 1 base from one motif in motifset
-		################################################
-		
-		if(rand(1) < 0.3){
-			my $number_of_motifs = scalar @{$copy[$i]};
-
-			# choose a motif to have a base added
-			my $motif = int(rand($number_of_motifs));
-
-			# choose a position in that motif to remove new base
-			my $number_of_bases = scalar @{$copy[$i][$motif]};
-
-			# can only do this if you have at least 2 bases
-			
-			if($number_of_bases >1){
-				my $position = int(rand($number_of_bases));
+				# choose a random base (using IUPAC codes)
+				my $base = $bases[int(rand(@bases))];
 
 				# add details of new base to @copy
-				splice(@{$copy[$i][$motif]},$position,1);
+				$motifset[$i]{motifs}[$motif][$position]{base} = $base;				
 			}
-		}
-		
-		################################################
-		# 5) Substitute 1 base from one motif in motifset
-		################################################
 
-		if(rand(1) < 0.75){
-			my $number_of_motifs = scalar @{$copy[$i]};
+			elsif($mutation_type == 6){			
+				# 6) Increment minimum pattern length for one base 
+				my ($number_of_motifs, $motif, $number_of_bases, $position, $min, $max) = get_mutation_info($i);
 
-			# choose a motif to have a base substituted
-			my $motif = int(rand($number_of_motifs));
-
-			# choose a position in that motif to add new base
-			my $number_of_bases = scalar @{$copy[$i][$motif]};
-			my $position = int(rand($number_of_bases));
-
-			# choose a random base (using IUPAC codes)
-			my $base = $bases[int(rand(@bases))];
-
-			# add details of new base to @copy
-			$copy[$i][$motif][$position]{base} = $base;			
-		}
-
-		###################################################
-		# 6) Increment minimum pattern length for one base 
-		###################################################
-
-		if(rand(1) < 0.1){
-			my $number_of_motifs = scalar @{$copy[$i]};
-
-			# choose a motif to have a base substituted
-			my $motif = int(rand($number_of_motifs));
-
-			# choose a position in that motif to add new base
-			my $number_of_bases = scalar @{$copy[$i][$motif]};
-			my $position = int(rand($number_of_bases));
-
-			my $min = $copy[$i][$motif][$position]{min};
-			my $max = $copy[$i][$motif][$position]{max};
-
-			# increment value
-			# can only do this if incremented value of min is less than max
-			$copy[$i][$motif][$position]{min}++ if ($copy[$i][$motif][$position]{min}+1 < $max);
-		}
-
-		################################################
-		# 7) Decrease minimum pattern length for one base
-		################################################
-
-		# deliberately make it more likely to reduce pattern length than increase it
-		if(rand(1) < 0.6){
-			my $number_of_motifs = scalar @{$copy[$i]};
-
-			# choose a motif to have a base substituted
-			my $motif = int(rand($number_of_motifs));
-
-			# choose a position in that motif to add new base
-			my $number_of_bases = scalar @{$copy[$i][$motif]};
-			my $position = int(rand($number_of_bases));
-			
-			my $min = $copy[$i][$motif][$position]{min};
-			my $max = $copy[$i][$motif][$position]{max};
-
-			# decrease value
-			# can only do this if min is greater than 1
-			$copy[$i][$motif][$position]{min}-- if ($min > 1);
-		}
-
-
-		################################################
-		# 8) Increment maximum pattern length for one base
-		################################################
-
-		if(rand(1) < 0.5){
-			my $number_of_motifs = scalar @{$copy[$i]};
-
-			# choose a motif to have a base substituted
-			my $motif = int(rand($number_of_motifs));
-
-			# choose a position in that motif to add new base
-			my $number_of_bases = scalar @{$copy[$i][$motif]};
-			my $position = int(rand($number_of_bases));
-			
-			my $min = $copy[$i][$motif][$position]{min};
-			my $max = $copy[$i][$motif][$position]{max};
-
-			# increment value (as long as this doesn't exceed $max_pattern_length )
-			if($copy[$i][$motif][$position]{max} < $max_pattern_length){
-				$copy[$i][$motif][$position]{max}++;				
+				# increment value
+				# can only do this if incremented value of min is less than max
+				if ($min + 1 < $max){
+					print "\tINCREASING MIN QUANTIFER FOR BASE $position IN MOTIF $motif\n" if ($verbose);
+					$motifset[$i]{motifs}[$motif][$position]{min}++;
+				}
 			}
-			die "$i $motif $position $min $max *\n" if (!defined($max) || !defined($min));
-		}
+
+			elsif($mutation_type == 7){			
+				# 7) Decrease minimum pattern length for one base
+				my ($number_of_motifs, $motif, $number_of_bases, $position, $min, $max) = get_mutation_info($i);
+
+				# decrease value, can only do this if value of min is greater than one
+				if ($min > 1){
+					print "\tDECREASING MIN QUANTIFER FOR BASE $position IN MOTIF $motif\n" if ($verbose);
+					$motifset[$i]{motifs}[$motif][$position]{min}--;
+				}
+			}
+
+			elsif($mutation_type == 8){			
+				# 8) Increment maximum pattern length for one base
+				my ($number_of_motifs, $motif, $number_of_bases, $position, $min, $max) = get_mutation_info($i);
+
+				# increment value (as long as this doesn't exceed $max_pattern_length )
+				if($max < $max_pattern_length){
+					print "\tINCREASING MAX QUANTIFER FOR BASE $position IN MOTIF $motif\n" if ($verbose);
+					$motifset[$i]{motifs}[$motif][$position]{max}++;				
+				}
+				die "$i $motif $position $min $max *\n" if (!defined($max) || !defined($min));
+			}
 		
-		################################################
-		# 9) Decrease maximum pattern length for one base
-		################################################
+			elsif($mutation_type == 9){			
+				# 9) Decrease maximum pattern length for one base
 
-		if(rand(1) < 0.5){
-			my $number_of_motifs = scalar @{$copy[$i]};
+				my ($number_of_motifs, $motif, $number_of_bases, $position, $min, $max) = get_mutation_info($i);
 
-			# choose a motif to have a base substituted
-			my $motif = int(rand($number_of_motifs));
+				# decrease value
+				# can only do this if max will still be greater than $min
+				if ($max - 1 > $min){
+					print "\tDECREASING MAX QUANTIFER FOR BASE $position IN MOTIF $motif\n" if ($verbose);
+					$motifset[$i]{motifs}[$motif][$position]{max}--;
+				}
+			}
+			
+			elsif($mutation_type == 10){			
+				# 10) Increase threshold distance
+			
+				# incremement by varying amounts
+				my @distances = (1, 5, 10, 100, 250, 500);
+				my $increment = $distances[rand(@distances)];
+				print "\tINCREASING DISTANCE THRESHOLD by $increment\n" if ($verbose);
+				$motifset[$i]{distance} += $increment;
+			}
+		
+			elsif($mutation_type == 11){			
+				# 11) Decrease threshold distance
+			
+				# decrease by varying amounts
+				my @distances = (1, 5, 10, 100, 250, 500);
+				my $decrease = $distances[rand(@distances)];
 
-			# choose a position in that motif to add new base
-			my $number_of_bases = scalar @{$copy[$i][$motif]};
-			my $position = int(rand($number_of_bases));
-
-			my $min = $copy[$i][$motif][$position]{min};
-			my $max = $copy[$i][$motif][$position]{max};
-
-			# decrease value
-			# can only do this if max will still be greater than $min
-			$copy[$i][$motif][$position]{max}-- if (($copy[$i][$motif][$position]{max}-1 >= $min));	
+				# can't decrease below a minimum (arbitraily chosen for now at 25 nt)
+				if (($motifset[$i]{distance} - $decrease) >= 25){
+					print "\tDECREASING DISTANCE THRESHOLD by $decrease\n" if ($verbose);
+					$motifset[$i]{distance} -= $decrease;
+				}
+			}
+		
+			elsif($mutation_type == 12){			
+				# 12) Change strand count
+			
+				# simply switch it from whatever it currently is
+				if ($motifset[$i]{strand} == 1){
+					print "\tINCREASING STRAND TO 2\n" if ($verbose);
+					$motifset[$i]{strand} = 2;
+				} else {
+					print "\tDECREASING STRAND TO 1\n" if ($verbose);
+					$motifset[$i]{strand} = 1;
+				}
+			}	
+			else{
+				# nothing happening
+				# shouldn't come here I think
+			}
 		}
 	}
 }
+
+###########################################################################
+#
+# GET_MUTATION_INFO
+#
+# Short subroutine to return some basic info that many of the mutation
+# steps will repeatedly ask for
+#
+###########################################################################
+
+sub get_mutation_info{
+	# grab the motifset number
+	my ($i) = @_;
+	my $number_of_motifs = @{$motifset[$i]{motifs}}; 
+	my $rand_motif = int(rand($number_of_motifs));
+	my $number_of_bases = @{$motifset[$i]{motifs}[$rand_motif]};
+	my $rand_position = int(rand($number_of_bases));
+	my $min = $motifset[$i]{motifs}[$rand_motif][$rand_position]{min};
+	my $max = $motifset[$i]{motifs}[$rand_motif][$rand_position]{max};
+
+	# return details (which will only be for one randomly chosen base of one randomly chosen motif)
+	return($number_of_motifs, $rand_motif, $number_of_bases, $rand_position, $min, $max);
+}
+
+
+###########################################################################
+#
+# SCORE_MOTIFSETS
+#
+# Calculate an r2 value for how well each motifset explains expression values
+#
+###########################################################################
 
 
 sub score_motifsets{
-	my $generation = shift;
+	print "\nScoring motifsets\n=================\n" if ($verbose);
 	for my $i (0 .. $n-1){
-
-		my $number_of_motifs = scalar @{$motifset[$i]};
-
+		
+#		print "\nScoring motifset $i\n==================\n" ;
+		my $number_of_motifs = @{$motifset[$i]{motifs}};
+		
 		# total count will be the count of all motifs in each motifset
 		my $total_count = 0;
+		
+		# first want to trim the target sequences that we might be matching with all motifs. This will happen 
+		# if we are only scoring motifs in the first X nt of each sequence
+		# we will create a copy of @seqs to do this
+		my @seqs_copy;
+		
+		# reset details of the survivors (i.e. the untouchables will be up for mutation if they are no longer top-scoring)
+		$motifset[$i]{untouchable} = 0;
+		
+		# reset counts of all motifs from last generation
+		$motifset[$i]{motifcounts} = ();
+		
+		my $distance_threshold = $motifset[$i]{distance};
+		my $strand             = $motifset[$i]{strand};
+#		print "Distance threshold = $distance_threshold nt\n";
+#		print "Strand = $strand\n";
+		
+		foreach my $seq (@seqs){
+			push(@seqs_copy, substr $seq, 0, $distance_threshold);
+		}
 
 		# need to store set of total counts for each sequence (to compare against expression values)
 		my @counts;
-		
-		# may need to remove motifs from a motif set if they do not occur in any sequence
-		# otherwise there is no selection pressure to remove them as they won't make any contribution 
-		# to the correlation score
-		my @motifs_to_remove = ();
 
-		for my $j (0 .. $number_of_motifs-1){
-			
-			# separate counter just for each motif
-			my $motif_count = 0;
+		# now loop through the trimmed sequences (which we can modify if necessary)
+		for (my $j = 0; $j < @seqs_copy; $j++){
+#			print "\tSequence: $j\n";
+			# keep track of all motifs found in this sequence
+			my $all_motifs_in_seq = 0;
 
-			# get motif out of data structure
-			my $number_of_bases = scalar @{$motifset[$i][$j]};
+			my $motif_counter = 0;
+			foreach my $motif (@{$motifset[$i]{motifs}}){
 
-			#die "No bases: i = $i, j = $j, num_motifs $number_of_motifs\n" if ($number_of_bases == 0);
-			
-			# assemble motif as a string out of @motifset data
-			my $motif;
-			for my $k (0 .. $number_of_bases-1){
-				$motif .= $bases_to_regex{$motifset[$i][$j][$k]{base}};
-				$motif .= "{" . $motifset[$i][$j][$k]{min} . ",";
-				$motif .= $motifset[$i][$j][$k]{max} . "}";
-			}
+				# convert motif to a regex string
+				my $motif_regex = motif_to_regex($motif);
 
-			# check to see if motif starts or ends with an N, if so can remove this base (but only if motif has more than one base)
-			if($motifset[$i][$j][0]{base} eq "N"){
-				$number_of_bases = scalar @{$motifset[$i][$j]};
-				splice(@{$motifset[$i][$j]},0,1) if ($number_of_bases > 1);								
-			}
-			$number_of_bases = scalar @{$motifset[$i][$j]};
-			if($motifset[$i][$j][$number_of_bases-1]{base} eq "N" && ($number_of_bases > 1)){
-				$number_of_bases = scalar @{$motifset[$i][$j]};
-				splice(@{$motifset[$i][$j]},$number_of_bases-1,1);
-			}
-
-			# now loop through each sequence
-			for (my $l=0; $l < @seqs; $l++){
-				my $seq = $seqs[$l];
+				# count occurrence of regex in trimmed sequence and remove any matching motif from sequence
 				
-				my $id = $seq_to_id{$seq};
 				
-				# count motif in sequence
-				my $count = 0;
-				$count = $seq =~ s/($motif)/$1/g;
+				my ($count, $revcount) = (0, 0);
+				$count = $seqs_copy[$j] =~ s/($motif_regex)/$1/g;
 				($count = 0) if (!$count);
-	
-				# add to total_count for that sequence
-				$total_count += $count;
-				$motif_count += $count;
-				$counts[$l] += $count;			
-			}
-			
-			# should remove any motif from motifset if it doesn't occur in any sequence at all
-			if ($motif_count == 0){
-				# add to an array to remove after processing all motifs in motifset
-				push(@motifs_to_remove,$j)
+
+				# now consider reverse strand matches if necessary
+				if ($strand == 2){
+					my $revcomp = Keith::revcomp($seqs_copy[$j]);
+					$revcount = $revcomp =~ s/($motif_regex)/$1/g;
+					($revcount = 0) if (!$revcount);
+				}
+
+				# add counts from both strands to current seq total
+				$all_motifs_in_seq += ($count + $revcount);
 				
+				# add current motif count to array in motifset object
+				$motifset[$i]{motifcounts}[$motif_counter] += ($count + $revcount);
+				
+#				print "\t\tMotif $motif_counter ($motif_regex) occurs $count times (+ strand) and $revcount times (- strand)\n";
+#				print "\t\tMotif $motif_counter occurs $count times (+ strand) and $revcount times (- strand) (running total = $motifset[$i]{motifcounts}[$motif_counter])\n";
+
+				$motif_counter++;
 			}
-	
-		}
-#		print "Motifset $i contains $total_count total motifs\n";
+#			print "\tSeq $j: found $all_motifs_in_seq motifs in total in this sequence\n\n";
+
+			# add counts to array 
+			$counts[$j] = $all_motifs_in_seq;
+			
+		}		
 		
 		# can now calculate correlation (r) for that motifset
-		my $r = r2(\@expression,\@counts);
+		my $r = r2(\@expression,\@counts, $i);
 		
-		# add this to the hash so that we can later sort all motifsets by there score (and get rid of the lowest ones)
+#		print "r is $r\n\n";
+		
+		# add this to a separate hash so that we can later sort all motifsets by there score (and get rid of the lowest ones)
+		# also add it to the motifset hash (not using this for now, but might later on)
 		$motifsets_to_scores{$i} = $r;
+		$motifset[$i]{r} = $r;
 		
-		# clean up
-		# are there any motifs to remove from this motifset?
-		# if this is the only motif in the motifset we can leave it as it will be selected against
-		# otherwise just remove one motif with zero counts. Ideally should remove them all but this is getting
-		# tricky to code. Remaining zero-count motifs will be cleaned in subsequent generations
-		$number_of_motifs = scalar @{$motifset[$i]};
-		if(@motifs_to_remove && ($number_of_motifs > 1)){
-			splice(@{$motifset[$i]},$motifs_to_remove[0],1);
+		# As a final check, we want to see if any motifs don't occur at all in any of the sequences
+		# If this is the case, they will not be contributing to the r2 value and we can remove the motif from the motifset		
+		# only worth doing this if there is more than one motif, if there is just one motif, it will end up with a zero r2
+		# score and will be selected out later on
+		if ($number_of_motifs > 1){
+
+			for(my $m = 0; $m < $number_of_motifs; $m++){
+
+				# was the current motif not seen in any sequence?
+				if ($motifset[$i]{motifcounts}[$m] == 0){
+					print "REMOVING MOTIF $m as it does not occur in any sequence\n" if ($verbose);
+					splice(@{$motifset[$i]{motifs}},$m,1);
+					$number_of_motifs = @{$motifset[$i]{motifs}}; 
+				}
+			}
+			
+		}
+	}	
+}
+
+###########################################################################
+#
+# PRINT_MOTIFSET
+#
+# subroutine to print out all of the details from a single motifset
+#
+###########################################################################
+
+sub print_motifset{
+	my ($i) = @_;
+
+	my $distance_threshold = ${$motifset[$i]}{distance};
+	my $strand             = ${$motifset[$i]}{strand};
+	my $r                  = ${$motifset[$i]}{r};
+	
+	my $formatted_r = sprintf("%.4f", $r);
+
+	my $number_of_motifs   =  @{$motifset[$i]{motifs}};
+
+	print "id=$i: r = $formatted_r, motifs = $number_of_motifs, distance threshold = $distance_threshold nt, strands = $strand\n";
+
+	for (my $m = 0; $m < $number_of_motifs; $m++){
+		my $number_of_bases = @{$motifset[$i]{motifs}[$m]};
+		my $motif_count = ${$motifset[$i]}{motifcounts}[$m];
+		print "Motif $m:\t";
+		printf 'n =%4s ', "$motif_count";
+		print "\t";
+		for (my $n = 0; $n < $number_of_bases; $n++){
+			my $base = $motifset[$i]{motifs}[$m][$n]{base};
+			my $min = $motifset[$i]{motifs}[$m][$n]{min};
+			my $max = $motifset[$i]{motifs}[$m][$n]{max};
+			
+			# if min and max are both equal to 1 then no point printing the min and max
+			# equally if min is equal to max, then can just print one value
+			if($min == 1 && $max == 1){
+				print "$base";				
+			} elsif ($min == $max){
+				print "$base\{$max\}";	
+				
+			} else {
+				print "$base\{$min,$max\}";	
+			}			
 		}		
-	}	
+		print "\n";
+	}
 }
 
-
-
-# similar routine but just for scoring a single motifset
-sub score_motifset{
-	my $i = shift;
-	
-	my $number_of_motifs = scalar @{$motifset[$i]};
-
-	# total count will be the count of all motifs in each motifset
-	my $total_count = 0;
-
-	# need to store set of total counts for each sequence (to compare against expression values)
-	my @counts;
-	
-	# may need to remove motifs from a motif set if they do not occur in any sequence
-	# otherwise there is no selection pressure to remove them as they won't make any contribution 
-	# to the correlation score
-	my @motifs_to_remove = ();
-
-	for my $j (0 .. $number_of_motifs-1){
-		
-		# separate counter just for each motif
-		my $motif_count = 0;
-
-		# get motif out of data structure
-		my $number_of_bases = scalar @{$motifset[$i][$j]};
-
-		#die "No bases: i = $i, j = $j, num_motifs $number_of_motifs\n" if ($number_of_bases == 0);
-		
-		# assemble motif as a string out of @motifset data
-		my $motif;
-		for my $k (0 .. $number_of_bases-1){
-			$motif .= $bases_to_regex{$motifset[$i][$j][$k]{base}};
-			$motif .= "{" . $motifset[$i][$j][$k]{min} . ",";
-			$motif .= $motifset[$i][$j][$k]{max} . "}";
-		}
-
-		# check to see if motif starts or ends with an N, if so can remove this base (but only if motif has more than one base)
-		if($motifset[$i][$j][0]{base} eq "N"){
-			$number_of_bases = scalar @{$motifset[$i][$j]};
-			splice(@{$motifset[$i][$j]},0,1) if ($number_of_bases > 1);								
-		}
-		$number_of_bases = scalar @{$motifset[$i][$j]};
-		if($motifset[$i][$j][$number_of_bases-1]{base} eq "N" && ($number_of_bases > 1)){
-			$number_of_bases = scalar @{$motifset[$i][$j]};
-			splice(@{$motifset[$i][$j]},$number_of_bases-1,1);
-		}
-
-		# now loop through each sequence
-		for (my $l=0; $l < @seqs; $l++){
-			my $seq = $seqs[$l];
-			
-			my $id = $seq_to_id{$seq};
-			
-			# count motif in sequence
-			my $count = 0;
-			$count = $seq =~ s/($motif)/$1/g;
-			($count = 0) if (!$count);
-
-			# add to total_count for that sequence
-			$total_count += $count;
-			$motif_count += $count;
-			$counts[$l] += $count;			
-		}
-	}	
-	# can now calculate correlation (r) for that motifset
-	my $r = r2(\@expression,\@counts);
-	return($r);
-
+sub motif_to_regex{
+	my ($motif) = @_;
+	my $regex;
+	foreach my $pos (@{$motif}){
+#		print "\t\t${$pos}{base}\{${$pos}{min},${$pos}{max}\}\n";
+		# convert each IUPAC code to a regex and add to a new string (along with repetition quantifiers)
+		$regex .= ($bases_to_regex{${$pos}{base}} . "\{${$pos}{min},${$pos}{max}\}");
+	}
+	return($regex);
 }
+
 
 #######################################################
 #
@@ -701,6 +844,7 @@ sub r2{
 	# two arrays of data to regress against each other
     my $x = shift;
     my $y = shift;
+	my $i = shift;
 
     # need a bunch of (fairly standard) of statistics from both arrays
     my $n       = @{$x};
@@ -716,6 +860,15 @@ sub r2{
     }
     # calculate r and return r2
     else{
+		if ($sum_x2 == 0){
+			print_motifset($i);
+			die "sum_x2 is 0\n";
+		}
+		if ($sum_y2 == 0){
+			print_motifset($i);
+			die "sum_y2 is 0\n";
+		}
+
         my $r = (($n * $sum_xy) - ($sum_x * $sum_y))/sqrt( (($n * $sum_x2) - $sum_x**2) * (($n * $sum_y2) - $sum_y**2));        
     	return(sprintf("%.8f",$r));                  
     }
