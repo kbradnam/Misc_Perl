@@ -105,6 +105,10 @@ create_starting_population($n);
 
 my %motifsets_to_scores;
 
+# want to keep track of how many generations in a row that the top and bottom motifsets
+# have the same value of r (in which case we can stop the breeder)
+my $r_watch = 0;
+
 for (my $i = 1; $i <= $generations; $i++){
 	print "\n==============\nGENERATION $i\n==============\n";
 	
@@ -122,16 +126,30 @@ for (my $i = 1; $i <= $generations; $i++){
 	for (my $j = 0; $j < @sorted; $j++){
 #		last if ($j >= $survivors);
 		last if ($j >= 5);
-
-		my $number_of_motifs = @{$motifset[$j]{motifs}}; 
-		my $strand           = $motifset[$j]{strand};
-		my $distance         = $motifset[$j]{distance};
 		print_motifset($sorted[$j]);
 		print "\n";
 		# make these top scoring motifs untouchable
 		$motifset[$sorted[$j]]{untouchable} = 1;
 	}
 
+	# now just print lowest motifset
+	print "Bottom motif\n============\n";
+	print_motifset($sorted[-1]);
+	
+	# is the highest scoring motifset producing the same r value as the lowest?
+	# if so we will increment a counter, otherwise reset it
+	if($motifset[$sorted[0]]{r} == $motifset[$sorted[-1]]{r}){
+		$r_watch++;
+	} else{
+		$r_watch = 0;
+	}
+	
+	# If we have too many generations in a row where the top and bottom motifsets are giving
+	# the same score of r, then we should stop the simulation
+	if($r_watch == 5){
+		die "\nStopping simulation after $i generations because all motifsets have had the same r value for 5 generations in a row\n";
+	}
+	
 	# death - remove the $mortality percentage of the lowest scoring motifsets
 	kill_motifsets(\@sorted);
 	print "\n";
