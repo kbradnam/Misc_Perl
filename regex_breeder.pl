@@ -244,9 +244,9 @@ sub create_starting_population{
 	# if -starting_motif has been specified, we overwrite first motif of motifset with a single motif
 	if($starting_motif){
 
-		# erase first motifset but add default values for strand (1) and distance (1000)
+		# erase first motifset but add default values for strand (1) and distance (5000)
         $motifset[0] = ();
-		$motifset[0]{distance} = 1000;
+		$motifset[0]{distance} = 500;
 		$motifset[0]{r} = 0;
 		$motifset[0]{strand} = 1;
 		${$motifset[0]}{motifcounts}[0] = 0;
@@ -868,8 +868,13 @@ sub r2{
 			print_motifset($i);
 			die "sum_y2 is 0\n";
 		}
-
-        my $r = (($n * $sum_xy) - ($sum_x * $sum_y))/sqrt( (($n * $sum_x2) - $sum_x**2) * (($n * $sum_y2) - $sum_y**2));        
+		my $numerator = (($n * $sum_xy) - ($sum_x * $sum_y));
+		my $denominator = sqrt( (($n * $sum_x2) - $sum_x**2) * (($n * $sum_y2) - $sum_y**2));
+		
+		# want to avoid divide by zero errors, so cheat a bit
+		$denominator = 0.01 if ($denominator == 0);
+		
+        my $r = $numerator/$denominator;        
     	return(sprintf("%.8f",$r));                  
     }
 }
