@@ -26,6 +26,7 @@ my $seqs;       # Show motif sequences in output (one sequence per motif in each
 my $msummary;	# show motif count and percentage for all sequences combined
 my $file;		# switch to using input file of motifs (overides $motif)
 my $flanking;   # inspect nucleotide frequencies at flanking position
+my $distance;   # specify a distance threshold, and only consider motifs up to that distance
 
 GetOptions ("motif=s"    => \$motif,
 	       "target=s"    => \$target,
@@ -33,7 +34,8 @@ GetOptions ("motif=s"    => \$motif,
 	       "seqs"        => \$seqs,	    	    
 		   "msummary"    => \$msummary,
 		   "file=s"	     => \$file,
-		   "flanking"   => \$flanking
+		   "flanking"    => \$flanking,
+		   "distance=i"  => \$distance
 );
 
 # are we using correct command-line options?
@@ -88,6 +90,10 @@ SEQ: while(my $entry = $fasta->nextEntry) {
 	my $header = $entry->def;
 
     my $seq = lc($entry->seq);
+
+	#trim sequences as necessary depending if $distance is being used
+	($seq = substr $seq, 0, $distance) if ($distance);
+
     my $length = length($seq);
 	$total_seq_length += $length;
 		
@@ -96,6 +102,10 @@ SEQ: while(my $entry = $fasta->nextEntry) {
 
 	
 	foreach my $motif (@motifs){
+
+		# convert motif to regex (it might already be in regex format)
+		# e.g. RYN is motif, (A|G)(C|T)(A|C|G|T) would be the regex
+		$motif = convert_to_regex($motif);
 		$motif = lc($motif);
 		
 		# skip to next sequence if motif is longer than sequence
@@ -119,7 +129,10 @@ SEQ: while(my $entry = $fasta->nextEntry) {
 		$motifs_to_counts{$motif} += $count;
 	}
 
-	print "\n$header MOTIFS: $output_text\n" if ($scores);
+	if ($scores){
+		print "\n$header D=$length nt MOTIFS: $output_text\n" 
+		
+	}
 	print "$seq\n" if ($seqs);
 	
 
@@ -183,6 +196,30 @@ sub pre_flight_checks{
 	# check files exist
 	die "$target does not seem to exist\n" if (! -e $target);
 	die "$file does not seem to exist\n" if ($file && ! -e $file);
+}
 
+# if input is in IUPAC format (RYSWN etc), need to convert to regexes
+sub convert_to_regex{
 
+	my ($motif) = @_;
+
+	# first convert any IUPAC characters to regex equivalents
+	my %bases_to_regex = (
+		R => '(A|G)',
+		Y => '(C|T)',
+		S => '(C|G)',
+		W => '(A|T)',
+		K => '(T|G)',
+		M => '(C|A)',
+		B => '(C|G|T)',
+		D => '(A|G|T)',
+		H => '(A|C|T)',
+		V => '(A|C|G)',
+		N => '(A|C|G|T)'
+	);
+
+	foreach my $code (keys %bases_to_regex){
+		$motif =~ s/$code/$bases_to_regex{$code}/g;
+	}
+	return($motif);
 }
