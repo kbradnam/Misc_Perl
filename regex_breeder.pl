@@ -24,35 +24,35 @@ my $min_r;              # minimum correlation value needed from motifsets in sta
 my $max_pattern_length; # maximum pattern length in regular expression
 my $starting_motif;     # optionally seed one motif in starting generation 
 my $exclude_motif;      # optionally specify a motif pattern that can never occur 
-my $mortality;          # what fraction of the population dies each generation
-my $survivors;          # how many motifsets in each generation should be kept without mutation
+my $mortality;          # what fraction of motifsets die in 1st generation (mortality will increase)
+my $untouchables;       # what fraction of motifsets in 1st generation should be saved from mutation (the untouchables)
 my $verbose; 			# turn on extra output
 
-GetOptions ("n=i"              => \$n,
-			"max_motifs=i"     => \$max_motifs,
-			"file=s"           => \$file,
-			"min_r=f"          => \$min_r,
-			"max_pattern=i"    => \$max_pattern_length,
-			"starting_motif=s" => \$starting_motif,
-			"exclude_motif=s"  => \$exclude_motif,
-			"generations=i"    => \$generations,
-			"mortality=f"      => \$mortality,
-			"survivors=i"      => \$survivors,
-			"verbose"          => \$verbose
+GetOptions ("n=i"                   => \$n,
+			"max_motifs=i"          => \$max_motifs,
+			"file=s"                => \$file,
+			"min_r=f"               => \$min_r,
+			"max_pattern=i"         => \$max_pattern_length,
+			"starting_motif=s"      => \$starting_motif,
+			"exclude_motif=s"       => \$exclude_motif,
+			"generations=i"         => \$generations,
+			"mortality=f"           => \$mortality,
+			"untouchables=f"        => \$untouchables,
+			"verbose"               => \$verbose
 			);
 
 
 # set defaults
-$n = 100                if (!$n);
-$generations = 100      if (!$generations);
-$max_motifs = 5         if (!$max_motifs);
-$min_r = 0.25           if (!$min_r);
-$max_pattern_length = 9 if (!$max_pattern_length);
-$mortality = 0.25       if (!$mortality);
-$survivors = 10         if (!$survivors);
+$n = 200                  if (!$n);
+$generations = 500        if (!$generations);
+$max_motifs = 5           if (!$max_motifs);
+$min_r = 0.25             if (!$min_r);
+$max_pattern_length = 9   if (!$max_pattern_length);
+$mortality = 0.33         if (!$mortality);
+$untouchables = 0.25      if (!$untouchables);
 
 die "Specify intron file with -file option\n" if (!$file);
-
+die "Values for -mortality ($mortality) and -untouchables ($untouchables) options are incompatible. Must sum to < 1\n" if ((1 - $mortality) <= $untouchables);
 
 # turn on autoflush
 $| = 1;
@@ -109,8 +109,31 @@ my %motifsets_to_scores;
 # have the same value of r (in which case we can stop the breeder)
 my $r_watch = 0;
 
+# will work with a copy of $mortality that will increase
+my $current_mortality = $mortality;
+
 for (my $i = 1; $i <= $generations; $i++){
-	print "\n==============\nGENERATION $i\n==============\n";
+
+	# decrease number of survivors each generation (but stop when you get to 5)
+	# use a simple formula to decrease number of survivors in a linear fashion
+	my $percent_completed = ($i / $generations);
+	my $survivors = int(($n * $untouchables) * (1 - $percent_completed)) + 1;
+	$survivors = 5 if ($survivors < 5);
+
+	# mortality will increase with each generation
+	$current_mortality = $percent_completed;
+
+	# but set a minimum and maximum amount of mortality 
+	$current_mortality = $mortality if ($current_mortality < $mortality);
+	$current_mortality = 0.9 if ($current_mortality > 0.9);
+	my $dead = int($current_mortality * $n);
+	print "\n===================================================\n";
+	print "GENERATION $i\n";
+	print "N = $n, Untouchables = $survivors, Dead = $dead\n";
+	print "===================================================\n";
+	
+	# mutate all motifsets (except any untouchables)
+	mutate_copy($i);
 	
 	# wipe relevant hashes and arrays
 	%motifsets_to_scores = ();
@@ -121,24 +144,32 @@ for (my $i = 1; $i <= $generations; $i++){
 	# sort scores
 	my @sorted = (reverse sort {$motifsets_to_scores{$a} <=> $motifsets_to_scores{$b}} (keys(%motifsets_to_scores)));
 
-	print "\nTop motifs\n===========\n";
-	# print details of the top $survivors motifsets	
+
+	print "\nTop motifs\n----------\n";
+	# print details of the top $survivors motifsets
 	for (my $j = 0; $j < @sorted; $j++){
-#		last if ($j >= $survivors);
-		last if ($j >= 5);
-		print_motifset($sorted[$j]);
-		print "\n";
-		# make these top scoring motifs untouchable
-		$motifset[$sorted[$j]]{untouchable} = 1;
+		if ($j < $survivors){
+			# make these top scoring motifs untouchable
+			$motifset[$sorted[$j]]{untouchable} = 1;			
+
+			# only ever print details for top 5 scoring motifsets
+			if($j < 5){
+				print_motifset($sorted[$j]);
+				print "\n";				
+			}
+		} else {
+			last;
+		}
 	}
 
-	# now just print lowest motifset
-	print "Bottom motif\n============\n";
-	print_motifset($sorted[-1]);
+	# now just out motifset that is the lowest scoring but surviving
+	my $offset = int((1 - $current_mortality) * $n);
+	print "Last surviving motif (position $offset of $n)\n-------------------------------------------\n";
+	print_motifset($sorted[$offset-1]);
 	
 	# is the highest scoring motifset producing the same r value as the lowest?
 	# if so we will increment a counter, otherwise reset it
-	if($motifset[$sorted[0]]{r} == $motifset[$sorted[-1]]{r}){
+	if($motifset[$sorted[0]]{r} == $motifset[$sorted[$offset-1]]{r}){
 		$r_watch++;
 	} else{
 		$r_watch = 0;
@@ -151,14 +182,11 @@ for (my $i = 1; $i <= $generations; $i++){
 	}
 	
 	# death - remove the $mortality percentage of the lowest scoring motifsets
-	kill_motifsets(\@sorted);
+	kill_motifsets(\@sorted, $i);
 	print "\n";
 
 	# reproduction, add new motifsets from survivors
 	reproduction();
-
-	# mutate surviving motifsets (except the untouchables)
-	mutate_copy($i);
 }
 
 exit;
@@ -237,7 +265,8 @@ sub create_starting_population{
 		push @motifset, {
 			motifs   => \@motifs,
 			strand   => $strand,
-			distance => $distance
+			distance => $distance,
+			untouchable => 0
 		};
 		
 		
@@ -266,6 +295,7 @@ sub create_starting_population{
         $motifset[0] = ();
 		$motifset[0]{distance} = 500;
 		$motifset[0]{r} = 0;
+		$motifset[0]{untouchable} = 1;
 		$motifset[0]{strand} = 1;
 		${$motifset[0]}{motifcounts}[0] = 0;
 		
@@ -318,7 +348,7 @@ sub create_starting_population{
 }
 
 sub create_single_motif{
-	my $motif_length = int(rand(3))+1;
+	my $motif_length = int(rand(6))+1;
 	
 	my @motif;
 	foreach my $i (0 .. $motif_length){
@@ -352,10 +382,10 @@ sub create_single_motif{
 ###########################################################################
 
 sub kill_motifsets{
-	my ($sorted_motifsets) = @_;
-	
+	my ($sorted_motifsets, $i) = @_;
+		
 	print "\nKilling motifsets\n=================\n" if ($verbose);
-	my $to_die = $n * $mortality;
+	my $to_die = $n * $current_mortality;
 	print "\n$to_die motifsets must die!\n\n" if ($verbose);
 
 	my @doomed = @{$sorted_motifsets}[$n-$to_die..$n-1];
