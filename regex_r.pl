@@ -2,7 +2,7 @@
 #
 # regex_breeder.pl
 #
-# A script to 
+# A script to calculate the r2 value for any regex motif against a set of introns
 #
 # Last updated by: $Author$
 # Last updated on: $Date$
@@ -14,7 +14,9 @@ use FAlite;
 use Getopt::Long;
 use List::Util qw(sum);
 
-die "Specify a regular expression for a motif, and at least one file name containing introns\n" if (!$ARGV[1]);
+die "Usage:
+regex_r.pl <motif regex> <number of strands to search> <distance threshold> <file name(s) containing introns>\n" unless (@ARGV == 4);
+my ($motif, $strands, $distance, @files) = @ARGV;
 
 # turn on autoflush
 $| = 1;
@@ -24,7 +26,27 @@ my @seqs;
 my @expression;
 my @counts;
 
-my ($motif,@files) = @ARGV;
+# first convert any IUPAC characters to regex equivalents
+my %bases_to_regex = (
+	R => '(A|G)',
+	Y => '(C|T)',
+	S => '(C|G)',
+	W => '(A|T)',
+	K => '(T|G)',
+	M => '(C|A)',
+	B => '(C|G|T)',
+	D => '(A|G|T)',
+	H => '(A|C|T)',
+	V => '(A|C|G)',
+	N => '(A|C|G|T)'
+);
+
+$motif = uc($motif);
+foreach my $code (keys %bases_to_regex){
+	$motif =~ s/$code/$bases_to_regex{$code}/g;
+}
+
+
 
 foreach my $file (@files){
 	# reset arrays
@@ -32,6 +54,7 @@ foreach my $file (@files){
 	@seqs = ();
 	@expression = ();
 
+	my ($plus_count, $rev_count) = (0, 0);
 	# read sequence files and also extract expression values
 	read_file($file);
 
@@ -40,17 +63,25 @@ foreach my $file (@files){
 		my $seq = $seqs[$i];
 
 		# count motif in sequence
-		my $count = 0;
+		my ($count, $revcount) = (0,0);
 		$count = $seq =~ s/($motif)/$1/g;
 		($count = 0) if (!$count);
 
-		$counts[$i] = $count;			
+		# now check reverse strand if needed
+		if($strands == 2){
+			my $revcomp = Keith::revcomp($seq);
+			$revcount = $revcomp =~ s/($motif)/$1/g;
+			($revcount = 0) if (!$revcount);
+		}
+		$counts[$i]    = ($count + $revcount);
+		$plus_count += $count;
+		$rev_count += $revcount;
 	}
 
 	# can now calculate correlation (r) for that motifset
 	my ($r,$n) = r2(\@expression,\@counts);
 
-	print "$file: n = $n r = $r\n";
+	print "$file: r = $r, $n introns, +/- strand motfs = $plus_count/$rev_count\n";
 	
 }
 
@@ -73,8 +104,10 @@ sub read_file{
 		die "$header\n" if (!$expression);
 
         my $seq = uc($entry->seq);
-		
 		# add sequence and expression values to arrays
+		#trim sequences as necessary
+		$seq = substr $seq, 0, $distance;
+		
 		push(@seqs,$seq);
 		push(@expression,$expression);
 	}
@@ -89,7 +122,7 @@ sub read_file{
 #######################################################
 
 sub r2{
-	# two arrays of data to regress against each other
+	# three arrays of data, need to regress against each other
     my $x = shift;
     my $y = shift;
 
