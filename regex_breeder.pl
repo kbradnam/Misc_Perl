@@ -43,8 +43,8 @@ GetOptions ("n=i"                   => \$n,
 
 
 # set defaults
-$n = 200                  if (!$n);
-$generations = 500        if (!$generations);
+$n = 300                  if (!$n);
+$generations = 1000       if (!$generations);
 $max_motifs = 5           if (!$max_motifs);
 $min_r = 0.25             if (!$min_r);
 $max_pattern_length = 9   if (!$max_pattern_length);
@@ -86,7 +86,7 @@ my %bases_to_regex = (
 	D => '(A|G|T)',
 	H => '(A|C|T)',
 	V => '(A|C|G)',
-	N => '(A|C|G|T)'
+	N => '(A|C|G|T|N)'
 );
 
 # read sequence files and also extract expression values
@@ -730,6 +730,7 @@ sub score_motifsets{
 		# if we are only scoring motifs in the first X nt of each sequence
 		# we will create a copy of @seqs to do this
 		my @seqs_copy;
+		my @rev_seqs_copy;
 		
 		# reset details of the survivors (i.e. the untouchables will be up for mutation if they are no longer top-scoring)
 		$motifset[$i]{untouchable} = 0;
@@ -742,8 +743,15 @@ sub score_motifsets{
 #		print "Distance threshold = $distance_threshold nt\n";
 #		print "Strand = $strand\n";
 		
+		# load up arrays with copies of sequences that will be used to match motifs
+		# we have to make copies as we may be modifying them
 		foreach my $seq (@seqs){
-			push(@seqs_copy, substr $seq, 0, $distance_threshold);
+			my $copy = substr($seq, 0, $distance_threshold);
+			push(@seqs_copy, $copy);
+			if ($strand == 2){
+				my $revcomp = Keith::revcomp($seq);
+				push(@rev_seqs_copy, $revcomp);
+			}
 		}
 
 		# need to store set of total counts for each sequence (to compare against expression values)
@@ -761,17 +769,13 @@ sub score_motifsets{
 				# convert motif to a regex string
 				my $motif_regex = motif_to_regex($motif);
 
-				# count occurrence of regex in trimmed sequence and remove any matching motif from sequence
-				
-				
+				# count occurrence of regex in trimmed sequence and replace sequence with 6 Ns (to stop subsequent motifs matching in same spot)
 				my ($count, $revcount) = (0, 0);
-				$count = $seqs_copy[$j] =~ s/($motif_regex)/$1/g;
+				$count = $seqs_copy[$j] =~ s/($motif_regex)/NNNNNN/g;
 				($count = 0) if (!$count);
-
 				# now consider reverse strand matches if necessary
 				if ($strand == 2){
-					my $revcomp = Keith::revcomp($seqs_copy[$j]);
-					$revcount = $revcomp =~ s/($motif_regex)/$1/g;
+					$revcount = $rev_seqs_copy[$j] =~ s/($motif_regex)/NNNNNN/g;
 					($revcount = 0) if (!$revcount);
 				}
 
