@@ -12,6 +12,7 @@ use strict;
 use warnings;
 use Getopt::Long;
 use FAlite;
+use Keith;
 use List::Util qw(sum);
 
 ########################
@@ -56,8 +57,6 @@ GetOptions ("target=s"     => \$target,
 # the log likelihoods being the values
 my @motif;
 
-my $motif_length;
-
 # limit for log-odds score for which to report motif hits
 my $threshold;  
 
@@ -70,24 +69,29 @@ my $threshold;
 ##############################################################
 ##############################################################
 
+# will keep track of sequences, headers, and expression values in arrays
+my (@seqs, @revseqs, @expression, @headers);
+
+parse_sequences();
+
 # read directory containing motifs
 opendir(DIR, "$motif_dir") || die "Can't read directory: $motif_dir\n";
 my @files= readdir(DIR);
+close(DIR);
 
 foreach my $motif (@files){
 
 	next unless ($motif =~ m/\.xms$/);
-	
-	print "# Processing $motif\n\n";
-
+		
 	# first count how many motifs in the file
 	my $num_motifs = &count_motifs($motif);
 
 	# loop through each motif
 	for (my $i = 0; $i < $num_motifs;$i++){
 		
+
 		# read motif file, fill @motif structure for motif $i
-		&parse_motif($motif,$i);
+		my $motif_length = parse_motif($motif,$i);
 
 		# loop through range of different thresholds
 		for($threshold = $t_min; $threshold <= $t_max; $threshold += $t_step){
@@ -99,13 +103,12 @@ foreach my $motif (@files){
 			foreach my $j (@sizes){
 
 				# now score motif against set of verified experimental sequences to get three r2 values
-				my ($count_r2, $density_r2, $sum_r2) = &process_sequence($j, $motif);
-
+				my ($count_r2, $density_r2, $sum_r2) = process_sequence($j, $motif, $motif_length);
+				
 				# don't print out results that are below $limit or which can't be measured because of divide by zero values
-				print "\n" if ($verbose);
-				next if ($count_r2 eq "NA");
+				next if ($count_r2   eq "NA");
 				next if ($density_r2 eq "NA");
-				next if ($sum_r2 eq "NA");
+				next if ($sum_r2     eq "NA");
 				
 				# for tidyness call $j 'All' if working with $j = 100000;
 				($j = "All") if ($j == 100000);
@@ -126,7 +129,6 @@ foreach my $motif (@files){
 		}		
 	}
 }
-close(DIR);
 exit(0);
 
 
@@ -153,7 +155,7 @@ sub pre_flight_checks{
 	$t_min = 0   if (!$t_min);
 	$t_max = 7   if (!$t_max);
 	$t_step = 1  if (!$t_step);
-	$limit = 0.7 if (!$limit);
+	$limit = 0.4 if (!$limit);
 
 	if($all){
 		$counts = 1;
@@ -184,7 +186,7 @@ sub parse_motif{
 	my $pos = 0;
 	my $max_pos = 0;
 
-	$motif_length = 0;
+	my $motif_length = 0;
 
 	# open motif file and read in one motif
 	open(MOTIF,"<$motif_dir/$motif") || die "Could not open $motif file\n";
@@ -204,7 +206,6 @@ sub parse_motif{
 			last if ($pos < $max_pos);
 			$motif_length++;
 	    }
-
 	    # get nucleotide frequencies from input file
 	    if(m/weight symbol=\"([a-z])[a-z]+\">(\-*[10]\.\d+)<\/weight/){
 			my $base = lc($1);
@@ -218,32 +219,16 @@ sub parse_motif{
 	    }
 	}
 	close(MOTIF) || die "Couldn't close $motif\n";
+	return($motif_length);
 }
 
-
 ##############################################################
 #
-# Find and score motifs in target sequence
+# Parse sequence file and load information into array
 #
 ##############################################################
 
-sub process_sequence{
-	
-	my $limit = shift;
-	my $motif = shift;
-	
-	# will need to track quite a few stats for each sequence
-	# values for increase in expression, counts of motif, motif density, sum of motif scores (above threshold)
-	my @expression;
-	my @counts;
-	my @density;
-	my @motif_sum;
-
-	my $limit2 = $limit;
-	($limit2 = "No length limit") if ($limit == 100000);
-	print "\n\n$motif T = $threshold, Limit = $limit2\n\n" if ($verbose);
-
-
+sub parse_sequences{
 	open(TARGET,"<$target") || die "Couldn't open $target file\n";
 
 	my $fasta = new FAlite(\*TARGET);
@@ -253,17 +238,50 @@ sub process_sequence{
 
 		# get and trim header
 		my $header = $entry->def;
-		$header =~ m/.* ([\d\.]+) /;
+		$header =~ m/.* x(\d+\.\d+)/;
 		my $expression = $1;
 		$header =~ s/ .*//;
-
 	    my $seq = lc($entry->seq);
-	    my $length = length($seq);
+        my $revcomp = lc(Keith::revcomp($seq));
+
+		push(@seqs,$seq);
+		push(@headers,$header);
+		push(@revseqs, $revcomp);
+		push(@expression,$expression);
+	}
+
+	close(TARGET);
+}
+
+##############################################################
+#
+# Find and score motifs in target sequence
+#
+##############################################################
+
+sub process_sequence{
+
+	my ($limit, $motif, $motif_length) = @_;
+
+	# will need to track quite a few stats for each sequence
+	# values for increase in expression, counts of motif, motif density, sum of motif scores (above threshold)
+	my @counts;
+	my @density;
+	my @motif_sum;
+
+	my $limit2 = $limit;
+	($limit2 = "No length limit") if ($limit == 100000);
+	print "\n\n$motif T = $threshold, Limit = $limit2\n\n" if ($verbose);
+
+	# loop through each sequence in target file
+	for (my $i = 0; $i < @seqs; $i++) {
+
+	    my $length = length($seqs[$i]);
 
 		# will count total amount of motif in each sequence (motifs may overlap so need to be sure we are not double counting)
-		# to help this we will temporarily store a copy of $seq to mask out where any motifs are with a '-' character then
+		# to help this we will temporarily store a copy of $seqs[$i] to mask out where any motifs are with a '-' character then
 		# we can just count the dashes to know how many bases of a sequence are motif
-		my $masked_seq = $seq;
+		my $masked_seq = $seqs[$i];
 
 		# will count how many motifs appear in each sequence	
 		my $motif_count = 0;
@@ -272,36 +290,37 @@ sub process_sequence{
 		my $sum_motif_score = 0;
 
 	    # loop through sequence in windows equal to motif size
-	    for (my $i = 0; $i < length($seq)-$motif_length; $i++) {
+	    for (my $j = 0; $j < length($seqs[$i])-$motif_length; $j++) {
 
 			# exit loop if we are past length limit
-			last if ($i > $limit);
-			# extract a window of sequence, split it, and place in array	
-			my @sequence = split(//,substr($seq, $i, $motif_length));
+			last if ($j > $limit);
 
+			# extract a window of sequence, split it, and place in array	
+			my @sequence = split(//,substr($seqs[$i], $j, $motif_length));
 			# Calculate motif score: only A,T,C,G bases counts towards score 
 			my $score = 0;
-
-			for(my $j = 0; $j<@sequence;$j++){
-				($score += $motif[$j]{$sequence[$j]}) if ($sequence[$j] =~ m/[atcg]/);
+			for(my $k = 0; $k<@sequence;$k++){
+				($score += $motif[$k]{$sequence[$k]}) if ($sequence[$k] =~ m/[atcg]/);
 			}
 			$score = sprintf("%.2f",$score);	
 
 			# if we've found some sequence that is above the threshold...
 			if($score > $threshold){
+
 				# count motif
 				$motif_count++;
+				
 				# and mask the motif out of $masked_seq
-				substr($masked_seq,$i,$motif_length) = ("-" x $motif_length);
+				substr($masked_seq, $j, $motif_length) = ("-" x $motif_length);
 				
 				# add to sum score
 				$sum_motif_score += ($score - $threshold);
 			}
 		}
 
-		# count motif in sequence, add to running total
+		# count motif in masked sequence, 
 		my $motif_base_count = ($masked_seq =~ tr /-/-/);
-
+		
 		# if we are not scanning the entire sequence. then we need to change $length before calculating
 		# motif density. Set length to be whatever the limit is
 		if($limit != 100000){
@@ -312,11 +331,11 @@ sub process_sequence{
 
 		# print output for -verbose mode
 		if ($verbose){
-			$header =~ s/ /_/g;
-			printf "%-25s", "$header"; 
+			$headers[$i] =~ s/ /_/g;
+			printf "%-25s", "$headers[$i]"; 
 			printf "%-9s", "${length}_nt  ";
 			print "Expression: ";
-			printf "%-4s","$expression";	
+			printf "%-4s","$expression[$i]";	
 			print "  ";		
 			print "motif_count: " if ($counts);
 			printf "%-3s","$motif_count" if ($counts);
@@ -328,15 +347,11 @@ sub process_sequence{
 		}
 		
 		# add these values to array for later stats analysis
-		push(@expression,$expression);
 		push(@counts,$motif_count);
 		push(@density,$percent_motif);
 		push(@motif_sum,$sum_motif_score);
 
 	}
-
-	close(TARGET) || die "Couldn't close $target\n";
-
 	# can always calculate three r2 values: 
 	# 1) regression of expression against motif counts
 	# 2) regression of expression against motif density
@@ -344,9 +359,9 @@ sub process_sequence{
 
 	my ($count_r2, $density_r2, $sum_r2) = (0,0,0);
 	
-	$count_r2 = &r2(\@expression,\@counts) if ($counts);
+	$count_r2   = &r2(\@expression,\@counts)    if ($counts);
 	$density_r2 = &r2(\@expression,\@density) if ($density);
-	$sum_r2 = &r2(\@expression,\@motif_sum) if ($sum);
+	$sum_r2     = &r2(\@expression,\@motif_sum)   if ($sum);
 	return($count_r2,$density_r2,$sum_r2);
 }
 
