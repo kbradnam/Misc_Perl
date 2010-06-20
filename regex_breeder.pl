@@ -43,11 +43,11 @@ GetOptions ("n=i"                   => \$n,
 
 
 # set defaults
-$n = 300                  if (!$n);
+$n = 250                  if (!$n);
 $generations = 1000       if (!$generations);
 $max_motifs = 5           if (!$max_motifs);
 $min_r = 0.25             if (!$min_r);
-$max_pattern_length = 9   if (!$max_pattern_length);
+$max_pattern_length = 3   if (!$max_pattern_length);
 $mortality = 0.33         if (!$mortality);
 $untouchables = 0.25      if (!$untouchables);
 
