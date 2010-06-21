@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+-#!/usr/bin/perl
 #
 # regex_breeder.pl
 #
@@ -43,13 +43,13 @@ GetOptions ("n=i"                   => \$n,
 
 
 # set defaults
-$n = 250                  if (!$n);
+$n = 500                  if (!$n);
 $generations = 1000       if (!$generations);
-$max_motifs = 5           if (!$max_motifs);
-$min_r = 0.25             if (!$min_r);
+$max_motifs = 4           if (!$max_motifs);
+$min_r = 0.4              if (!$min_r);
 $max_pattern_length = 3   if (!$max_pattern_length);
-$mortality = 0.33         if (!$mortality);
-$untouchables = 0.25      if (!$untouchables);
+$mortality = 0.5          if (!$mortality);
+$untouchables = 0.20      if (!$untouchables);
 
 die "Specify intron file with -file option\n" if (!$file);
 die "Values for -mortality ($mortality) and -untouchables ($untouchables) options are incompatible. Must sum to < 1\n" if ((1 - $mortality) <= $untouchables);
@@ -358,9 +358,9 @@ sub create_single_motif{
 		
 		# decide minimum and maximum number of repetitions for that base
 		
-		# choose maximum number: between 1 and 3
-		my $max = int(rand(3)) + 1;
-		
+		# choose maximum number: between 1 and $max_pattern_length
+		my $max = int(rand($max_pattern_length)) + 1;
+
 		# min is anynumber up to the max
 		my $min = int(rand($max)) + 1;
 		
@@ -550,7 +550,7 @@ sub mutate_copy{
 				my $base = $bases[int(rand(@bases))];
 
 				# choose maximum number: between 1 and 3
-				my $max = int(rand(3)) + 1;
+				my $max = int(rand($max_pattern_length)) + 1;
 
 				# min is any number up to the max
 				my $min = int(rand($max)) + 1;
