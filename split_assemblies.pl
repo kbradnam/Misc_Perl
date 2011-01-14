@@ -1,76 +1,79 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 #
-# contig_stats.pl
+# split_assemblies.pl
 #
-# a quick script to calculate the mean and N50 sizes for a file of
-# contig or scaffold sequences
-#
-# by Keith Bradnam
+# a script to process 1 Assemblathon file into 2 files (scaffolds + contigs)
 #
 # Last updated by: $Author$
 # Last updated on: $Date$
 ##############################################
 
 use strict;
+use warnings;
+use Keith;
+use FAlite;
 
-my $flag;
-my $seq;
-my $length;			# for individual contigs
-my @contig_sizes;   # lengths stored in this array 
-my $total_length; 	# sum of all contig lengths
-my $seq_count;		# count number of contigs
-my $n;				# keep track of N's in sequence
+die "Usage: split_assemblies.pl <assembly_file>\n" unless (@ARGV == 1);
+my $seqs = shift @ARGV;
 
-SEQ: while(<>){
-	chomp;
-  	if(/^>/){
-		$seq_count++;
-		if($flag){
-	     	$length = length($seq);
-		 	push(@contig_sizes, $length);
-		 	$total_length += $length;
-		 	# now calculate N's in sequence (two passes to capture both lower and upper case)
-		 	$n +=  $seq =~ tr/N/N/;
-		 	$n += $seq =~ tr/n/n/;		 	
-	 	}
-		$seq = "";
-		$flag = 1;
-    	next SEQ;
-    	}
-   $seq .= $_;
+# how many Ns are we using to split scaffolds into contigs?
+my $n = 25;
+
+# will keep track of number of input sequences and output contigs (scaffolded + unscaffolded)
+my $seq_count = 0;
+my $scaffolded_contig_count = 0;
+my $unscaffolded_contig_count = 0;
+
+# need to create output file for contigs
+my $contigs = "contigs.fa";
+open(my $output, ">", "$contigs") or die "Can't write to $contigs file\n";
+
+
+
+##########################################
+#
+#    M A I N  loop through FASTA file
+#
+##########################################
+
+open(my $input, "<", "$seqs") or die "Can't open $seqs\n";
+my $fasta = new FAlite(\*$input);
+
+while(my $entry = $fasta->nextEntry){
+	$seq_count++;
+    my $seq    = uc($entry->seq);
+	my $header = $entry->def;
+	
+	# if there are not at least 25 consecutive Ns in the sequence we need to split it into contigs
+	# otherwise the sequence must be a contig itself and it still needs to be put into a separate file
+	if ($seq =~ m/N{25}/){
+		# can now split into contigs and keep count of how many we make
+		my $contig_counter = 0;
+		foreach my $contig (split(/N{25,}/, $seq)){
+			$contig_counter++;
+			$scaffolded_contig_count++;
+			
+			# can now tidy sequence and suitably modify FASTA header (to make it unique by appending contig counter)
+			my $tidied_seq = Keith::tidy_seq($contig);
+			my $new_header = $header;
+
+			# take anything up to the first whitespace or boundary and just append '.n' where n is the contig count of this sequence
+			$new_header =~ s/\b(.*)\b/$1.$contig_counter/;
+			print $output "$new_header\n$tidied_seq\n";
+		}
+	} else {
+		# must be here if the scaffold is actually just a contig (or is a scaffold with < 25 Ns)
+		$unscaffolded_contig_count++;
+		# tidy up output and print with original header to output file
+		print $output "$header\n", Keith::tidy_seq($seq), "\n";
+	}	
 }
 
-# get last sequence in file
-$length = length($seq);
-push(@contig_sizes, $length);
-$total_length += $length;
+# just need to tidy up and go home now
+my $total_contigs = $scaffolded_contig_count + $unscaffolded_contig_count;
+print "Produced $total_contigs contigs ($scaffolded_contig_count scaffolded + $unscaffolded_contig_count unscaffolded) from $seq_count input sequences\n";
 
-# now calculate N's in sequence (two passes to capture both lower and upper case)
-$n += $seq =~ tr/N/N/;
-$n += $seq =~ tr/n/n/;		 	
-
-
-
-# calculate N's as a percentage
-my $percent_N = sprintf("%.1f",($n/$total_length)*100);
-
-print "\n$total_length - total assembly length (bp)\n";
-print "$n - N's (${percent_N}%)\n";
-print "$seq_count - number of contigs\n";
-my $mean_size = sprintf("%.1f",$total_length/$seq_count);
-print "$mean_size - average contig size (bp)\n";
-
-
-# Now need to loop through (sorted) list of contig sizes
-# N50 size is the length 'x' such that 50% of the sequence is contained in contigs 
-# of length 'x' or greater
-my $running_total;
-foreach my $contig(reverse sort{$a <=> $b;} (@contig_sizes)){
-	$running_total+=$contig;
-	if($running_total/$total_length >=.5){
-		print "$contig - N50 length (bp)\n\n";
-		last;
-	}    
-}
+close($input);
+close($output);
 
 exit(0);
