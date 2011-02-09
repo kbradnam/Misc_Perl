@@ -13,7 +13,7 @@ use warnings;
 use Keith;
 use FAlite;
 
-die "Usage: split_assemblies.pl <assembly_file>\n" unless (@ARGV == 1);
+die "Usage: split_assemblies.pl <assembly scaffolds file.gz>\n" unless (@ARGV == 1);
 my $seqs = shift @ARGV;
 
 # how many Ns are we using to split scaffolds into contigs?
@@ -25,7 +25,9 @@ my $scaffolded_contig_count = 0;
 my $unscaffolded_contig_count = 0;
 
 # need to create output file for contigs
-my $contigs = "contigs.fa";
+my ($contigs) = $seqs =~ m/([A-Z][1-9])/;
+$contigs .= "_contigs.fa";
+
 open(my $output, ">", "$contigs") or die "Can't write to $contigs file\n";
 
 
@@ -36,8 +38,8 @@ open(my $output, ">", "$contigs") or die "Can't write to $contigs file\n";
 #
 ##########################################
 
-open(my $input, "<", "$seqs") or die "Can't open $seqs\n";
-my $fasta = new FAlite(\*$input);
+open(my $input, "gunzip -c $seqs |") or die "Can't open $seqs\n";
+my $fasta = new FAlite($input);
 
 while(my $entry = $fasta->nextEntry){
 	$seq_count++;
@@ -76,4 +78,6 @@ print "Produced $total_contigs contigs ($scaffolded_contig_count scaffolded + $u
 close($input);
 close($output);
 
+# zip file
+system("gzip $contigs") && die "Can't gzip $contigs file\n";
 exit(0);
