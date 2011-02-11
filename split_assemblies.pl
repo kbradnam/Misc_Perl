@@ -41,6 +41,8 @@ open(my $output, ">", "$contigs") or die "Can't write to $contigs file\n";
 open(my $input, "gunzip -c $seqs |") or die "Can't open $seqs\n";
 my $fasta = new FAlite($input);
 
+my $contig_counter = 0;
+
 while(my $entry = $fasta->nextEntry){
 	$seq_count++;
     my $seq    = uc($entry->seq);
@@ -50,7 +52,7 @@ while(my $entry = $fasta->nextEntry){
 	# otherwise the sequence must be a contig itself and it still needs to be put into a separate file
 	if ($seq =~ m/N{25}/){
 		# can now split into contigs and keep count of how many we make
-		my $contig_counter = 0;
+
 		foreach my $contig (split(/N{25,}/, $seq)){
 			$contig_counter++;
 			$scaffolded_contig_count++;
@@ -66,8 +68,16 @@ while(my $entry = $fasta->nextEntry){
 	} else {
 		# must be here if the scaffold is actually just a contig (or is a scaffold with < 25 Ns)
 		$unscaffolded_contig_count++;
-		# tidy up output and print with original header to output file
-		print $output "$header\n", Keith::tidy_seq($seq), "\n";
+
+		$contig_counter++;
+
+		# can now tidy sequence and suitably modify FASTA header (to make it unique by appending contig counter)
+		my $tidied_seq = Keith::tidy_seq($seq);
+		my $new_header = $header;
+
+		# take anything up to the first whitespace or boundary and just append '.n' where n is the contig count of this sequence
+		$new_header =~ s/\b(.*)\b/$1.$contig_counter/;
+		print $output "$new_header\n$tidied_seq\n";
 	}	
 }
 
