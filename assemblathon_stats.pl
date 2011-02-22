@@ -412,7 +412,7 @@ sub write_csv{
 	
 	# can we find 2 letter assembly code? If not, just use value of $output
 	my $assembly_ID = $output;
-	($assembly_ID) = $file =~ m/^(\w{2})/ if ($file =~ m/^[A-Z][1-5]/);
+	($assembly_ID) = $file =~ m/^([A-Z]\d{1,2})_/ if ($file =~ m/^[A-Z]\d{1,2}_/);
 	
 	open(my $out, ">", $output) or die "Can't create $output\n";
 
