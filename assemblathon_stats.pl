@@ -58,7 +58,7 @@ my $known_genome_size = 112500000;  	# the approximate genome size of species A
 my $scaffolded_contigs = 0;				# how many contigs that are part of scaffolds (sequences must have $n_limit consecutive Ns)
 my $scaffolded_contig_length = 0;		# total length of all scaffolded contigs
 my $unscaffolded_contigs = 0;			# how many 'orphan' contigs, not part of a scaffold
-my $unscaffolded_contig_length =0;		# total length of all contigs not part of scaffold
+my $unscaffolded_contig_length = 0;		# total length of all contigs not part of scaffold
 my $w = 60;								# formatting width for output
 my %data;								# data structure to hold all sequence info key is either 'scaffold', 'contig' or intermediate', values are seqs & length arrays
 my (@results, @headers);				# arrays to store results (for use with -csv option)
@@ -329,7 +329,6 @@ sub sequence_statistics{
 #	$ng_values[100] = $min;
 	
 
-
 	# base frequencies
 	my %bases;
 
@@ -358,6 +357,25 @@ sub sequence_statistics{
 	$desc = "$type %non-ACGTN";
 	printf "%${w}s %10s\n",$desc, $percent;
 	store_results($desc, $percent) if ($csv);
+
+	# statistics that describe N regions that join contigs in scaffolds
+	if ($type eq 'scaffold'){
+		# get number of breaks
+		my $contig_breaks = $seq =~ s/(N{25,})/$1/g;		
+		my $average_contigs_per_scaffold = $contig_breaks / $count;
+		$desc = "Average number of contigs per scaffold";
+		printf "%${w}s %10d\n", $desc, $average_contigs_per_scaffold;
+		store_results($desc, $average_contigs_per_scaffold) if ($csv);
+
+		# now calculate average length of break between contigs
+		# can get length of all Ns by removing all non-N sequence from scaffold sequences
+		# also remove runs of < 25 Ns
+		$seq =~ s/[^N{25,}]//g;
+		my $average_break_length = length($seq) / $count;
+		$desc = "Average length of break (>25 Ns) between contigs in scaffold";
+		printf "%${w}s %10d\n", $desc, $average_break_length;
+		store_results($desc, $average_break_length) if ($csv);
+	}
 
 
 	# anything to dump for graphing?
