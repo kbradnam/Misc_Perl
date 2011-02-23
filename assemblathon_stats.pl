@@ -374,7 +374,7 @@ sub sequence_statistics{
 	
 	
 		my $assembly_ID = $file;
-		($assembly_ID) = $file =~ m/^(\w{2})/ if ($file =~ m/^[A-Z][1-5]/);
+		($assembly_ID) = $file =~ m/^([A-Z]\d{1,2})_/ if ($file =~ m/^[A-Z]\d{1,2}_/);
 		
 		# CSV file, with filename in first column
 		print $out "$assembly_ID,";
