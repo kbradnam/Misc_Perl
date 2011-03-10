@@ -306,6 +306,9 @@ sub sequence_statistics{
 	my $n50_length = 0;
 
 	my $i = 0;
+
+	my $x = $total_size * 0.5;
+	# start with longest lengths scaffold/contig
 	foreach my $length (reverse sort{$a <=> $b} @{$data{$type}{lengths}}){
 		$i++;
 		$running_total += $length;
@@ -319,6 +322,7 @@ sub sequence_statistics{
 				printf "%${w}s %10d\n", $desc, $length;
 				store_results($desc, $length) if ($csv);
 
+				# L50 = number of scaffolds/contigs that are longer than or equal to the N50 size
 				$desc = "L50 $type count";				
 				printf "%${w}s %10d\n","L50 $type count", $i;
 				store_results($desc, $i) if ($csv);
@@ -395,6 +399,10 @@ sub sequence_statistics{
 	$desc = "$type %non-ACGTN";
 	printf "%${w}s %10s\n",$desc, $percent;
 	store_results($desc, $percent) if ($csv);
+
+	$desc = "Number of $type non-ACGTN nt";
+	printf "%${w}s %10d\n",$desc, $other;
+	store_results($desc, $other) if ($csv);
 
 
 	# anything to dump for graphing?
