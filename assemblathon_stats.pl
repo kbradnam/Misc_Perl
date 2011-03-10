@@ -182,6 +182,27 @@ sub sequence_statistics{
 		$desc = "Percentage of assembly in unscaffolded contigs";
 		printf "%${w}s %10s\n", $desc, "$percent%";
 		store_results($desc, $percent) if ($csv);
+
+		# statistics that describe N regions that join contigs in scaffolds
+
+		# get number of breaks
+		my $contig_count = scalar(@{$data{contig}{lengths}});
+		my $scaffold_count = scalar(@{$data{scaffold}{lengths}});
+		my $average_contigs_per_scaffold = sprintf("%.1f",$contig_count / $scaffold_count);
+		$desc = "Average number of contigs per scaffold";
+		printf "%${w}s %10s\n", $desc, $average_contigs_per_scaffold;
+		store_results($desc, $average_contigs_per_scaffold) if ($csv);
+
+		# now calculate average length of break between contigs
+		# can get length of all Ns by removing all non-N sequence from scaffold sequences
+		# also remove runs of < 25 Ns
+	    my $seq = join('',@{$data{scaffold}{seqs}});  
+		$seq =~ s/[^N{25,}]//g;
+		my $average_break_length = length($seq) / $scaffold_count;
+		$desc = "Average length of break (>25 Ns) between contigs in scaffold";
+		printf "%${w}s %10d\n", $desc, $average_break_length;
+		store_results($desc, $average_break_length) if ($csv);
+		
 		
 		return();
 	}
@@ -201,7 +222,7 @@ sub sequence_statistics{
 		printf "%${w}s %10d\n",$desc, $scaffolded_contigs;
 		store_results($desc, $scaffolded_contigs) if ($csv);
 		
-		$desc = "Number of contigs in unscaffolds";
+		$desc = "Number of contigs not in scaffolds";
 		printf "%${w}s %10d\n", $desc,$unscaffolded_contigs;
 		store_results($desc, $unscaffolded_contigs) if ($csv);
 	}
@@ -281,10 +302,9 @@ sub sequence_statistics{
 	
 	# want to store all N50-style values from N1..N100. First target size to pass is N1
 	my $n_index = 1;
-	my $ng_index = 1;
 	my @n_values;
-	my @ng_values;
-	
+	my $n50_length = 0;
+
 	my $i = 0;
 	foreach my $length (reverse sort{$a <=> $b} @{$data{$type}{lengths}}){
 		$i++;
@@ -294,6 +314,7 @@ sub sequence_statistics{
 		# to see if they exceed the current NX value
 		while($running_total > int (($n_index / 100) * $total_size)){	
 			if ($n_index == 50){
+				$n50_length = $length;
 				$desc = "N50 $type length";
 				printf "%${w}s %10d\n", $desc, $length;
 				store_results($desc, $length) if ($csv);
@@ -301,29 +322,46 @@ sub sequence_statistics{
 				$desc = "L50 $type count";				
 				printf "%${w}s %10d\n","L50 $type count", $i;
 				store_results($desc, $i) if ($csv);
-				
 			}
 			$n_values[$n_index] = $length;
 			$n_index++;
 		}		
+	}
+	
+	my $ng_index = 1;
+	my @ng_values;
+	my $ng50_length = 0;
+	
+ 	$running_total = 0;
+	$i = 0;
+
+	foreach my $length (reverse sort{$a <=> $b} @{$data{$type}{lengths}}){
+		$i++;
+		$running_total += $length;
 
 		# now do the same for NG values, using known genome size
 		while($running_total > int (($ng_index / 100) * $known_genome_size)){	
 			if ($ng_index == 50){
-				$desc = "N5G0 $type length";
+				$ng50_length = $length;
+				$desc = "NG50 $type length";
 				printf "%${w}s %10d\n", $desc, $length;
 				store_results($desc, $length) if ($csv);
 
 				$desc = "LG50 $type count";				
 				printf "%${w}s %10d\n", $desc, $i;				
 				store_results($desc, $i) if ($csv);
-
 			}
 			$ng_values[$ng_index] = $length;
 			$ng_index++;
 		}		
-
 	}
+
+
+	my $n50_diff = abs($ng50_length - $n50_length);
+	$desc = "N50 $type - NG50 $type length difference";
+	printf "%${w}s %10d\n", $desc, $n50_diff;
+	store_results($desc, $n50_diff) if ($csv);
+
 	# add final value to @n_values and @ng_values which will just be the shortest sequence
 #	$n_values[100] = $min;
 #	$ng_values[100] = $min;
@@ -358,25 +396,6 @@ sub sequence_statistics{
 	printf "%${w}s %10s\n",$desc, $percent;
 	store_results($desc, $percent) if ($csv);
 
-	# statistics that describe N regions that join contigs in scaffolds
-	if ($type eq 'scaffold'){
-		# get number of breaks
-		my $contig_breaks = $seq =~ s/(N{25,})/$1/g;		
-		my $average_contigs_per_scaffold = $contig_breaks / $count;
-		$desc = "Average number of contigs per scaffold";
-		printf "%${w}s %10d\n", $desc, $average_contigs_per_scaffold;
-		store_results($desc, $average_contigs_per_scaffold) if ($csv);
-
-		# now calculate average length of break between contigs
-		# can get length of all Ns by removing all non-N sequence from scaffold sequences
-		# also remove runs of < 25 Ns
-		$seq =~ s/[^N{25,}]//g;
-		my $average_break_length = length($seq) / $count;
-		$desc = "Average length of break (>25 Ns) between contigs in scaffold";
-		printf "%${w}s %10d\n", $desc, $average_break_length;
-		store_results($desc, $average_break_length) if ($csv);
-	}
-
 
 	# anything to dump for graphing?
 	if($graph){
@@ -395,14 +414,14 @@ sub sequence_statistics{
 		($assembly_ID) = $file =~ m/^([A-Z]\d{1,2})_/ if ($file =~ m/^[A-Z]\d{1,2}_/);
 		
 		# CSV file, with filename in first column
-		print $out "$assembly_ID,";
+		print $out "$assembly_ID";
 		
 		for (my $i = 1; $i < 100; $i++){
 			# higher NG values might not be present if assembly is poor
 			if (defined $ng_values[$i]){
-				print $out "$ng_values[$i],";	
+				print $out ",$ng_values[$i]";	
 			} else{
-				print $out "0,";
+				print $out ",0";
 			}
 		}
 		print $out "\n";
