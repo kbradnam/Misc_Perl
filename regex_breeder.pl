@@ -27,6 +27,7 @@ my $exclude_motif;      # optionally specify a motif pattern that can never occu
 my $mortality;          # what fraction of motifsets die in 1st generation (mortality will increase)
 my $untouchables;       # what fraction of motifsets in 1st generation should be saved from mutation (the untouchables)
 my $verbose; 			# turn on extra output
+my $flexible_positions; # how many bases in motif can have variable length 
 
 GetOptions ("n=i"                   => \$n,
 			"max_motifs=i"          => \$max_motifs,
@@ -38,11 +39,12 @@ GetOptions ("n=i"                   => \$n,
 			"generations=i"         => \$generations,
 			"mortality=f"           => \$mortality,
 			"untouchables=f"        => \$untouchables,
-			"verbose"               => \$verbose
+			"verbose"               => \$verbose,
+			"flexible_positions=i"  => \$flexible_positions
 			);
 
 
-# set defaults
+# set defaults if not specified
 $n = 500                  if (!$n);
 $generations = 1000       if (!$generations);
 $max_motifs = 4           if (!$max_motifs);
@@ -50,6 +52,7 @@ $min_r = 0.4              if (!$min_r);
 $max_pattern_length = 3   if (!$max_pattern_length);
 $mortality = 0.5          if (!$mortality);
 $untouchables = 0.20      if (!$untouchables);
+$flexible_positions = 3   if (!$flexible_positions);
 
 die "Specify intron file with -file option\n" if (!$file);
 die "Values for -mortality ($mortality) and -untouchables ($untouchables) options are incompatible. Must sum to < 1\n" if ((1 - $mortality) <= $untouchables);
@@ -96,6 +99,7 @@ read_file();
 print "Creating starting population\n";
 create_starting_population($n);
 
+exit;
 
 #############################
 #
@@ -248,8 +252,15 @@ sub create_starting_population{
 		my $number_of_motifs = int(rand($max_motifs)) + 1;
 
 		foreach my $j (1 .. $number_of_motifs){
-			my $motif = create_single_motif();
-			push(@motifs, $motif);
+			my ($motif, $flex_count) = create_single_motif();
+			push(@motifs, $motif);	
+			
+			# bit of a clunkyway to do this, keep track of how many flexible positions
+			# have been used for each motif		
+			$motifset[$i]{flexible_positions}[$j-1] = $flex_count;
+			$motifset[$i]{motifcounts}[$j-1] = 0;
+			print "$i $j $motifset[$i]{motifcounts}[$j-1]\n";
+			
 		}
 		
 		# choose starting distance from TSS from which motifs will only be considered
@@ -261,30 +272,40 @@ sub create_starting_population{
 		# choose whether motifs can be placed on the leading strand or on both strands
 		my @strands = qw(1 2);
 		my $strand = $strands[int(rand(@strands))];
+		print "0 0 $motifset[0]{motifcounts}[0]\n";
 		
 		push @motifset, {
+#			$motifset[$i] = {
+
 			motifs   => \@motifs,
 			strand   => $strand,
 			distance => $distance,
-			untouchable => 0
+			untouchable => 0,
+			r => 0
 		};
 		
+		die "0 0 $motifset[0]{motifcounts}[0]\n";
 		
-		# print motifs
-#		print "\nmotifset $i\n";
-#		print "Strand = $motifset[$i]{strand}\n";
-#		print "Distance threshold = $motifset[$i]{distance}\n";
+		if ($verbose){
+			# print motifs
+			print "\nmotifset $i\n";
+			print "Strand = $motifset[$i]{strand}\n";
+			print "Distance threshold = $motifset[$i]{distance}\n";
 
-#		print "Number of motifs = $number_of_motifs\n";
-		my $motif_count = 1;
-		foreach my $motif (@{$motifset[$i]{motifs}}){
-#			print "\tMotif $motif_count\n";
-			# how to loop through motifs at this point?
-			foreach my $pos (@{$motif}){
-#				print "\t\t${$pos}{base}\{${$pos}{min},${$pos}{max}\}\n";
-			}
-			$motif_count++;
+			print "Number of motifs = $number_of_motifs\n";
+			my $motif_count = 0;
+			foreach my $motif (@{$motifset[$i]{motifs}}){
+				print "\tMotif $motif_count\n";
+				print "\tFlexible positions $motifset[$i]{flexible_positions}[$motif_count]\n";
+				# how to loop through motifs at this point?
+				foreach my $pos (@{$motif}){
+						print "\t\t${$pos}{base}\{${$pos}{min},${$pos}{max}\}\n";
+				}
+				$motif_count++;
+			}			
 		}
+		print_motifset($i);
+		print "\n";
 	}
 #	print "$motif->[0]{base}\n";
 
@@ -348,21 +369,34 @@ sub create_starting_population{
 }
 
 sub create_single_motif{
-	my $motif_length = int(rand(6))+1;
+	my $motif_length = int(rand(6))+2;
 	
 	my @motif;
-	foreach my $i (0 .. $motif_length){
+
+	# keep track of how many flexible positions there are
+	my $flex_count = 0;
+	for (my $i = 0; $i < $motif_length; $i++){
 		
 		# choose a random base (using IUPAC codes)
 		my $base = $bases[int(rand(@bases))];
 		
 		# decide minimum and maximum number of repetitions for that base
-		
+		my ($min, $max);
 		# choose maximum number: between 1 and $max_pattern_length
-		my $max = int(rand($max_pattern_length)) + 1;
+		# unless we have already exceeded $flexible_positions in which case, set both to 1
+		if($flex_count < $flexible_positions){
+			$max = int(rand($max_pattern_length)) + 1;			
 
-		# min is anynumber up to the max
-		my $min = int(rand($max)) + 1;
+			# min is anynumber up to the max
+			$min = int(rand($max)) + 1;
+
+			# only advance $flex_count if we have $max above 1 but is also not equal to $min
+			if (($max > 1) && ($max != $min)){
+				$flex_count++;
+			} 
+		} else{
+			($min, $max) = (1, 1);
+		}
 		
 		push @motif, {
 			base => $base,
@@ -370,7 +404,7 @@ sub create_single_motif{
 			max  => $max,
 		};
 	}
-	return(\@motif);
+	return(\@motif, $flex_count);
 }
 
 ###########################################################################
@@ -519,8 +553,9 @@ sub mutate_copy{
 				# can only add a motif if we have less than max number of $max_motifs
 				if($number_of_motifs < $max_motifs){
 					print "\tADDING MOTIF!\n" if ($verbose);				
-					my $motif = create_single_motif();
+					my ($motif, $flex_count) = create_single_motif();
 					push @{$motifset[$i]{motifs}}, $motif;
+
 				}
 			} 
 			
@@ -847,10 +882,14 @@ sub print_motifset{
 	my $number_of_motifs   =  @{$motifset[$i]{motifs}};
 
 	print "id=$i: r = $formatted_r, motifs = $number_of_motifs, distance threshold = $distance_threshold nt, strands = $strand\n";
-
+	
 	for (my $m = 0; $m < $number_of_motifs; $m++){
+
 		my $number_of_bases = @{$motifset[$i]{motifs}[$m]};
-		my $motif_count = ${$motifset[$i]}{motifcounts}[$m];
+#		my $motif_count = ${$motifset[$i]}{motifcounts}[$m];
+		die "0 $motifset[0]{motifcounts}[0]\n";
+		my $motif_count = $motifset[$i]{motifcounts}[$m];
+		my $flexible_positions = ${$motifset[$i]}{flexible_positions};
 		print "Motif $m:\t";
 		printf 'n =%4s ', "$motif_count";
 		print "\t";

@@ -4,6 +4,9 @@
 #
 # A script to calculate a basic set of metrics from a genome assembly
 #
+# Author: Keith Bradnam, Genome Center, UC Davis
+# This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+# 
 # Last updated by: $Author$
 # Last updated on: $Date$
 
@@ -36,9 +39,9 @@ $limit = 1000000000 if (!$limit);
 # check we have a suitable input file
 my $usage = "Usage: assemblathon_stats.pl <assembly_file>
 options:
-	-limit <int> limit analysis to first <int> sequences
+	-limit <int> limit analysis to first <int> sequences (useful for testing)
 	-csv         produce a CSV output file of all results
-	-graph       produce output file of NX values
+	-graph       produce a CSV output file of NG(X) values (NG1 through to NG99), suitable for graphing
 ";
 
 die "$usage" unless (@ARGV == 1);
