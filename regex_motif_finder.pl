@@ -36,7 +36,7 @@ GetOptions ("motif=s"    => \$motif,
 		   "file=s"	     => \$file,
 		   "flanking"    => \$flanking,
 		   "distance=i"  => \$distance
-);
+) or die "\n";
 
 # are we using correct command-line options?
 &pre_flight_checks;
@@ -187,7 +187,7 @@ exit(0);
 
 sub pre_flight_checks{
 	# check that both command line options are specified
-	die "Need to specify both -motif and -target options\n" if($motif && !$target);
+	die "Need to specify both -motif and -target options\n" if(!$motif && !$target);
 
 	# check that only -file or -motif mode is used
 	die "Can only specify -motif *OR* -file options\n" if($motif && $file);
