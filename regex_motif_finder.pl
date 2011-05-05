@@ -79,9 +79,11 @@ my $fasta = new FAlite(\*TARGET);
 # 2) total length of all motifs in input file
 # 3) number of sequences in input file
 # 4) number of motifs in all sequences
+my ($total_seq_length, $total_motif_length, $seq_count, $total_motif_count) = (0, 0, 0, 0, 0);
 
-my ($total_seq_length,$total_motif_length,$seq_count,$total_motif_count);
-
+# also want to keep track of
+# 5) number of seqs that have at least one motif
+my %seqs_with_motif;
 
 # loop through each sequence in target file
 SEQ: while(my $entry = $fasta->nextEntry) {
@@ -126,6 +128,7 @@ SEQ: while(my $entry = $fasta->nextEntry) {
 		# count motifs
 		$output_text .= "$count ";
 		$total_motif_count += $count;
+		$seqs_with_motif{$header}++;
 		$motifs_to_counts{$motif} += $count;
 	}
 
@@ -146,10 +149,16 @@ close(TARGET) || die "Couldn't close $target\n";
 
 # print motif summary if requested
 if($msummary){
+	# work out how many sequences had at least one motif
+	my $seqs_with_motif = keys(%seqs_with_motif);
+	my $percent = sprintf("%.3f",($seqs_with_motif/$seq_count) * 100);
 	my $percent_motif = sprintf("%.3f",($total_motif_length/$total_seq_length) * 100);
 	print "\nSUMMARY:\n"; 
 	print "number_of_sequences: $seq_count total_sequence_length: $total_seq_length\n";
+	print "number_of_sequences_with_at_least_one_motif: $seqs_with_motif ($percent)\n";
 	print "number_of_motifs: $total_motif_count total_motif_length: $total_motif_length motif_density: $percent_motif%\n\n";
+
+	
 
 	foreach my $motif (@motifs){
 		print "$motifs_to_counts{$motif} ",uc($motif),"\n";
