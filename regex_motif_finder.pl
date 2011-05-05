@@ -151,11 +151,11 @@ close(TARGET) || die "Couldn't close $target\n";
 if($msummary){
 	# work out how many sequences had at least one motif
 	my $seqs_with_motif = keys(%seqs_with_motif);
-	my $percent = sprintf("%.3f",($seqs_with_motif/$seq_count) * 100);
+	my $percent = sprintf("%.2f",($seqs_with_motif/$seq_count) * 100);
 	my $percent_motif = sprintf("%.3f",($total_motif_length/$total_seq_length) * 100);
 	print "\nSUMMARY:\n"; 
 	print "number_of_sequences: $seq_count total_sequence_length: $total_seq_length\n";
-	print "number_of_sequences_with_at_least_one_motif: $seqs_with_motif ($percent)\n";
+	print "number_of_sequences_with_at_least_one_motif: $seqs_with_motif ($percent%)\n";
 	print "number_of_motifs: $total_motif_count total_motif_length: $total_motif_length motif_density: $percent_motif%\n\n";
 
 	
