@@ -30,8 +30,8 @@ my ($file1, $file2) = @ARGV;
 $THRESHOLD = $opt_t if $opt_t;
 $N         = $opt_n if $opt_n;
 
-# need three counters, for when either sequence has higher %N than threshold, and when both exceed threshold 
-my ($count1, $count2, $count_both) = (0, 0, 0);
+# need three counters, for when either sequence has higher %N than threshold, and when either exceed threshold 
+my ($count1, $count2, $count_either) = (0, 0, 0);
 
 
 # open files
@@ -57,9 +57,9 @@ for (my $i = 0; $i < $N; $i++){
 	my $n2 = calculate_percent_n($seq2);
 	
 	# increase counters if necessary
-	$count1++     if ($n1 > $THRESHOLD);
-	$count2++     if ($n2 > $THRESHOLD);
-	$count_both++ if ($n1 > $THRESHOLD && $n2 > $THRESHOLD);
+	$count1++       if ($n1 > $THRESHOLD);
+	$count2++       if ($n2 > $THRESHOLD);
+	$count_either++ if ($n1 > $THRESHOLD or $n2 > $THRESHOLD);
 }
 
 close $in1;
@@ -69,8 +69,8 @@ close $in2;
 print "Processed $N sequences in both files\n";
 print "$count1 sequences in file 1 had %N above $THRESHOLD\n";
 print "$count2 sequences in file 2 had %N above $THRESHOLD\n";
-my $percent = sprintf("%.3f", $count_both / $N);
-print "$count_both sequences ($percent%) in file 1 and file 2 had %N above $THRESHOLD\n";
+my $percent = sprintf("%.3f", $count_either / $N);
+print "$count_either sequences ($percent%) in file 1 *or* file 2 had %N above $THRESHOLD\n";
 
 
 # next steps
