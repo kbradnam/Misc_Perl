@@ -128,7 +128,7 @@ SEQ: while(my $entry = $fasta->nextEntry) {
 		# count motifs
 		$output_text .= "$count ";
 		$total_motif_count += $count;
-		$seqs_with_motif{$header}++;
+		$seqs_with_motif{$header}++ if ($count);
 		$motifs_to_counts{$motif} += $count;
 	}
 
