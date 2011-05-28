@@ -12,7 +12,7 @@ my $this_month = $date[4];
 $this_month++;
 
 my $text = "Keith's Birthday Reminder\n";
-my $path = glob("~keith/Work/bin/birthdays.inf");
+my $path = glob("~keith/Work/Code/my_scripts/birthdays.inf");
 
 open(DATA,"$path") || die "Couldn't open file\n";
 
