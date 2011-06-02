@@ -62,13 +62,7 @@ open(C,">at_ime_5_9.9.fa")   or die "Can't open at_ime_5_9.9.fa\n";
 open(D,">at_ime_10_19.9.fa") or die "Can't open at_ime_10_19.9.fa\n";
 open(E,">at_ime_20_plus.fa") or die "Can't open at_ime_20_plus.fa\n";
 
-#open(A,">at2_ime_0_1.68.fa")       or die "Can't open at_ime_0.fa\n";
-#open(B,">at2_ime_1.69_3.53.fa")  or die "Can't open at_ime_0.1_4.9.fa\n";
-#open(C,">at2_ime_3.54_5.64.fa")   or die "Can't open at_ime_5_9.9.fa\n";
-#open(D,">at2_ime_5_65_9.25.fa") or die "Can't open at_ime_10_19.9.fa\n";
-#open(E,">at2_ime_9.26_77.9.fa") or die "Can't open at_ime_20_plus.fa\n";
-
-
+__END__
 foreach my $key (keys(%intron_data)){
 	my $score = $intron_data{$key}{score};
 	if($score == 0){
@@ -93,3 +87,31 @@ close(B);
 close(C);
 close(D);
 close(E);
+
+__END__
+# alternative scoring scheme to use (splits into equal sized datasets, at least for TAIR10 data)
+open(A,">at2_ime_0_1.68.fa")       or die "Can't open at_ime_0.fa\n";
+open(B,">at2_ime_1.69_3.53.fa")  or die "Can't open at_ime_0.1_4.9.fa\n";
+open(C,">at2_ime_3.54_5.64.fa")   or die "Can't open at_ime_5_9.9.fa\n";
+open(D,">at2_ime_5_65_9.25.fa") or die "Can't open at_ime_10_19.9.fa\n";
+open(E,">at2_ime_9.26_77.9.fa") or die "Can't open at_ime_20_plus.fa\n";
+
+
+foreach my $key (keys(%intron_data)){
+	my $score = $intron_data{$key}{score};
+	if($score >= 0 && $score < 1.69){
+		print A "$intron_data{$key}{header} IME_v2 = $score\n",Keith::tidy_seq($intron_data{$key}{seq}),"\n";
+	}
+	elsif($score >= 1.69 && $score < 3.54){
+		print B "$intron_data{$key}{header} IME_v2 = $score\n",Keith::tidy_seq($intron_data{$key}{seq}),"\n";
+	}
+	elsif($score >= 3.54 && $score < 5.65){
+		print C "$intron_data{$key}{header} IME_v2 = $score\n",Keith::tidy_seq($intron_data{$key}{seq}),"\n";
+	}
+	elsif($score >= 5.65 && $score < 9.26){
+		print D "$intron_data{$key}{header} IME_v2 = $score\n",Keith::tidy_seq($intron_data{$key}{seq}),"\n";
+	}
+	elsif($score >= 9.26){
+		print E "$intron_data{$key}{header} IME_v2 = $score\n",Keith::tidy_seq($intron_data{$key}{seq}),"\n";
+	}
+}
