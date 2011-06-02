@@ -49,11 +49,11 @@ GetOptions ("filename=s"    => \$filename,
 );
 
 # set defaults 
-$min_loop  = 2   if (!$min_loop);
-$max_loop  = 25  if (!$max_loop);
-$min_regex = 6   if (!$min_regex);
-$max_regex = 20  if (!$max_regex);
-$gc_pair_min = 0 if (!$gc_pair_min);
+$min_loop  = 2   if (not defined $min_loop);
+$max_loop  = 25  if (not defined $max_loop);
+$min_regex = 6   if (not defined $min_regex);
+$max_regex = 20  if (not defined $max_regex);
+$gc_pair_min = 0 if (not defined $gc_pair_min);
 
 die "Usage: palindrome.pl -filename <filename> <options>\n" if (!$filename);
  
@@ -103,7 +103,7 @@ while(my $entry = $fasta->nextEntry) {
 		# loop through each match to the regex		
 		MATCH: while ($seq =~ m/$regex/g){
          	my $match = $&; # the match to the regex
-			
+
 			# now force matching operator to start at beginning of the string and increment by 1 nt
 			# rather than starting the search at the end of the first match
 			pos($seq) = $pos_counter;
@@ -112,8 +112,7 @@ while(my $entry = $fasta->nextEntry) {
 			# count how man G or C nucleotides there are in the match
 			# and skip to next match if there are not enough GC pairs
 			my $gc_pair_count = $match =~ tr/[cg]/[cg]/;
-
-			next MATCH if ($gc_pair_count >= $gc_pair_min);
+			next MATCH unless ($gc_pair_count >= $gc_pair_min);
 
 			# store some more details of the match
 			my $endline = $'; # the match of everything after regex
@@ -144,10 +143,7 @@ while(my $entry = $fasta->nextEntry) {
 						# skip to next match if the palindrome is all dimers
 						next MATCH if ($tmp =~ m/^($dimer){2,1000}$/);
 					}
-				}
-				
-				print "Stem = max_regex\n" if (length($match) eq $max_regex);
-				
+				}				
 				
 				# will build a list of all regexes that match this sequence				
 				push(@regexes_in_seq, $match);									
@@ -160,7 +156,9 @@ while(my $entry = $fasta->nextEntry) {
 					# skip to next match if there was a redundant one
 					next MATCH if ($redundant > 0);
 				}
-
+				
+				# warn if you find a match which might have a potentially longer stem loop (i.e. you've hit the size of $max_regex)
+				warn "WARNING: Stem length = max_regex length ($max_regex): $header D=$distance_to_match_from_TSS $palindrome\n" if (length($match) eq $max_regex);
 
 				# if we are here, we can count palindrome details and print if necessary
 				$palindrome_count++;
@@ -172,12 +170,9 @@ while(my $entry = $fasta->nextEntry) {
 				my $pre_match = $`;
 				my $post_match = $';
 				print ">$header\n$pre_match\n" if ($print_pre_match);
-				print ">$header\n$post_match\n" if ($print_post_match);						
-
+				print ">$header\n$post_match\n" if ($print_post_match);				
 	            		
-				
 			}
-
 		}
 	}
 
