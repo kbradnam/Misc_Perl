@@ -29,6 +29,7 @@ my @people = load_people();
 my ($species,$date);
 
 while(my $line = <DATA>){
+
 	chomp($line);
 	
 	# skip blank lines
@@ -38,6 +39,7 @@ while(my $line = <DATA>){
 		($species,$date) = split(/,/,$line);
 		$species =~ s/# //;
 		($species2dates{$species} = $date) unless ($line =~ m/^# all/);
+		next;
 	}
 	else{
 		# if we have any suitable text, then first check to see if it includes @day@
@@ -60,7 +62,6 @@ while(my $line = <DATA>){
 			my $person = $people[rand(@people)];
 			$line =~ s/\@person\@/$person/;
 		}
-		
 		push(@{$species2text{$species}},$line);
 	}
 }
@@ -294,7 +295,6 @@ sub load_people{
 );
 	return(@list);
 }
-__END__
 
 __DATA__
 # all,
