@@ -291,7 +291,13 @@ sub load_people{
 "Willey Mays",
 "Michelangelo",
 "Miles Davis",
-"Mozart"
+"Mozart",
+"Herman Cain",
+"Rick Perry",
+"Michelle Bachman",
+"Rick Santorum",
+"Newt Gingrich",
+"Mitt Romney"
 );
 	return(@list);
 }
@@ -510,6 +516,9 @@ Your challenge for this week is to clear your head of all thoughts concerning se
 This is a good week to set sail on a new voyage of discovery and adventure...unless you are feeling tired, in which case you should stay at home.
 How can something as simple and harmless as a tube of toothpaste cause so much misery? You will find out this week.
 On @day@ you will learn the important difference between a large ukulele and a small guitar.
+If you believe in the old addage 'you are what you eat', then you should bear in mind that you eat an awful lot of complete garbage.
+Don't be surprised when an accidental slip on a calculator this week could lead to a diplomatic incident involving the French Navy.
+
 
 
 # Barnacle,December 2nd - February 19th
@@ -674,7 +683,7 @@ You know the old saying 'Don't worry, be happy'? Well you <i>will</i> worry, and
 Do you remember that when you were young, that your parents said 'When you grow up, you have the potential to do anything you want to in life'? They were lying. You only have the potential to be a failure.
 Did you know that 'Slug' is very nearly an anagram of 'ugly'. This is quite fitting as your grim features are enough to put a dying dog off its food.
 Want some advice? Trying to be popular is never going to work. An alternative solution would be to crawl under a large rock and stay there.
-On @day@, the number @number@ will signify bad news...unless it's the number @number@ in which case it will be really bad news.
+On @day@, the number @number@ will signify bad news. Really. Bad. News. 
 Your Slug-like nature will mean that you will suffer twice as much as normal this week when a rival colleague will attempt to <i>literally</i> rub salt into old wounds.
 One more week on the planet, means another week of learning and discovery; it also means that you're one week closer to your death.
 
