@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 #
 # foosball.pl
 #
@@ -9,7 +9,7 @@
 #
 #############################################################################################
 
-use strict;
+use strict; use warnings;
 
 # two main hashes for storing data, the stats hash will contain details of games played [0], 
 # games won [1] and drawn [2], and total goals scored [3] and conceded [4]. 
@@ -54,7 +54,7 @@ foreach my $key (reverse sort {$player2ratings{$a} <=> $player2ratings{$b}} keys
 	# what is the average difference in goals scored pergame
 	my $mean_gd = sprintf("%.1f",($player2stats{$key}[3] -$player2stats{$key}[4])/$player2stats{$key}[0]);
 
-	if($player2stats{$key}[0] >= 5){
+	if($player2stats{$key}[0] >= 1){
 		$high .= "\"$key\",$player2stats{$key}[0],$player2stats{$key}[1],$player2stats{$key}[2],$mean_gd,$rating\n";	
 	}
 	else{
