@@ -93,7 +93,7 @@ SPECIES: foreach my $species qw(Barnacle Snail Limpet Clam Squid Slug Oyster Sca
 		$sentence3 = ${$species2text{"$species"}}[$rand3];
 		splice(@{$species2text{"$species"}},$rand3,1);
 
-		print "<P>$sentence1 $sentence2 $sentence3</P>\n";
+		print "<P>$sentence1 $sentence2 $sentence3</P><br>\n";
 
 		next SPECIES;
 	}
@@ -113,7 +113,7 @@ SPECIES: foreach my $species qw(Barnacle Snail Limpet Clam Squid Slug Oyster Sca
 
 	# add hyperlinks to any species names in resulting paragraph
 	my $text = check_names("$sentence1 $sentence2 $sentence3");
-	print "<P>$text</P>\n";
+	print "<P>$text</P><br>\n";
 }
 
 exit;
