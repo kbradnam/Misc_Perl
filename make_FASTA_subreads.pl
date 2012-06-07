@@ -25,5 +25,12 @@ my $fasta = new FAlite(\*$fasta_file);
 while(my $entry = $fasta->nextEntry){
     my $seq = $entry->seq;
 	my $header = $entry->def;
+
+	my $five_prime_read  = substr($seq, 0, $subread_length);
+	my $three_prime_read = substr($seq, -$subread_length, $subread_length);
+
+	print "${header}_5\n$five_prime_read\n";
+	print "${header}_3\n$three_prime_read\n";
+
 }
 close($fasta_file);
