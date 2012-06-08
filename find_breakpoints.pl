@@ -13,11 +13,15 @@
 use strict;
 use warnings;
 
-die "Usage: $0 <BLAT psl file>" unless @ARGV == 1;
+die "Usage: $0 <number of subreads that were BLATted> <BLAT psl file>" unless @ARGV == 2;
 
+my ($subread_count, $file) = @ARGV;
 # keep track of how many matches for each sequence there are (ideally should only be one)
 my %seq_data;
-while(<>){
+
+open(my $in, "<", $file) or die "Can't read from $file\n";
+
+while(<$in>){
 	# skip PSL header lines
 	next unless m/^\d+/;
 	chomp;
@@ -47,6 +51,7 @@ while(<>){
 	}
 	$seq_data{$seq_id}{'pair'} = $pair;
 }
+close($in);
 
 # track how many hits different subreads have (expect 1 hit per subread in an ideal world)
 my %counts;
@@ -123,7 +128,6 @@ foreach my $key (sort {$seq_data{$b}{'hits'} <=> $seq_data{$a}{'hits'}} keys %se
 	}
 
 }
-my $subread_count = 200000;
 my $matching_subreads = keys(%seq_data);
 my $unmatched_subreads = $subread_count - $matching_subreads;
 
