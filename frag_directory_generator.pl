@@ -36,7 +36,7 @@ die $usage unless (@ARGV == 1);
 
 
 # hard-coded path to where directories will be made...shouldn't need to change
-my $path_prefix = "/Chanlab/home/keith/Work/FRAG_dir_test/FRAG";
+my $path_prefix = "/Chanlab/Data/FRAG_project/FRAG";
 
 # link targets
 my $target_dir = "/Chanlab/Data/FRAG_project/EXP";
