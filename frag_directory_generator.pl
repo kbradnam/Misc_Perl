@@ -67,7 +67,7 @@ while(<>){
 	$frag_dir =~ s/[A-Z]$//;
 			
 	print "EXP = $exp\tFRAG_dir = $frag_dir\tFRAG = $frag_id\n";
-
+	
 	# does FRAG prefix directory already exist? If not create it
 	unless (-e "$path_prefix/$frag_dir"){
 		mkdir("$path_prefix/$frag_dir") or die "Can't make directory $path_prefix/$frag_dir";
@@ -78,12 +78,12 @@ while(<>){
 	unless (-e "$path_prefix/$frag_dir/$frag_id"){
 		mkdir("$path_prefix/$frag_dir/$frag_id") or die "Can't make directory $path_prefix/$frag_dir/$frag_id";
 	}
-
+	
 
 	# can now make symbolic links to BAM, BAI, FQ etc files
 
 	chdir("$path_prefix/$frag_dir/$frag_id") or die "Can't changedir to $path_prefix/$frag_dir/$frag_id";
-
+	
 	my $bai_file     = "$target_dir/$exp/BAI_files/$frag_id.bai.gz";
 	my $bam_file     = "$target_dir/$exp/BAM_files/$frag_id.bam.gz";
 	my $fq_file      = "$target_dir/$exp/FQ_files/$frag_id.fq.gz";
@@ -92,10 +92,30 @@ while(<>){
 	my $sam_file     = "$target_dir/$exp/SAM_files/$frag_id.sam.gz";
 
 	foreach my $file ($bai_file, $bam_file, $fq_file, $pileup_file, $sai_file, $sam_file){
-		unless(-e $file){
-			system("ln -s $file .") and die "Can't make sym link to $file";
+
+		# should only try to do this if the corresponding FRAG_project/EXP/EXPxxx directory exists)
+		next unless (-e "$target_dir/$exp");
+
+		my $link = $file;
+		$link =~ s/.*\///;
+
+		# remove sym link if already present and recreate (as data may have changed in master spreadsheet)
+		unlink $link if (-e $link);
+
+		if(-e $file){
+			system("ln -s $file .");
+		} 
+		# for SAI files must be part as 2 separate files
+		# e.g. FRAG00002B_1.sai.gz
+		else{
+			my ($file1, $file2) = ($file, $file);
+			$file1 =~ s/(FRAG\d+[A-Z])/$1_1/;
+			$file2 =~ s/(FRAG\d+[A-Z])/$1_2/;
+			system("ln -s $file1 .") if (-e $file1);
+			system("ln -s $file2 .") if (-e $file2);
 		}
 	}
+	
 
 	# Now process image links (if a PL12345 style ID is present)
 	# does Images subdirectory already exist? If not create it
@@ -104,8 +124,17 @@ while(<>){
 	} 
 	chdir("$path_prefix/$frag_dir/$frag_id/Images") or die "Can't changedir to $path_prefix/$frag_dir/$frag_id/Images";
 	if ($plant_id =~ m/PL\d{5}/){
-			my $target = "$target_dir/$exp/Images/$plant_id.JPG";
-			system("ln -s $target .") and die "Can't make sym link to $target";	
+		my $target = "$target_dir/$exp/Images/$plant_id.JPG";
+		
+		my $link = $target;
+		$link =~ s/.*\///;
+
+		# remove sym link if already present and recreate (as data may have changed in master spreadsheet)
+		unlink $link if (-e $link);
+
+		if(-e $target){
+			system("ln -s $target .") and die "Can't make sym link to $target";
+		}
 	}
 	
 
