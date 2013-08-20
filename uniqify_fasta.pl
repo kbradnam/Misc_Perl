@@ -34,7 +34,7 @@ foreach my $file (@input_files){
 	while(my $line = <$input>){
 		if($line =~ m/^>/){
 			$n++;
-			$line =~ s/>(.*)/>$n $1/;
+			$line =~ s/>(.*)/>${n}_$1/;
 		}
 		print $out "$line";
 	}
