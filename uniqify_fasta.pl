@@ -9,8 +9,6 @@
 
 use strict;
 use warnings;
-use FAlite;
-use Keith;
 
 # check we have at least one thing specified 
 die "Usage: uniqify_fasta.pl <fasta file(s)>\n" unless (@ARGV);
@@ -31,13 +29,13 @@ foreach my $file (@input_files){
 	my $output_file = "/tmp/$$.tmp";
 	open(my $input, "<", "$file") or die "Can't open $file\n";
 	open(my $out, ">", "$output_file") or die "Can't create $output_file\n";
-	my $fasta = new FAlite($input);
-	while(my $entry = $fasta->nextEntry){
+
+	while(my $line = <$input>){
 		$n++;
-	    my $seq = Keith::tidy_seq($entry->seq);
-	    my $def = $entry->def;
-		$def =~ s/>(.*)/>$n $1/;
-		print $out "$def\n$seq\n";
+		if($line =~ m/^>/){
+			$line =~ s/>(.*)/>$n $1/;
+		}
+		print $out "$line";
 	}
 	close($input);
 	close($out);
