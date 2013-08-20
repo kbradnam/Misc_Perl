@@ -32,8 +32,8 @@ foreach my $file (@input_files){
 	open(my $out, ">", "$output_file") or die "Can't create $output_file\n";
 
 	while(my $line = <$input>){
-		$n++;
 		if($line =~ m/^>/){
+			$n++;
 			$line =~ s/>(.*)/>$n $1/;
 		}
 		print $out "$line";
