@@ -26,7 +26,8 @@ foreach my $file (@input_files){
 	print STDERR "Processing $file\n";
 
 	# open files
-	my $output_file = "/tmp/$$.tmp";
+	# make tmp file
+	my $output_file = "$$.tmp";
 	open(my $input, "<", "$file") or die "Can't open $file\n";
 	open(my $out, ">", "$output_file") or die "Can't create $output_file\n";
 
