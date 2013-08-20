@@ -31,7 +31,7 @@ foreach my $file (@input_files){
 	my $output_file = "/tmp/$$.tmp";
 	open(my $input, "<", "$file") or die "Can't open $file\n";
 	open(my $out, ">", "$output_file") or die "Can't create $output_file\n";
-	my $fasta = new FAlite(\*$input);
+	my $fasta = new FAlite($input);
 	while(my $entry = $fasta->nextEntry){
 		$n++;
 	    my $seq = Keith::tidy_seq($entry->seq);
@@ -46,5 +46,3 @@ foreach my $file (@input_files){
 }
 
 exit(0);
-
-
