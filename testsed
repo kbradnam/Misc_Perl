@@ -1,5 +1,0 @@
-#!/bin/sh
-for x
-do 
-	sed -f sedscr $x > tmp.$x
-done

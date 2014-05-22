@@ -1,25 +1,25 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 #
 # Birthday reminder script
 # by Keith Bradnam
 
 use strict;
+use warnings;
 use Net::SMTP;
 
+die "Usage: $0 <birthday_data_file>" unless @ARGV == 1;
+my ($input_file) = @ARGV;
+
 my @date = localtime;
-my $this_day = $date[3];
-my $this_month = $date[4];
-$this_month++;
+my ($this_day, $this_month) = ($date[3], $date[4]);
 
-my $text = "Keith's Birthday Reminder\n";
-my $path = glob("~keith/Work/Code/my_scripts/birthdays.inf");
 
-open(DATA,"$path") || die "Couldn't open file\n";
+open(my $in, "<", $input_file) or die "Couldn't open $input_file\n";
 
-while(<DATA>){
+while(<$in>){
   chomp;
 
-  my ($birth_day,$birth_month,$name) = split(/,/);
+  my ($birth_day, $birth_month, $name) = split(/,/);
   $name =~ s/:/, /g;
   if ($birth_month == $this_month){
     if((($birth_day - $this_day) < 7) && (($birth_day - $this_day) > 0) ){
@@ -33,7 +33,7 @@ while(<DATA>){
     } 
   }
 }
-close(DATA);
+close($in);
 
 
 
@@ -59,3 +59,5 @@ if($text){
     $smtp->dataend();
     $smtp->quit();
 }
+
+exit;
