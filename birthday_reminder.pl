@@ -13,6 +13,7 @@ my ($input_file) = @ARGV;
 my @date = localtime;
 my ($this_day, $this_month) = ($date[3], $date[4]);
 
+my $text;
 
 open(my $in, "<", $input_file) or die "Couldn't open $input_file\n";
 
