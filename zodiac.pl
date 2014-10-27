@@ -70,7 +70,7 @@ while(my $line = <DATA>){
 
 my $url = 'http://molluskanzodiac.blogspot.com/2008/09/';
 
-SPECIES: foreach my $species qw(Barnacle Snail Limpet Clam Squid Slug Oyster Scallop Octopus Mussel){
+SPECIES: foreach my $species (qw(Barnacle Snail Limpet Clam Squid Slug Oyster Scallop Octopus Mussel)){
 
 	my $url_name = lc($species);
 
@@ -120,7 +120,7 @@ exit;
 
 sub check_names{
 	my ($text) = @_;
-	foreach my $species qw(Barnacle Snail Limpet Clam Squid Slug Oyster Scallop Octopus Mussel){
+	foreach my $species (qw(Barnacle Snail Limpet Clam Squid Slug Oyster Scallop Octopus Mussel)){
 
 		if($text =~ m/$species/){
 			my $url_name = lc($species);
